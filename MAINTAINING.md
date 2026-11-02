@@ -20,12 +20,13 @@ git fetch origin ci-status
 git --no-pager show origin/ci-status:status.md
 ```
 
-`status.md` holds the run number, commit, build and test outcomes, and the error lines. It never contains secrets.
+`status.md` holds the run number, commit, build and test outcomes, which key signed the APK (with its certificate digest), the APK size, and the error lines. It never contains secrets.
 
 ## The signing key
 
 - Every build is signed with one key, so updates install over each other.
 - CI restores it from the repository secret `SIGNING_KEYSTORE_BASE64` (Settings → Secrets and variables → Actions) into `~/.android/debug.keystore`. The release build type signs with that keystore (alias `androiddebugkey`, the standard debug password).
+- **Expected certificate SHA-256:** `c0118f1a84a763a7bc13ae6f9c89803c49978745d74bb931b0bb9e16521e352c`. Every run's `status.md` shows `signing:` and `cert-sha256:`; a different digest means the APK won't install over the others.
 - **Backup:** `%USERPROFILE%\.android\stipsplus-signing.keystore` on the owner's computer. Keep a second copy somewhere safe. If it's lost, a new key means uninstalling the app (losing saved questions) to update.
 - Without the secret, CI signs with a throwaway key and warns in the summary; such builds don't install over the others.
 - To recreate the secret from the backup:

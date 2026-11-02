@@ -34,15 +34,18 @@ jobs:
       # signs with ~/.android/debug.keystore. Create the secret once: the keystore file in base64, under
       # Settings → Secrets and variables → Actions → SIGNING_KEYSTORE_BASE64.
       - name: Restore the signing key
+        id: key
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
         run: |
           mkdir -p ~/.android
           if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
             echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+            echo "source=shared key from the secret" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::SIGNING_KEYSTORE_BASE64 is missing: this APK is signed with a throwaway key and won't install over other builds."
             echo "> ⚠️ No signing secret: this APK is signed with a throwaway key." >> "$GITHUB_STEP_SUMMARY"
+            echo "source=THROWAWAY key (secret missing)" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build
@@ -67,8 +70,19 @@ jobs:
         id: apk
         run: |
           version="$(grep -oP 'val versionMajorMinor = "\K[^"]+' app/build.gradle.kts).${{ github.run_number }}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          cp app/build/outputs/apk/release/app-release.apk "stipsplus-${{ github.run_number }}.apk"
+          apk="stipsplus-${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          # The certificate digest proves which key signed the APK (compare with MAINTAINING.md).
+          apksigner="$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -n 1)"
+          cert="unknown"
+          if [ -n "$apksigner" ]; then
+            cert="$("$apksigner" verify --print-certs "$apk" 2>/dev/null | grep -m1 'SHA-256 digest' | sed 's/.*: //')"
+          fi
+          {
+            echo "version=$version"
+            echo "bytes=$(stat -c %s "$apk")"
+            echo "cert=${cert:-unknown}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Publish a pre-release
         uses: softprops/action-gh-release@v3
@@ -102,6 +116,9 @@ jobs:
         env:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          SIGNING_SOURCE: ${{ steps.key.outputs.source }}
+          APK_CERT: ${{ steps.apk.outputs.cert }}
+          APK_BYTES: ${{ steps.apk.outputs.bytes }}
           GH_TOKEN: ${{ github.token }}
         run: |
           report="$RUNNER_TEMP/status.md"
@@ -110,6 +127,9 @@ jobs:
             echo "sha: ${{ github.sha }}"
             echo "build: ${BUILD_OUTCOME:-skipped}"
             echo "tests: ${TESTS_OUTCOME:-skipped}"
+            echo "signing: ${SIGNING_SOURCE:-unknown}"
+            echo "cert-sha256: ${APK_CERT:-unknown}"
+            echo "apk-bytes: ${APK_BYTES:-unknown}"
             echo
             echo "## Build errors"
             [ -f build.log ] && grep -E '^e: ' build.log | head -n 150 || true
