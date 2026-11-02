@@ -52,19 +52,22 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `…betterstips` | `StipsApp` (Application), `AppContainer` (manual dependency container), `MainActivity` |
 | `….data.api` | `StipsApi` (requests, envelope, errors, the `+` quirk), `ApiException` |
 | `….data.parse` | `Parsers`: tolerant JSON → models (pure, unit-tested) |
-| `….data.model` | `Question`, `Answer`, `Author`, `Channel`, `Conversation`, `ChatMessage`, `UserProfile`, `FeedQuery` |
+| `….data.model` | `Question`, `Answer`, `Author`, `Channel`, `Conversation`, `ChatMessage`, `UserProfile`, `ProfilePage`, `ChartPoint`, `ThanksMessage`, `StipsNotification`, `UnreadCounts`, `FeedQuery` |
 | `….data` | `StipsRepository`, `SessionStore`, `SavedStore`, `SettingsStore`, `FeedCache`, `Timings` |
 | `….ui` | `AppRoot` (scaffold, bottom bar, nav host), `Routes` |
 | `….ui.theme` | `Theme`, `SchemeGenerator` (pure), `Type` |
 | `….ui.components` | Cover/monogram, avatar, question row, states (empty, error, skeleton), linkified text |
-| `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.signin`, `.settings` | Screens and their ViewModels |
-| `….util` | Time parsing and relative formatting, answer validation (pure) |
+| `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.user`, `.notifications`, `.signin`, `.settings` | Screens and their ViewModels |
+| `….notify` | `Notifier` (channel, posting, scheduling) and `NotificationCheckJob` (JobScheduler, every 15 min, opt-in) |
+| `….util` | Time parsing and relative formatting, answer validation, links and deep links, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
 
 - **Single activity**, Compose only, edge-to-edge, `enableOnBackInvokedCallback` for predictive back.
-- **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`.
+- **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}`, `user/{id}`, `notifications`, `hot`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`. Custom enter/exit and predictive-back transitions (SPEC-02 §4).
+- **App-wide state through composition locals:** `LocalOpenProfile` (any name or avatar opens a profile) and `LocalUnreadCounts` (badges), provided by `AppRoot`, which polls `messages.count` once a minute while the app is started and signed in.
+- **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages) that `AppRoot` navigates to once.
 - **ViewModels** expose `StateFlow<UiState>`; screens collect with `collectAsStateWithLifecycle`. Factories come from `AppContainer` (no DI framework).
 - **Theme** reads `SettingsStore`: dynamic color → else a generated scheme from the accent; dark/light/system; pure black. A `ChannelTheme` wrapper re-themes a subtree with a channel's scheme.
 
@@ -75,7 +78,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `StipsApi` | Builds `name` + JSON params; replaces `+` with `~MODU_PLUS_SIGN~`; GET for reads, form POST for writes and sign-in; parses the envelope; maps failures to `ApiException(code, message)`; runs on `Dispatchers.IO` |
 | Cookies | An in-memory `CookieJar` for the ASP session. Restarted apps restore the session with `user.login {auth_token}` |
 | `SessionStore` | Sign-in (`user.login` with email + password by POST) → keeps `a_token`, user id, nickname, gender in app-private prefs. On launch, restores once in the background. Sign out clears prefs and cookies |
-| `StipsRepository` | Feeds, question, answers, channels (asset snapshot + live refresh), answer posting, votes, profile, chats. Memory cache for questions and answers already shown |
+| `StipsRepository` | Feeds, question, answers, channels (asset snapshot + live refresh), answer posting/editing/detaching, votes, pins, follow, profiles (page, graphs, flowered answers, thanks wall), notifications and unread counts, safe mode, bio, profile photo upload, chats. Memory cache for questions and answers already shown |
+| `Notifier` | Opt-in. `JobScheduler` runs `NotificationCheckJob` every 15 minutes with any network (persisted across reboots). It asks `messages.count`; only when notifications are waiting does it read the list and post up to 5 new ones (ids above the last seen); a higher unread-messages count posts one summary. The first run after turning it on only records the current state |
 | `FeedCache` | Saves the first page of the Home feed as JSON in app files; shown at once on the next launch |
 | `SavedStore` | Saved questions (id, title, cover, time) in prefs as JSON |
 | `SettingsStore` | SharedPreferences exposed as `StateFlow` |
@@ -87,7 +91,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | Store | What | Where |
 |---|---|---|
 | `session` prefs | `a_token`, user id, nickname, gender | App-private, excluded from backup |
-| `settings` prefs | Theme, colors, images, animations | App-private |
+| `settings` prefs | Theme, colors, images, animations, Live, phone notifications | App-private |
+| `notify` prefs | Last notification id and unread-messages count seen by the background check | App-private, cleared when turned off |
 | `saved` prefs | Saved questions | App-private |
 | `files/feed-*.json` | Last-seen first page | App-private |
 | `files/crash.txt` | Last crash | App-private, deleted after the dialog |
@@ -96,7 +101,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 ## 7. Platform integrations
 
 - `ACTION_SEND` for sharing links; `ACTION_VIEW` for the site, sign-up and password reset.
-- Intent filter for `https://stips.co.il/ask/…` (no `autoVerify`; users enable it under *Open by default*).
+- Intent filter for `https://stips.co.il/ask/…`, `/profile/…` and `/messages` (no `autoVerify`; users enable it under *Open by default*).
+- `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on) and `RECEIVE_BOOT_COMPLETED` (keeps the persisted job). The photo picker (`PickVisualMedia`) needs no storage permission.
 - System splash (Android 12+) from the window background; adaptive + themed (monochrome) launcher icon of our own (no Stips logo).
 
 ## 8. Permissions

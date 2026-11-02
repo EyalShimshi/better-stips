@@ -33,8 +33,8 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Version | Scope |
 |---|---|
 | **v0.1** (this round) | Feeds (new, hot + window), channel chips, topic search and topic feeds, question + answers, links, share / open on site, save questions on the phone, native sign-in, post an answer (also anonymously), vote, chats (list, thread, send), profile (my questions, my answers), settings, about, crash catcher, timings |
-| v0.2 | Notifications, ask a question, per-app language, polish from owner feedback |
-| v0.3 | Home-screen widget, shortcuts, link handling polish |
+| **v0.2** (owner feedback round) | Home with the top 5 hot questions and Live new questions; a compact question header with the cover behind the title and a collapsing title bar; the asker's link; pins; Get updates; answer links, editing and detaching; notifications (in-app, plus optional phone notifications); social profiles for everyone (credibility, graphs, flowered answers, thanks wall); profile photo and bio; Stips account settings; new screen motion |
+| v0.3 | Ask a question, report, per-app language, home-screen widget, shortcuts |
 | Public | Only after Stips' written permission (D-02) |
 
 ## 6. Functional requirements
@@ -57,11 +57,21 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-14 | Settings | P0 | Colors (dynamic color, accent, theme, pure black), interface (images, animations), performance, about |
 | F-15 | About and disclaimer | P0 | Version, license, source link, report link, "An independent app, not affiliated with Stips" |
 | F-16 | Crash catcher | P0 | After a crash, the next launch offers Copy details / Report on GitHub / Close; nothing sent automatically |
-| F-17 | Open Stips links | P2 | `https://stips.co.il/ask/<id>` links can open in the app (when the user allows it in Android settings) |
+| F-17 | Open Stips links | P2 | Question, profile and messages links open in the app: from other apps (when the user allows it in Android settings), from phone notifications and from links inside answers |
 | F-18 | Timings | P1 | The question screen shows "Loaded in 0.4 s"; Settings → Performance lists recent timings |
 | F-19 | Instant start | P1 | The last-seen first page of the Home feed shows at once on launch, then refreshes |
-| F-20 | Notifications | P2 | v0.2 |
-| F-21 | Ask a question | P2 | v0.2 |
+| F-20 | Notifications | P1 | A bell on Home with an unread badge opens Stips' notification list (newest first, unread highlighted, tap opens the question or profile); Chats shows an unread badge; optional phone notifications (opt-in, ~15 min) |
+| F-21 | Ask a question | P2 | v0.3 |
+| F-22 | Home: hot first | P0 | The top 5 hot questions as large cards in a snapping row (with "See all"), then the New feed; a **Live** chip makes new questions appear by themselves every 30 s while Home is on screen |
+| F-23 | Compact question header | P0 | Title, meta and tags take at most half the screen; the cover is a background the title fades out of; the body is clamped with "Show more"; scrolling collapses the header into a top bar that shows only the question title |
+| F-24 | Pins | P1 | A pin with the pin count on every question; signed in, tapping pins or unpins on Stips; Profile lists pinned questions |
+| F-25 | Get updates | P1 | A bell on the question turns updates on or off; answering turns them on unless the composer's "Get updates" chip is off |
+| F-26 | Answer links, editing, detaching | P1 | The composer can attach one link (a dialog, like the site); your answers have Edit (while Stips allows it) and Detach from my account (with confirmation) |
+| F-27 | Profiles | P0 | Tapping a name or photo opens that user's profile: photo, questions · answers · flowers, bio, badges, age, account age, the credibility gauge, Answers/Questions/Flowers graphs for 26 weeks, answers that got a flower, the thanks wall. Signed in, the Profile tab is your own profile |
+| F-28 | Thanks wall | P1 | Paged messages with the writer's photo and name; on your own wall each message has Delete (with confirmation) |
+| F-29 | Profile photo and bio | P1 | On your profile: a camera button picks a photo (system picker), which is straightened, cropped square and uploaded; "Edit bio" saves the text on Stips |
+| F-30 | Account settings | P1 | Safe mode (saved on the account), Profile photo and bio, and links to the site's account details, password, contact, rules, about and account deletion; Sign out |
+| F-31 | Motion | P1 | Screens slide over each other (the old one drifts back); tabs fade through; predictive back follows the finger; everything respects the Animations switch |
 
 ## 7. Non-functional requirements
 
@@ -74,7 +84,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Security | HTTPS only; session token in app-private storage, excluded from backups |
 | Accessibility | 48 dp targets, labels on icon buttons, 200% text, TalkBack reads rows as one sentence |
 | Locale | Hebrew (RTL) and English; content direction follows the text |
-| Respect | User-initiated requests only; honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
+| Respect | User-initiated requests, plus small checks while the app is open (unread counts) and two opt-in ones (Live, phone notifications; SPEC D-24…D-26); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
 
 ## 8. Backlog (beyond v0.2)
 
@@ -82,7 +92,6 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 - Follow topics as shelves on Home.
 - Image viewer with pinch-zoom for question photos.
 - Draft answers saved while typing.
-- Per-question "notify me of new answers" (`item.notifications_register`).
 
 ## 9. Assumptions
 

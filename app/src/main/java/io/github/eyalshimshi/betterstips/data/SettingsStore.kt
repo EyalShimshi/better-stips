@@ -14,6 +14,10 @@ data class AppSettings(
     val accent: Int = DEFAULT_ACCENT,
     val showImages: Boolean = true,
     val animations: Boolean = true,
+    /** New questions appear on Home by themselves (polls every 30 s while Home is open). */
+    val autoRefreshNew: Boolean = false,
+    /** Phone notifications from a background check every 15 minutes. */
+    val backgroundNotifications: Boolean = false,
 ) {
     companion object {
         /** Stips green: the fallback seed when dynamic color is off (D-06). */
@@ -41,6 +45,8 @@ class SettingsStore(context: Context) {
             .putInt("accent", next.accent)
             .putBoolean("showImages", next.showImages)
             .putBoolean("animations", next.animations)
+            .putBoolean("autoRefreshNew", next.autoRefreshNew)
+            .putBoolean("backgroundNotifications", next.backgroundNotifications)
             .apply()
     }
 
@@ -53,6 +59,8 @@ class SettingsStore(context: Context) {
             accent = prefs.getInt("accent", defaults.accent),
             showImages = prefs.getBoolean("showImages", defaults.showImages),
             animations = prefs.getBoolean("animations", defaults.animations),
+            autoRefreshNew = prefs.getBoolean("autoRefreshNew", defaults.autoRefreshNew),
+            backgroundNotifications = prefs.getBoolean("backgroundNotifications", defaults.backgroundNotifications),
         )
     }
 }

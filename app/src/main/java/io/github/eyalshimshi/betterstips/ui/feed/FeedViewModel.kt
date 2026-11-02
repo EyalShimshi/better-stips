@@ -65,6 +65,29 @@ class FeedViewModel(
         load(reset = false, refreshing = false, showCache = false)
     }
 
+    /** Auto-refresh: fetches the first page and puts questions we don't have yet on top. */
+    suspend fun pollNew(): Int {
+        val s = _state.value
+        if (s.loading || s.refreshing || s.items.isEmpty()) return 0
+        val query = _query.value
+        val fresh = try {
+            repository.feedPage(query, 1)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return 0
+        }
+        if (query != _query.value) return 0
+        var added = 0
+        _state.update { current ->
+            val known = current.items.mapTo(HashSet()) { it.id }
+            val newOnes = fresh.filter { it.id !in known }
+            added = newOnes.size
+            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items)
+        }
+        return added
+    }
+
     private fun load(reset: Boolean, refreshing: Boolean, showCache: Boolean) {
         job?.cancel()
         val query = _query.value

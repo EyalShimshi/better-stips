@@ -17,11 +17,11 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 
-/** A ViewModel built from the app container, scoped to the current screen. */
+/** A ViewModel built from the app container, scoped to the current screen. [key] separates instances (e.g. per user). */
 @Composable
-inline fun <reified VM : ViewModel> appViewModel(crossinline create: (AppContainer) -> VM): VM {
+inline fun <reified VM : ViewModel> appViewModel(key: String? = null, crossinline create: (AppContainer) -> VM): VM {
     val container = LocalAppContainer.current
-    return viewModel(factory = viewModelFactory { initializer { create(container) } })
+    return viewModel(key = key, factory = viewModelFactory { initializer { create(container) } })
 }
 
 @Composable

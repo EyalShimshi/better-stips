@@ -63,4 +63,36 @@ class UtilTest {
         assertNull(Links.questionId("https://stips.co.il/profile/42"))
         assertNull(Links.questionId("https://evil.example/ask/42"))
     }
+
+    @Test
+    fun profileAndChatLinksBecomeDeepLinks() {
+        assertEquals(275580L, Links.profileId("https://stips.co.il/profile/275580"))
+        assertNull(Links.profileId("https://stips.co.il/ask/275580"))
+        assertEquals(DeepLink.Question(7L), Links.deepLink("https://stips.co.il/ask/7"))
+        assertEquals(DeepLink.Profile(8L), Links.deepLink("https://www.stips.co.il/profile/8"))
+        assertEquals(DeepLink.Messages, Links.deepLink("https://stips.co.il/messages"))
+        assertNull(Links.deepLink("https://stips.co.il/messagesxyz"))
+        assertNull(Links.deepLink("https://example.com/ask/7"))
+        assertNull(Links.deepLink(null))
+        assertEquals("example.com", Links.host("https://www.example.com/a/b?c"))
+    }
+
+    @Test
+    fun htmlBecomesPlainText() {
+        assertEquals("Dana answered \"why?\" & more", TextUtils.htmlToPlain("<b>Dana</b> answered &quot;why?&quot; &amp; more"))
+        assertEquals("line one\nline two", TextUtils.htmlToPlain("line one<br/>line two"))
+        assertEquals("שלום", TextUtils.htmlToPlain("&#1513;&#1500;&#1493;&#1501;"))
+        assertEquals("", TextUtils.htmlToPlain(null))
+    }
+
+    @Test
+    fun hebrewAccountAgeIsRead() {
+        assertEquals(TextUtils.Span(6, 9), TextUtils.parseHebrewSpan("6 שנים ו-9 חודשים"))
+        assertEquals(TextUtils.Span(1, 0), TextUtils.parseHebrewSpan("שנה"))
+        assertEquals(TextUtils.Span(2, 2), TextUtils.parseHebrewSpan("שנתיים וחודשיים"))
+        assertEquals(TextUtils.Span(0, 1), TextUtils.parseHebrewSpan("חודש"))
+        assertEquals(TextUtils.Span(0, 5), TextUtils.parseHebrewSpan("5 חודשים"))
+        assertNull(TextUtils.parseHebrewSpan("היום"))
+        assertNull(TextUtils.parseHebrewSpan(null))
+    }
 }

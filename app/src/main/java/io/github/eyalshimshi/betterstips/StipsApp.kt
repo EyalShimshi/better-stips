@@ -27,6 +27,9 @@ import java.util.concurrent.TimeUnit
 class AppContainer(private val app: Application) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /** The application context, for work that outlives a screen (image decoding, notifications). */
+    val appContext: android.content.Context get() = app
+
     @Suppress("DEPRECATION")
     val versionName: String = try {
         app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "?"
@@ -83,5 +86,6 @@ class StipsApp : Application() {
         io.github.eyalshimshi.betterstips.crash.CrashReporter.install(this)
         container = AppContainer(this)
         container.start()
+        io.github.eyalshimshi.betterstips.notify.Notifier.schedule(this, container.settings.settings.value.backgroundNotifications)
     }
 }

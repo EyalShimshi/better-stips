@@ -47,6 +47,10 @@ data class Question(
     val channelId: Int,
     val author: Author,
     val cover: Cover?,
+    /** The link the asker attached (`q_link`), if any. */
+    val link: String? = null,
+    /** Whether the signed-in user pinned it (`user_pinned == 1`). */
+    val userPinned: Boolean = false,
 ) {
     val shareUrl: String get() = "$SITE_URL/ask/$id"
 }
@@ -63,6 +67,12 @@ data class Answer(
     val flowered: Boolean,
     val author: Author,
     val links: List<AnswerLink>,
+    /** Stips allows editing (it does for a while after posting). */
+    val canEdit: Boolean = false,
+    /** The signed-in user wrote it (also when it's anonymous). */
+    val isOwner: Boolean = false,
+    /** The question's title, sent with lists such as a user's flowered answers. */
+    val parentTitle: String? = null,
 )
 
 data class Channel(
@@ -80,12 +90,58 @@ data class Channel(
 data class UserProfile(
     val userId: Long,
     val nickname: String,
+    /** Stips' credibility score ("אמינות"), 0–100. */
     val points: Int,
     val female: Boolean,
     val photoStamp: String?,
+    val online: Boolean = false,
 ) {
-    val avatar: Author get() = Author(nickname, userId, photoStamp, anonymous = false, online = false)
+    val avatar: Author get() = Author(nickname, userId, photoStamp, anonymous = false, online = online)
 }
+
+/** `profile.page_data`: what a profile page shows besides the user object. */
+data class ProfilePage(
+    val questions: Int,
+    val answers: Int,
+    val flowers: Int,
+    /** Stips' Hebrew phrase, e.g. "6 שנים ו-9 חודשים". */
+    val activeSince: String?,
+    val age: Int?,
+    val badges: List<String>,
+    val bio: String?,
+    val bioEditable: Boolean,
+)
+
+enum class ChartAction(val apiName: String) { Answers("ans"), Questions("ask"), Flowers("flowers") }
+
+data class ChartPoint(val time: Instant, val count: Int)
+
+data class ThanksMessage(
+    val id: Long,
+    val text: String,
+    val time: Instant?,
+    val author: Author,
+    val canDelete: Boolean,
+)
+
+sealed interface NotificationTarget {
+    data class OpenQuestion(val id: Long) : NotificationTarget
+    data class OpenProfile(val id: Long) : NotificationTarget
+}
+
+data class StipsNotification(
+    val id: Long,
+    val text: String,
+    val type: String,
+    val viewed: Boolean,
+    val time: Instant?,
+    val target: NotificationTarget?,
+)
+
+data class UnreadCounts(val messages: Int = 0, val notifications: Int = 0)
+
+/** `user.get_app_user`: the signed-in account. */
+data class AppUser(val id: Long, val points: Int, val flowers: Int, val safeFilter: Boolean, val female: Boolean)
 
 data class LoginResult(val token: String?, val userId: Long?, val safeFilter: Boolean?)
 

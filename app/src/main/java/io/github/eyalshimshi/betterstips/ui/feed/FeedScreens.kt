@@ -98,7 +98,12 @@ fun QuestionList(
                 }
             } else {
                 items(questions, key = { it.id }) { question ->
-                    QuestionRow(question, channels.firstOrNull { it.id == question.channelId }, onClick = { onOpen(question) })
+                    QuestionRow(
+                        question,
+                        channels.firstOrNull { it.id == question.channelId },
+                        onClick = { onOpen(question) },
+                        modifier = Modifier.animateItem(),
+                    )
                 }
                 when {
                     error != null -> item(key = "error-more") { ErrorCard(error, onRetry) }
@@ -144,25 +149,28 @@ fun FeedFilters(
     channels: List<Channel>,
     showChannels: Boolean,
     onChange: (FeedQuery) -> Unit,
+    showSort: Boolean = true,
 ) {
     Column(
         Modifier
             .fillMaxWidth()
             .padding(top = 4.dp, bottom = 4.dp),
     ) {
-        SingleChoiceSegmentedButtonRow(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        ) {
-            val sorts = FeedSort.entries
-            sorts.forEachIndexed { index, sort ->
-                SegmentedButton(
-                    selected = query.sort == sort,
-                    onClick = { onChange(query.copy(sort = sort)) },
-                    shape = SegmentedButtonDefaults.itemShape(index, sorts.size),
-                ) {
-                    Text(stringResource(if (sort == FeedSort.New) R.string.feed_new else R.string.feed_hot))
+        if (showSort) {
+            SingleChoiceSegmentedButtonRow(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                val sorts = FeedSort.entries
+                sorts.forEachIndexed { index, sort ->
+                    SegmentedButton(
+                        selected = query.sort == sort,
+                        onClick = { onChange(query.copy(sort = sort)) },
+                        shape = SegmentedButtonDefaults.itemShape(index, sorts.size),
+                    ) {
+                        Text(stringResource(if (sort == FeedSort.New) R.string.feed_new else R.string.feed_hot))
+                    }
                 }
             }
         }
@@ -248,12 +256,46 @@ fun TopicScreen(topic: String, onBack: () -> Unit, onOpenQuestion: (Long) -> Uni
 }
 
 @Composable
+fun HotScreen(onBack: () -> Unit, onOpenQuestion: (Long) -> Unit) {
+    val container = LocalAppContainer.current
+    val vm = appViewModel { FeedViewModel(it.repository, FeedQuery(sort = FeedSort.Hot), useCache = false) }
+    val state by vm.state.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
+    val channels by container.channels.channels.collectAsStateWithLifecycle()
+    Scaffold(
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.hot_title)) }, navigationIcon = { BackButton(onBack) }) },
+    ) { padding ->
+        QuestionList(
+            state = state,
+            channels = channels,
+            emptyTitle = stringResource(R.string.empty_feed),
+            onOpen = { onOpenQuestion(it.id) },
+            onRefresh = { vm.refresh() },
+            onLoadMore = { vm.loadMore() },
+            onRetry = { vm.retry() },
+            modifier = Modifier.padding(padding),
+            header = {
+                item(key = "filters") {
+                    FeedFilters(query, channels, showChannels = true, onChange = { vm.setQuery(it) }, showSort = false)
+                }
+            },
+        )
+    }
+}
+
+@Composable
 fun MyListScreen(kind: MyList, onBack: () -> Unit, onOpenQuestion: (Long) -> Unit) {
     val container = LocalAppContainer.current
     val vm = appViewModel { FeedViewModel(it.repository, FeedQuery(myList = kind), useCache = false) }
     val state by vm.state.collectAsStateWithLifecycle()
     val channels by container.channels.channels.collectAsStateWithLifecycle()
-    val title = stringResource(if (kind == MyList.Asked) R.string.my_questions else R.string.my_answers)
+    val title = stringResource(
+        when (kind) {
+            MyList.Asked -> R.string.my_questions
+            MyList.Answered -> R.string.my_answers
+            MyList.Pinned -> R.string.pinned_title
+        },
+    )
     Scaffold(
         topBar = { TopAppBar(title = { Text(title) }, navigationIcon = { BackButton(onBack) }) },
     ) { padding ->

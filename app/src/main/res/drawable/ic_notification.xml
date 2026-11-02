@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's speech bubble with the plus cut out, framed for the 24 dp status-bar icon (white on transparent). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+    <group
+        android:translateX="-24"
+        android:translateY="-25.5">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M42,32H66A12,12 0,0 1,78,44V58A12,12 0,0 1,66,70H50L39,79L42,70A12,12 0,0 1,30,58V44A12,12 0,0 1,42,32ZM51,42H57V48H63V54H57V60H51V54H45V48H51Z" />
+    </group>
+</vector>

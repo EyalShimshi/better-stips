@@ -4,14 +4,16 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.1)
+## Features (v0.2)
 
-- **Feeds:** New and Hot (now · today · this week), with the six channels as color chips.
-- **Topics:** search a topic, or tap one on a question.
-- **Questions:** cover photo, links you can tap, text you can copy, all answers with scores and flowers. Questions in a channel take that channel's colors.
-- **Sign in** with your Stips account, then **answer** (also anonymously), **vote**, and **chat** in private messages.
-- **Profile:** your questions, questions you answered, and questions you saved on the phone.
-- **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, predictive back.
+- **Home:** the five hottest questions as big cards, then the newest questions. Turn on **Live** and new questions slide in by themselves.
+- **Feeds:** New and Hot (now · today · this week), with the six channels as color chips. **Topics:** search one, or tap one on a question.
+- **Questions:** the cover photo sits behind the title; the question stays pinned on top, small, as you scroll the answers. The asker's link, links you can tap, text you can copy, all answers with scores and flowers.
+- **Sign in** with your Stips account, then **answer** (also anonymously, with one attached link), **edit** or **detach** your answers, **vote**, **pin** questions, **get updates** on a question, and **chat** in private messages.
+- **Profiles** for everyone: photo, questions · answers · flowers, bio, badges, age, how long they've been on Stips, the **credibility** gauge, activity graphs, answers that got a flower, and the **thanks wall** (delete messages on yours). Change your photo and bio from the app.
+- **Notifications:** Stips' notification list with a badge on the bell, an unread badge on Chats, and optional **phone notifications**.
+- **Settings:** safe mode, and the Stips account pages (details, password, contact, rules).
+- **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, and screen transitions that follow your finger on predictive back.
 - **Fast:** the last feed shows instantly on launch; load times are visible in Settings → Performance.
 
 ## Install
@@ -22,7 +24,7 @@
 
 **From a computer (optional, needs Android's platform tools):** `adb install -r stipsplus-<number>.apk`
 
-**Open Stips links in the app (optional):** Android Settings → Apps → Stips+ → Open by default → add `stips.co.il`.
+**Open Stips links in the app (optional):** Android Settings → Apps → Stips+ → Open by default → add `stips.co.il`. Question, profile and messages links then open in Stips+.
 
 ## Privacy
 
@@ -35,11 +37,19 @@
 
 | Host | When |
 |---|---|
-| `stips.co.il` | Loading feeds, questions and chats; signing in; posting answers, votes and messages |
+| `stips.co.il` | Loading feeds, questions, profiles, notifications and chats; signing in; posting answers, votes, pins and messages; uploading a new profile photo |
 | `cdn.stips.co.il` | Question photos and profile pictures (turn off: Settings → Show images) |
 | `images.unsplash.com` | Stock cover photos that askers picked (same switch) |
 
-**Permissions:** Internet only.
+**In the background:**
+
+| What | When | Cost |
+|---|---|---|
+| Unread chats and notifications | Once a minute, only while the app is open and you're signed in | Under 1 KB each |
+| **Live** new questions | Every 30 seconds, only while Home is on screen, and only if you turn it on | About 1 MB an hour |
+| **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Updates) | Under 1 MB a day |
+
+**Permissions:** Internet; notifications (asked only when you turn phone notifications on, Android 13+); "run at startup", so the 15-minute check survives a restart. Picking a profile photo uses Android's photo picker, so the app never gets access to your other photos.
 
 ## Building
 
@@ -59,4 +69,4 @@ There's nothing to install locally: GitHub Actions builds every push to `main` (
 
 ## בעברית
 
-**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: פיד חדשות וחמות, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות), הצבעות ושיחות פרטיות. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.
+**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), עריכת תשובות, נעיצות, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.

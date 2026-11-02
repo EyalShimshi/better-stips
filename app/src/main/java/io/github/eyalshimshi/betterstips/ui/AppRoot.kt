@@ -5,11 +5,18 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,6 +27,8 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -34,14 +43,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -50,24 +66,34 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.crash.CrashReporter
 import io.github.eyalshimshi.betterstips.data.model.MyList
+import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
+import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
+import io.github.eyalshimshi.betterstips.ui.feed.HotScreen
 import io.github.eyalshimshi.betterstips.ui.feed.MyListScreen
 import io.github.eyalshimshi.betterstips.ui.feed.SavedScreen
 import io.github.eyalshimshi.betterstips.ui.feed.TopicScreen
 import io.github.eyalshimshi.betterstips.ui.home.HomeScreen
+import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
 import io.github.eyalshimshi.betterstips.ui.question.QuestionScreen
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsScreen
 import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
+import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
+import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.Links
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 object Routes {
@@ -81,11 +107,15 @@ object Routes {
     const val SAVED = "saved"
     const val SIGN_IN = "signin"
     const val SETTINGS = "settings"
+    const val USER = "user/{id}"
+    const val NOTIFICATIONS = "notifications"
+    const val HOT = "hot"
 
     fun question(id: Long) = "question/$id"
     fun topic(name: String) = "topic/" + Uri.encode(name)
     fun conversation(userId: Long, name: String) = "conversation/$userId?name=" + Uri.encode(name)
     fun myList(kind: MyList) = "mylist/" + kind.name
+    fun user(id: Long) = "user/$id"
 }
 
 private data class Tab(val route: String, val label: Int, val icon: ImageVector, val selectedIcon: ImageVector)
@@ -96,140 +126,294 @@ private val tabs = listOf(
     Tab(Routes.PROFILE, R.string.tab_profile, Icons.Outlined.Person, Icons.Filled.Person),
 )
 
+private const val COUNTS_INTERVAL_MS = 60_000L
+
 @Composable
-fun AppRoot(initialQuestionId: Long?) {
+fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     val container = LocalAppContainer.current
     val context = LocalContext.current
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val showBar = tabs.any { it.route == route }
+    val animate = LocalAppSettings.current.animations
     val snackbar = remember { SnackbarHostState() }
     val signedOutText = stringResource(R.string.error_signed_out)
-    var linkHandled by rememberSaveable { mutableStateOf(false) }
+    val session by container.session.session.collectAsStateWithLifecycle()
+    val signedIn = session.signedIn
+    var counts by remember { mutableStateOf(UnreadCounts()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(initialQuestionId) {
-        if (initialQuestionId != null && !linkHandled) {
-            linkHandled = true
-            navController.navigate(Routes.question(initialQuestionId))
-        }
+    val currentOnLinkHandled by rememberUpdatedState(onLinkHandled)
+    LaunchedEffect(pendingLink) {
+        val link = pendingLink ?: return@LaunchedEffect
+        openLink(navController, link)
+        currentOnLinkHandled()
     }
     LaunchedEffect(Unit) {
         container.session.expired.collect { snackbar.showSnackbar(signedOutText) }
     }
 
-    // Stips question links inside answers open here; everything else goes to the browser.
-    val uriHandler = remember(navController) {
-        object : UriHandler {
-            override fun openUri(uri: String) {
-                val id = Links.questionId(uri)
-                if (id != null) navController.navigate(Routes.question(id)) else openInBrowser(context, uri)
+    // Unread chats and notifications: one tiny request a minute, only while the app is on screen and signed in.
+    LaunchedEffect(signedIn, lifecycleOwner) {
+        if (!signedIn) {
+            counts = UnreadCounts()
+            return@LaunchedEffect
+        }
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                fetchCounts(container)?.let { counts = it }
+                delay(COUNTS_INTERVAL_MS)
             }
         }
     }
+    // Reading notifications or a chat changes the counts, so ask again on the way out.
+    val previousRoute = remember { arrayOfNulls<String>(1) }
+    LaunchedEffect(route) {
+        val left = previousRoute[0]
+        previousRoute[0] = route
+        if (signedIn && (left == Routes.NOTIFICATIONS || left == Routes.CONVERSATION)) {
+            fetchCounts(container)?.let { counts = it }
+        }
+    }
 
-    CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+    // Stips links inside the app (questions, profiles, chats) open here; everything else goes to the browser.
+    val uriHandler = remember(navController) {
+        object : UriHandler {
+            override fun openUri(uri: String) {
+                val link = Links.deepLink(uri)
+                if (link != null) openLink(navController, link) else openInBrowser(context, uri)
+            }
+        }
+    }
+    val openProfile = remember(navController) { { id: Long -> navController.navigate(Routes.user(id)) } }
+
+    CompositionLocalProvider(
+        LocalUriHandler provides uriHandler,
+        LocalOpenProfile provides openProfile,
+        LocalUnreadCounts provides counts,
+    ) {
         Scaffold(
-            bottomBar = { if (showBar) BottomBar(navController, route) },
+            bottomBar = {
+                AnimatedVisibility(
+                    visible = showBar,
+                    enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
+                    exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
+                ) {
+                    BottomBar(navController, route, counts)
+                }
+            },
             snackbarHost = { SnackbarHost(snackbar) },
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
         ) { padding ->
-            AppNavHost(navController, Modifier.padding(padding))
+            AppNavHost(
+                navController,
+                Modifier.padding(padding),
+                onNotificationsSeen = { counts = counts.copy(notifications = 0) },
+            )
         }
     }
     CrashDialog()
 }
 
+private suspend fun fetchCounts(container: AppContainer): UnreadCounts? = try {
+    container.repository.unreadCounts()
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    null
+}
+
+private fun openLink(navController: NavHostController, link: DeepLink) {
+    when (link) {
+        is DeepLink.Question -> navController.navigate(Routes.question(link.id))
+        is DeepLink.Profile -> navController.navigate(Routes.user(link.id))
+        DeepLink.Messages -> navigateToTab(navController, Routes.CHATS)
+    }
+}
+
+private fun navigateToTab(navController: NavHostController, route: String) {
+    navController.navigate(route) {
+        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
 @Composable
-private fun BottomBar(navController: NavHostController, route: String?) {
+private fun BottomBar(navController: NavHostController, route: String?, counts: UnreadCounts) {
     NavigationBar {
         tabs.forEach { tab ->
             val selected = route == tab.route
+            val unread = if (tab.route == Routes.CHATS) counts.messages else 0
             NavigationBarItem(
                 selected = selected,
-                onClick = {
-                    navController.navigate(tab.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                onClick = { navigateToTab(navController, tab.route) },
+                icon = {
+                    BadgedBox(
+                        badge = {
+                            if (unread > 0) Badge { Text(if (unread > 99) "99+" else unread.toString()) }
+                        },
+                    ) {
+                        Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null)
                     }
                 },
-                icon = { Icon(if (selected) tab.selectedIcon else tab.icon, contentDescription = null) },
                 label = { Text(stringResource(tab.label)) },
             )
         }
     }
 }
 
+/**
+ * Screen-to-screen motion (DESIGN-PHILOSOPHY §5). A new screen slides in over the current one, which drifts a
+ * quarter of the way back; going back reverses it. Tabs cross-fade. During the predictive back gesture the screen
+ * follows the finger toward the side it was swiped from, instead of shrinking.
+ */
+private class NavMotion(private val animate: Boolean) {
+    private val tabRoutes = tabs.map { it.route }.toSet()
+    private val emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    private val slide = tween<IntOffset>(SLIDE_MS, easing = emphasized)
+    private val follow = tween<IntOffset>(SLIDE_MS, easing = LinearEasing)
+
+    private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTabs(): Boolean =
+        initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes
+
+    val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        when {
+            !animate -> EnterTransition.None
+            betweenTabs() -> fadeIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS))
+            else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, slide)
+        }
+    }
+    val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        when {
+            !animate -> ExitTransition.None
+            betweenTabs() -> fadeOut(tween(FADE_OUT_MS))
+            else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, slide) { it / 4 }
+        }
+    }
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        when {
+            !animate -> EnterTransition.None
+            betweenTabs() -> fadeIn(tween(FADE_IN_MS, delayMillis = FADE_OUT_MS))
+            else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, slide) { it / 4 }
+        }
+    }
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        when {
+            !animate -> ExitTransition.None
+            betweenTabs() -> fadeOut(tween(FADE_OUT_MS))
+            else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, slide)
+        }
+    }
+
+    // The Int is the edge the back swipe started from (0 = left, 1 = right).
+    val predictivePopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> EnterTransition = { edge ->
+        when {
+            !animate -> EnterTransition.None
+            betweenTabs() -> fadeIn(tween(SLIDE_MS, easing = LinearEasing))
+            else -> slideInHorizontally(follow) { full -> if (edge == EDGE_LEFT) -full / 4 else full / 4 }
+        }
+    }
+    val predictivePopExit: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> ExitTransition = { edge ->
+        when {
+            !animate -> ExitTransition.None
+            betweenTabs() -> fadeOut(tween(SLIDE_MS, easing = LinearEasing))
+            else -> slideOutHorizontally(follow) { full -> if (edge == EDGE_LEFT) full else -full }
+        }
+    }
+
+    private companion object {
+        const val SLIDE_MS = 350
+        const val FADE_OUT_MS = 90
+        const val FADE_IN_MS = 210
+        const val EDGE_LEFT = 0
+    }
+}
+
 @Composable
-private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
+private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit) {
     val animate = LocalAppSettings.current.animations
-    val enter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
-        if (animate) {
-            fadeIn(tween(220)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(260)) { it / 10 }
-        } else {
-            EnterTransition.None
-        }
-    }
-    val exit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
-        if (animate) fadeOut(tween(160)) else ExitTransition.None
-    }
-    val popEnter: AnimatedContentTransitionScope<*>.() -> EnterTransition = {
-        if (animate) fadeIn(tween(220)) else EnterTransition.None
-    }
-    val popExit: AnimatedContentTransitionScope<*>.() -> ExitTransition = {
-        if (animate) {
-            fadeOut(tween(160)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(260)) { it / 10 }
-        } else {
-            ExitTransition.None
-        }
-    }
+    val motion = remember(animate) { NavMotion(animate) }
     fun openQuestion(id: Long) = navController.navigate(Routes.question(id))
     fun openTopic(name: String) = navController.navigate(Routes.topic(name))
+    fun openUser(id: Long) = navController.navigate(Routes.user(id))
+    fun openConversation(userId: Long, name: String) = navController.navigate(Routes.conversation(userId, name))
+    fun openMyList(kind: MyList) = navController.navigate(Routes.myList(kind))
+    fun openSaved() = navController.navigate(Routes.SAVED)
+    fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
     fun signIn() = navController.navigate(Routes.SIGN_IN) { launchSingleTop = true }
+    fun back() {
+        navController.popBackStack()
+    }
 
     NavHost(
         navController = navController,
         startDestination = Routes.HOME,
         modifier = modifier,
-        enterTransition = enter,
-        exitTransition = exit,
-        popEnterTransition = popEnter,
-        popExitTransition = popExit,
+        enterTransition = motion.enter,
+        exitTransition = motion.exit,
+        popEnterTransition = motion.popEnter,
+        popExitTransition = motion.popExit,
+        predictivePopEnterTransition = motion.predictivePopEnter,
+        predictivePopExitTransition = motion.predictivePopExit,
     ) {
         composable(Routes.HOME) {
             HomeScreen(
                 onOpenQuestion = ::openQuestion,
                 onOpenTopic = ::openTopic,
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true } },
+                onOpenHot = { navController.navigate(Routes.HOT) { launchSingleTop = true } },
             )
         }
         composable(Routes.CHATS) {
-            ChatsScreen(
-                onOpenConversation = { userId, name -> navController.navigate(Routes.conversation(userId, name)) },
-                onSignIn = ::signIn,
-            )
+            ChatsScreen(onOpenConversation = ::openConversation, onSignIn = ::signIn)
         }
         composable(Routes.PROFILE) {
             ProfileScreen(
                 onSignIn = ::signIn,
-                onOpenMyList = { navController.navigate(Routes.myList(it)) },
-                onOpenSaved = { navController.navigate(Routes.SAVED) },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenMyList = ::openMyList,
+                onOpenSaved = ::openSaved,
+                onOpenSettings = ::openSettings,
+                onOpenQuestion = ::openQuestion,
+                onOpenConversation = ::openConversation,
             )
         }
         composable(Routes.QUESTION, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
             QuestionScreen(
                 questionId = entry.arguments?.getLong("id") ?: 0L,
-                onBack = { navController.popBackStack() },
+                onBack = ::back,
                 onOpenTopic = ::openTopic,
                 onSignIn = ::signIn,
             )
         }
+        composable(Routes.USER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+            UserProfileScreen(
+                userId = entry.arguments?.getLong("id") ?: 0L,
+                onBack = ::back,
+                onOpenQuestion = ::openQuestion,
+                onOpenConversation = ::openConversation,
+                onOpenMyList = ::openMyList,
+                onOpenSaved = ::openSaved,
+                onOpenSettings = ::openSettings,
+            )
+        }
+        composable(Routes.NOTIFICATIONS) {
+            NotificationsScreen(
+                onBack = ::back,
+                onOpenQuestion = ::openQuestion,
+                onOpenProfile = ::openUser,
+                onSignIn = ::signIn,
+                onSeen = onNotificationsSeen,
+            )
+        }
+        composable(Routes.HOT) {
+            HotScreen(onBack = ::back, onOpenQuestion = ::openQuestion)
+        }
         composable(Routes.TOPIC, arguments = listOf(navArgument("name") { type = NavType.StringType })) { entry ->
             TopicScreen(
                 topic = entry.arguments?.getString("name").orEmpty(),
-                onBack = { navController.popBackStack() },
+                onBack = ::back,
                 onOpenQuestion = ::openQuestion,
             )
         }
@@ -246,21 +430,21 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier) {
             ConversationScreen(
                 userId = entry.arguments?.getLong("userId") ?: 0L,
                 name = entry.arguments?.getString("name").orEmpty(),
-                onBack = { navController.popBackStack() },
+                onBack = ::back,
             )
         }
         composable(Routes.MY_LIST, arguments = listOf(navArgument("kind") { type = NavType.StringType })) { entry ->
             val kind = MyList.entries.firstOrNull { it.name == entry.arguments?.getString("kind") } ?: MyList.Asked
-            MyListScreen(kind = kind, onBack = { navController.popBackStack() }, onOpenQuestion = ::openQuestion)
+            MyListScreen(kind = kind, onBack = ::back, onOpenQuestion = ::openQuestion)
         }
         composable(Routes.SAVED) {
-            SavedScreen(onBack = { navController.popBackStack() }, onOpenQuestion = ::openQuestion)
+            SavedScreen(onBack = ::back, onOpenQuestion = ::openQuestion)
         }
         composable(Routes.SIGN_IN) {
-            SignInScreen(onDone = { navController.popBackStack() })
+            SignInScreen(onDone = ::back)
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(onBack = ::back, onOpenMyProfile = { navigateToTab(navController, Routes.PROFILE) })
         }
     }
 }

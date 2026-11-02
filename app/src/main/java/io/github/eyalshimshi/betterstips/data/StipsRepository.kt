@@ -3,11 +3,21 @@ package io.github.eyalshimshi.betterstips.data
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.model.Answer
+import io.github.eyalshimshi.betterstips.data.model.AnswerLink
+import io.github.eyalshimshi.betterstips.data.model.AppUser
+import io.github.eyalshimshi.betterstips.data.model.ChartAction
+import io.github.eyalshimshi.betterstips.data.model.ChartPoint
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
+import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.Question
+import io.github.eyalshimshi.betterstips.data.model.SITE_URL
+import io.github.eyalshimshi.betterstips.data.model.StipsNotification
+import io.github.eyalshimshi.betterstips.data.model.ThanksMessage
+import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
+import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -99,7 +109,7 @@ class StipsRepository(
     )
 
     /** Posts an answer the way the site's form does (SPEC-04 §2.3). Returns the new answer's id if Stips sends it. */
-    suspend fun postAnswer(questionId: Long, text: String, anonymous: Boolean): Long? = withSession {
+    suspend fun postAnswer(questionId: Long, text: String, anonymous: Boolean, link: AnswerLink? = null): Long? = withSession {
         if (session.session.value.profile == null) session.refreshProfile()
         val profile = session.session.value.profile ?: throw ApiException(ApiException.NOT_SIGNED_IN)
         val nickname = when {
@@ -114,9 +124,228 @@ class StipsRepository(
                 put("name", nickname)
                 put("anonflg", anonymous)
                 put("a", text)
+                if (link != null) {
+                    put("link1", link.url)
+                    put("link1name", link.title ?: link.url)
+                }
             }
         }
         Parsers.newId(api.call("omniobj", restAction = "PUT", omniobj = omniobj))
+    }
+
+    /** Edits an answer (`omniobj` POST with only the changed fields, as the site does). Stips decides if it's still editable. */
+    suspend fun editAnswer(answerId: Long, text: String, link: AnswerLink?) {
+        withSession {
+            val omniobj = buildJsonObject {
+                put("objType", "ans")
+                putJsonObject("data") {
+                    put("id", answerId)
+                    put("a", text)
+                    put("link1", link?.url.orEmpty())
+                    put("link1name", link?.let { it.title ?: it.url }.orEmpty())
+                }
+            }
+            api.call("omniobj", restAction = "POST", omniobj = omniobj)
+        }
+    }
+
+    /** "Detach from my profile": the answer shows as anonymous from now on. */
+    suspend fun detachAnswer(answerId: Long) {
+        withSession {
+            api.call(
+                "item.set_anonymous",
+                buildJsonObject {
+                    put("objType", "ans")
+                    put("id", answerId)
+                },
+            )
+        }
+    }
+
+    /** A page's title, used to name an attached link (the site does the same). */
+    suspend fun linkTitle(url: String): String? = try {
+        Parsers.urlTitle(
+            api.call(
+                "smartdata.get",
+                buildJsonObject {
+                    put("namespace", "utils")
+                    put("unit", "GetUrlMeta")
+                    put("url", url)
+                },
+            ),
+        )
+    } catch (e: ApiException) {
+        null
+    }
+
+    /** Pins (or unpins) a question for the signed-in user. */
+    suspend fun setPinned(questionId: Long, pinned: Boolean) {
+        withSession {
+            api.call(
+                "item.add_pin",
+                buildJsonObject {
+                    put("id", questionId)
+                    put("minus", !pinned)
+                },
+            )
+        }
+    }
+
+    /** Whether the user gets updates on a question. */
+    suspend fun isFollowing(questionId: Long): Boolean? = withSession {
+        Parsers.followState(
+            api.call(
+                "smartdata.get",
+                buildJsonObject {
+                    put("namespace", "ask")
+                    put("unit", "AskAdditionalData")
+                    put("id", questionId)
+                },
+            ),
+        )
+    }
+
+    suspend fun setFollowing(questionId: Long, follow: Boolean) {
+        withSession {
+            api.call(
+                "item.notifications_register",
+                buildJsonObject {
+                    put("objType", "ask")
+                    put("id", questionId)
+                    put("add", follow)
+                },
+            )
+        }
+    }
+
+    suspend fun userProfile(userId: Long): UserProfile {
+        val data = api.call(
+            "omniobj",
+            restAction = "GET",
+            omniobj = buildJsonObject {
+                put("objType", "user")
+                putJsonObject("data") { put("id", userId) }
+            },
+        )
+        return Parsers.profile(data) ?: throw ApiException(ApiException.BAD_RESPONSE)
+    }
+
+    suspend fun profilePage(userId: Long): ProfilePage =
+        Parsers.profilePage(api.call("profile.page_data", buildJsonObject { put("userid", userId) }))
+            ?: throw ApiException(ApiException.BAD_RESPONSE)
+
+    suspend fun chart(userId: Long, action: ChartAction): List<ChartPoint> = Parsers.chart(
+        api.call(
+            "profile.actions_chart",
+            buildJsonObject {
+                put("userid", userId)
+                put("action", action.apiName)
+            },
+        ),
+    )
+
+    /** Answers of [userId] that got a flower, with their questions' titles. */
+    suspend fun floweredAnswers(userId: Long, page: Int): List<Answer> = Parsers.answers(
+        api.call(
+            "objectlist",
+            buildJsonObject {
+                put("method", "ans.flower_for_user")
+                put("userid", userId)
+                put("page", page)
+            },
+        ),
+    )
+
+    suspend fun thanksWall(userId: Long, page: Int): List<ThanksMessage> = Parsers.thanksMessages(
+        api.call(
+            "objectlist",
+            buildJsonObject {
+                put("objType", "thanksmsg")
+                put("userid", userId)
+                put("page", page)
+            },
+        ),
+    )
+
+    /** Deletes a message from the signed-in user's own thanks wall (no reason needed, like on the site). */
+    suspend fun deleteThanks(messageId: Long) {
+        withSession {
+            api.call(
+                "omniobj",
+                restAction = "DELETE",
+                omniobj = buildJsonObject {
+                    put("objType", "thanksmsg")
+                    putJsonObject("data") { put("id", messageId) }
+                },
+            )
+        }
+    }
+
+    suspend fun notifications(page: Int): List<StipsNotification> = withSession {
+        Parsers.notifications(api.call("notifications.list", buildJsonObject { put("page", page) }))
+    }
+
+    /** Unread chats and notifications. Tiny response; safe to ask every minute while the app is open. */
+    suspend fun unreadCounts(): UnreadCounts = withSession {
+        Parsers.unreadCounts(api.call("messages.count", buildJsonObject { }))
+    }
+
+    /** The account's "safe mode" (hides questions Stips marks unsuitable). Stored on Stips, like on the site. */
+    suspend fun setSafeMode(on: Boolean) {
+        withSession {
+            val userId = session.session.value.userId ?: throw ApiException(ApiException.NOT_SIGNED_IN)
+            api.call(
+                "user.update.settings",
+                buildJsonObject {
+                    put("userid", userId)
+                    put("settings_name", "safeFilter")
+                    put("value", on)
+                },
+            )
+            session.setSafeFilter(on)
+        }
+    }
+
+    suspend fun currentAppUser(): AppUser? = withSession { Parsers.appUser(api.call("user.get_app_user")) }
+
+    /** Saves the signed-in user's bio ("text_status" on the profile page object). */
+    suspend fun updateBio(text: String) {
+        withSession {
+            val userId = session.session.value.userId ?: throw ApiException(ApiException.NOT_SIGNED_IN)
+            api.call(
+                "omniobj",
+                apiParams = buildJsonObject { put("createIfNotExist", true) },
+                restAction = "POST",
+                omniobj = buildJsonObject {
+                    put("objType", "user_profile_page")
+                    putJsonObject("data") {
+                        put("userid", userId)
+                        put("text_status", text)
+                    }
+                },
+            )
+        }
+    }
+
+    /** Uploads a square JPEG as the profile photo, then sets the thumbnail to the whole square (the site's two steps). */
+    suspend fun uploadProfilePhoto(jpeg: ByteArray, size: Int) {
+        withSession {
+            val userId = session.session.value.userId ?: throw ApiException(ApiException.NOT_SIGNED_IN)
+            val response = api.upload("$SITE_URL/scripts/upload/photo.asp?photo_type=profile_photo", "photo.jpg", jpeg, "image/jpeg")
+            val (ok, error) = Parsers.uploadResult(response)
+            if (!ok) throw ApiException(ApiException.GENERAL, error)
+            api.call(
+                "profile.set_thumbnail",
+                buildJsonObject {
+                    put("userid", userId)
+                    put("x0", 0)
+                    put("x1", size)
+                    put("y0", 0)
+                    put("y1", size)
+                },
+            )
+        }
+        session.refreshProfile()
     }
 
     /** 1 = up, -1 = down, 0 = clear (sending the current vote again clears it, as on the site). */

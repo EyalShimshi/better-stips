@@ -1,22 +1,15 @@
 package io.github.eyalshimshi.betterstips.ui.profile
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Bookmarks
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -27,22 +20,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.model.MyList
-import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
-import kotlinx.coroutines.launch
+import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
 
 /** One row of a grouped card: 24 dp outer corners, 4 dp inner corners, 2 dp gaps (DESIGN-PHILOSOPHY §3.4). */
 @Composable
@@ -102,11 +91,32 @@ fun ProfileScreen(
     onOpenMyList: (MyList) -> Unit,
     onOpenSaved: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenQuestion: (Long) -> Unit,
+    onOpenConversation: (Long, String) -> Unit,
 ) {
     val container = LocalAppContainer.current
     val session by container.session.session.collectAsStateWithLifecycle()
+    val userId = session.userId
+    if (session.signedIn && userId != null) {
+        // Signed in, the tab is your own profile: the same page everyone else sees, plus your lists and tools.
+        UserProfileScreen(
+            userId = userId,
+            onBack = null,
+            onOpenQuestion = onOpenQuestion,
+            onOpenConversation = onOpenConversation,
+            onOpenMyList = onOpenMyList,
+            onOpenSaved = onOpenSaved,
+            onOpenSettings = onOpenSettings,
+        )
+    } else {
+        SignedOutProfile(onSignIn, onOpenSaved, onOpenSettings)
+    }
+}
+
+@Composable
+private fun SignedOutProfile(onSignIn: () -> Unit, onOpenSaved: () -> Unit, onOpenSettings: () -> Unit) {
+    val container = LocalAppContainer.current
     val saved by container.saved.items.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.profile_title)) }) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -117,75 +127,25 @@ fun ProfileScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            val profile = session.profile
-            if (session.signedIn) {
-                item(key = "header") {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        if (profile != null) {
-                            Avatar(profile.avatar, 96.dp, large = true)
-                            Text(profile.nickname, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Text(
-                                stringResource(R.string.points, profile.points),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                item(key = "lists") {
-                    Column {
-                        GroupRow(stringResource(R.string.my_questions), 0, 3, { onOpenMyList(MyList.Asked) }, icon = Icons.Outlined.Edit)
-                        GroupRow(stringResource(R.string.my_answers), 1, 3, { onOpenMyList(MyList.Answered) }, icon = Icons.Outlined.QuestionAnswer)
-                        GroupRow(
-                            stringResource(R.string.saved_title),
-                            2,
-                            3,
-                            onOpenSaved,
-                            summary = if (saved.isEmpty()) null else saved.size.toString(),
-                            icon = Icons.Outlined.Bookmarks,
-                        )
-                    }
-                }
-            } else {
-                item(key = "invite") {
-                    MessageCard(
-                        stringResource(R.string.profile_signed_out_title),
-                        stringResource(R.string.profile_signed_out_body),
-                        stringResource(R.string.action_sign_in),
-                        onSignIn,
-                    )
-                }
-                item(key = "saved") {
+            item(key = "invite") {
+                MessageCard(
+                    stringResource(R.string.profile_signed_out_title),
+                    stringResource(R.string.profile_signed_out_body),
+                    stringResource(R.string.action_sign_in),
+                    onSignIn,
+                )
+            }
+            item(key = "lists") {
+                Column {
                     GroupRow(
                         stringResource(R.string.saved_title),
                         0,
-                        1,
+                        2,
                         onOpenSaved,
                         summary = if (saved.isEmpty()) null else saved.size.toString(),
                         icon = Icons.Outlined.Bookmarks,
                     )
-                }
-            }
-            item(key = "settings") {
-                Column {
-                    Spacer(Modifier.height(16.dp))
-                    val rows = if (session.signedIn) 2 else 1
-                    GroupRow(stringResource(R.string.settings_title), 0, rows, onOpenSettings, icon = Icons.Outlined.Settings)
-                    if (session.signedIn) {
-                        GroupRow(
-                            stringResource(R.string.sign_out),
-                            1,
-                            rows,
-                            { scope.launch { container.session.signOut() } },
-                            icon = Icons.AutoMirrored.Outlined.Logout,
-                        )
-                    }
+                    GroupRow(stringResource(R.string.settings_title), 1, 2, onOpenSettings, icon = Icons.Outlined.Settings)
                 }
             }
         }

@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -46,6 +47,23 @@ class StipsApi(private val client: OkHttpClient) {
             throw ApiException(ApiException.NETWORK, e.message)
         }
         Parsers.envelope(text)
+    }
+
+    /** Multipart upload (the profile photo). Returns the raw response; the upload script doesn't use the envelope. */
+    suspend fun upload(url: String, fileName: String, bytes: ByteArray, mediaType: String): String = withContext(Dispatchers.IO) {
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", fileName, bytes.toRequestBody(mediaType.toMediaType()))
+            .build()
+        val request = Request.Builder().url(url).post(body).build()
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw ApiException(ApiException.HTTP, "HTTP ${response.code}")
+                response.body?.string().orEmpty()
+            }
+        } catch (e: IOException) {
+            throw ApiException(ApiException.NETWORK, e.message)
+        }
     }
 
     companion object {

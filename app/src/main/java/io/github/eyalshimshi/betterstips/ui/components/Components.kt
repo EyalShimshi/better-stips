@@ -26,6 +26,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -56,6 +57,7 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.Question
+import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
@@ -66,6 +68,12 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppContainer not provided") }
+
+/** Opens a user's profile from anywhere (author names, avatars, thanks wall). Provided by AppRoot. */
+val LocalOpenProfile = staticCompositionLocalOf<(Long) -> Unit> { {} }
+
+/** Unread chats and notifications, refreshed by AppRoot while the app is open. */
+val LocalUnreadCounts = compositionLocalOf { UnreadCounts() }
 
 /** The first letter of the first word, for monograms. */
 fun monogram(text: String): String =
@@ -110,15 +118,19 @@ fun CoverArt(question: Question, seed: Int?, size: Dp, modifier: Modifier = Modi
 }
 
 @Composable
-fun Avatar(author: Author, size: Dp, modifier: Modifier = Modifier, large: Boolean = false) {
+fun Avatar(author: Author, size: Dp, modifier: Modifier = Modifier, large: Boolean = false, clickable: Boolean = true) {
     val showImages = LocalAppSettings.current.showImages
     val loader = LocalAppContainer.current.imageLoader
+    val openProfile = LocalOpenProfile.current
     val fontSize = with(LocalDensity.current) { (size * 0.45f).toSp() }
+    val userId = author.userId
+    val canOpen = clickable && userId != null && !author.anonymous
     Box(
         modifier
             .size(size)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.tertiaryContainer),
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .then(if (canOpen && userId != null) Modifier.clickable { openProfile(userId) } else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         if (author.anonymous || author.nickname.isBlank()) {
@@ -172,8 +184,34 @@ fun answersText(count: Int): String =
     if (count == 0) stringResource(R.string.no_answers) else LocalContext.current.resources.getQuantityString(R.plurals.answers_count, count, count)
 
 @Composable
+fun pinsText(count: Int): String = LocalContext.current.resources.getQuantityString(R.plurals.pins_count, count, count)
+
+/** An author's name that opens their profile (unless anonymous). */
+@Composable
+fun AuthorName(author: Author, style: TextStyle, modifier: Modifier = Modifier) {
+    val openProfile = LocalOpenProfile.current
+    val userId = author.userId
+    Text(
+        authorName(author),
+        style = style,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.then(
+            if (userId != null && !author.anonymous) Modifier.clickable { openProfile(userId) } else Modifier,
+        ),
+    )
+}
+
+@Composable
 fun QuestionRow(question: Question, channel: Channel?, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val meta = listOf(answersText(question.answerCount), agoText(question.postedAt), authorName(question.author))
+    val meta = listOf(
+        answersText(question.answerCount),
+        if (question.pinCount > 0) pinsText(question.pinCount) else "",
+        agoText(question.postedAt),
+        authorName(question.author),
+    )
         .filter { it.isNotBlank() }
         .joinToString(" · ")
     ListItem(
@@ -191,7 +229,13 @@ fun QuestionRow(question: Question, channel: Channel?, onClick: () -> Unit, modi
 
 /** Text with tappable links; long-press selects and copies (F-06). */
 @Composable
-fun LinkifiedText(text: String, style: TextStyle, modifier: Modifier = Modifier) {
+fun LinkifiedText(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    onOverflow: ((Boolean) -> Unit)? = null,
+) {
     val linkColor = MaterialTheme.colorScheme.primary
     val annotated = remember(text, linkColor) {
         buildAnnotatedString {
@@ -207,7 +251,15 @@ fun LinkifiedText(text: String, style: TextStyle, modifier: Modifier = Modifier)
             append(text.substring(last))
         }
     }
-    SelectionContainer(modifier) { Text(annotated, style = style) }
+    SelectionContainer(modifier) {
+        Text(
+            annotated,
+            style = style,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result -> onOverflow?.invoke(result.hasVisualOverflow) },
+        )
+    }
 }
 
 @Composable

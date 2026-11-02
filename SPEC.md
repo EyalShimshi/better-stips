@@ -17,7 +17,7 @@
 
 | | |
 |---|---|
-| **What** | Read Stips questions and answers, sign in, answer, chat — in a fast, native Material 3 app |
+| **What** | Read Stips questions and answers, sign in, answer, chat, pin and follow questions, profiles and notifications — in a fast, native Material 3 app |
 | **Who** | Stips readers and answerers who find the official app (a WebView wrapper) slow and clunky |
 | **Platform** | Android 8.0+ · Kotlin · Jetpack Compose · Material 3 |
 | **Data** | Stips' own JSON API (`https://stips.co.il/api`), called directly from the phone. No server of ours |
@@ -50,14 +50,43 @@
 | D-19 | CI uses the open-source Gradle cache (`cache-provider: basic`) and writes each result to a `ci-status` branch | No commercial cache service; the agent can read results through git | Agent |
 | D-20 | OkHttp **4.12.0** instead of the sample's 5.5.0 | Coil 2.7.0 is built against OkHttp 4; avoids a binary mismatch at run time | Agent |
 | D-21 | Feeds send `safe_filter: true` when signed out, and the account's own setting when signed in | That's what the website does (measured: it hides some questions); show only what the site would show the same person | Agent |
+| D-22 | For v0.2 research the owner shared their Stips sign-in. The agent used it only in its own browser, mostly to read; it is not stored anywhere in the repo or the app | Learn the signed-in features (profiles, pins, follow, edit, notifications) from the real site. One pin was set by mistake and removed at once | Owner, agent |
+| D-23 | Home = the **top 5 hot questions as big cards**, then the New feed. A bell for notifications sits in Home's search bar; Settings moved to Profile | The owner's layout | Owner |
+| D-24 | **Live** new questions (chip on Home, switch in Settings) is opt-in: the New feed is checked every 30 s, only while Home is on screen (≈1 MB an hour) | The owner asked; refines D-13: it runs only while the user is looking | Owner |
+| D-25 | Unread chats and notifications are fetched once a minute while the app is on screen and signed in (`messages.count`, under 1 KB) | Badges must be current; the site polls the same call. Refines D-13 | Agent |
+| D-26 | **Phone notifications are opt-in.** A JobScheduler job checks every 15 minutes (≈96 tiny requests a day) and fetches the list only when the count says something is new. The first check only records where things stand. No Firebase, no WorkManager | Stips has no push service for other apps; JobScheduler is built in. Refines D-13 for users who turn it on | Owner (feature), agent (design) |
+| D-27 | **Pins** (Stips' own "save", with a count) replace the local bookmark on the question screen. The local Saved list stays for signed-out reading | Pins sync with the site and show how many people saved a question | Owner |
+| D-28 | Questions have a **Get updates** toggle (`item.notifications_register`); answering turns it on unless the composer's chip is off, like the site | The owner's ask; same behavior as the site | Owner |
+| D-29 | **One profile screen for everyone**, social-style: photo, counts, bio, badges, age, account age, the credibility gauge, 26-week activity graphs, flowered answers and the thanks wall. When signed in, the Profile tab is your own profile | The owner's ask: the same look for me and for others | Owner |
+| D-30 | Profile photo: picked with the system photo picker (no storage permission), straightened, cropped to a centered square and sent as a 720 px JPEG; then the thumbnail is set to the whole square (the site's two steps) | No cropping UI needed; the site's own flow | Agent |
+| D-31 | Settings: safe mode, profile photo and bio are native; account details, password, contact, rules, about and account deletion open the Stips site in the browser | Rarely used, and the site handles them; the browser keeps its own Stips sign-in | Agent |
+| D-32 | Motion: a new screen slides in over the current one, which drifts back by a quarter; Back reverses it; tabs fade through; during the predictive back gesture the screen follows the finger | Replaces Navigation's default shrink-and-vanish, which the owner disliked | Owner (problem), agent (motion) |
+| D-33 | Stips question, profile and messages links open in the app: from other apps (when allowed under "Open by default"), from phone notifications, and from links inside answers | One way in, wherever the link comes from | Agent |
+| D-34 | Answers can be edited only while Stips allows it (`meta.permissions.edit`, which expires after a while). Detaching an answer from your account (`item.set_anonymous`) asks for confirmation first | Same rules as the site | Owner (ask), agent |
 
 ## Next steps
 
 1. Owner: send the permission request to Stips (SPEC-06 §4).
-2. Owner: install the first build and test sign-in and answering with a real account (they couldn't be tested without one).
-3. Next round candidates: notifications, asking a question, voting polish, home-screen widget (SPEC-06 §1).
+2. Owner: change the Stips password that was shared for research (D-22).
+3. Owner: test the v0.2 features that change the account: photo upload, editing and detaching an answer, pins, Get updates, deleting a thanks message, phone notifications.
+4. Next round candidates: asking a question, writing on a thanks wall, searching users, home-screen widget (SPEC-06 §1).
 
 ## Implementation notes
+
+### Second build (v0.2)
+
+| Spec says / the site does | v0.2 does | Why / next step |
+|---|---|---|
+| F-21 Ask a question | Not yet | Next round |
+| User search (the site's header autocomplete, `smartdata users/Search`) | Not yet | Next round |
+| The site labels answers by the asker ("שואל/ת השאלה") | No label | Small follow-up |
+| Upvoting an answer also pins the question when you never pinned it (`user_pinned == -1`) | Not copied | Pins change only when you tap the pin |
+| The site shows activity as a line chart | Weekly bars; tap a bar for its week | Easier to read on a phone |
+| Custom rank badges (`custom_rank`) | Not shown | The label text isn't in the response we saw |
+| Writing on someone's thanks wall | Read and delete only | Next round |
+| Whether opening the notification list marks items seen | Assumed yes: the site clears its badge after loading the list, with no other call | Confirm on the phone; the background check reads the list only when the count is above zero |
+| Phone notifications arrive within ~15 minutes | JobScheduler's minimum period; Android may stretch it in battery saver | Stips has no push for other apps |
+| "Play a sound for new messages" (site setting) | Not offered | Web only; Android's channel settings cover sounds |
 
 ### First build (v0.1)
 
@@ -88,3 +117,8 @@
 | Hot (חמות) | Stips' trending list, within a window: now, today, week (or week, month) |
 | Session token (`a_token`) | What Stips returns after sign-in; it restores the session later without the password |
 | Cover | A question's image: a Stips upload or an Unsplash photo picked by the asker |
+| Pin (נעיצה) | Stips' way to save a question to your account; questions show how many people pinned them |
+| Get updates (קבלת עדכונים) | Following a question: Stips notifies you about new answers |
+| Credibility (נקודות אמינות) | A 0–100 score Stips gives each user; the site draws it as a gauge in four color bands |
+| Thanks wall (קיר התודות) | Short thank-you messages other users leave on a profile; the owner can delete them |
+| Live | Home's opt-in mode where new questions appear without pulling to refresh |

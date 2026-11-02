@@ -155,4 +155,150 @@
     <string name="crash_body">אפשר להעתיק את הפרטים או לדווח על הבעיה ב-GitHub. שום דבר לא נשלח.</string>
     <string name="crash_copy">העתקת הפרטים</string>
     <string name="crash_report">דיווח ב-GitHub</string>
+
+    <!-- v0.2: shared actions -->
+    <string name="action_cancel">ביטול</string>
+    <string name="action_delete">מחיקה</string>
+    <string name="action_failed">זה לא הצליח. כדאי לבדוק את החיבור ולנסות שוב.</string>
+    <string name="action_ok">אישור</string>
+    <string name="action_open_settings">הגדרות</string>
+    <string name="action_save_changes">שמירה</string>
+    <string name="opens_in_browser">נפתח בדפדפן</string>
+
+    <!-- v0.2: Home -->
+    <string name="hot_now">חם עכשיו</string>
+    <string name="see_all">הצגת הכול</string>
+    <string name="hot_failed">לא הצלחנו לטעון את השאלות החמות. אפשר לנסות שוב.</string>
+    <string name="hot_title">שאלות חמות</string>
+    <string name="new_questions">שאלות חדשות</string>
+    <string name="live">לייב</string>
+    <string name="pinned_title">שאלות שנעצתי</string>
+
+    <!-- v0.2: Question -->
+    <string name="answer_edited">התשובה עודכנה.</string>
+    <string name="answer_detached">התשובה מוצגת עכשיו כאנונימית.</string>
+    <string name="following_on">העדכונים על השאלה הופעלו.</string>
+    <string name="following_off">העדכונים על השאלה כובו.</string>
+    <string name="get_updates">קבלת עדכונים</string>
+    <string name="stop_updates">הפסקת העדכונים</string>
+    <string name="more_actions">אפשרויות נוספות</string>
+    <string name="photo_credit_menu">קרדיט לתמונה</string>
+    <string name="show_more">הצגת עוד</string>
+    <string name="show_less">הצגת פחות</string>
+    <string name="pin">נעיצה</string>
+    <string name="unpin">ביטול הנעיצה</string>
+    <string name="answer_actions">אפשרויות לתשובה</string>
+    <string name="edit_answer">עריכת התשובה</string>
+    <string name="detach_answer">ניתוק מהמשתמש שלי</string>
+    <string name="detach_title">לנתק את התשובה מהמשתמש שלך?</string>
+    <string name="detach_body">התשובה תישאר, אבל תוצג כאנונימית. אי אפשר לבטל את זה.</string>
+    <string name="detach_confirm">ניתוק</string>
+    <string name="editing_answer">עריכת התשובה שלך</string>
+    <string name="add_link">הוספת קישור</string>
+    <string name="remove_link">הסרת הקישור</string>
+    <string name="add_link_title">הוספת קישור</string>
+    <string name="paste_link_here">הדבק את הקישור כאן</string>
+    <plurals name="pins_count">
+        <item quantity="one">נעיצה אחת</item>
+        <item quantity="two">2 נעיצות</item>
+        <item quantity="many">%d נעיצות</item>
+        <item quantity="other">%d נעיצות</item>
+    </plurals>
+
+    <!-- v0.2: Notifications -->
+    <string name="notifications_title">התראות</string>
+    <string name="notifications_empty">אין עדיין התראות.</string>
+    <string name="notifications_signed_out_title">צריך להתחבר כדי לראות התראות</string>
+    <string name="notifications_signed_out_body">תשובות לשאלות שלך, פרחים ותודות יופיעו כאן.</string>
+    <string name="notifications_phone_title">התראות בטלפון</string>
+    <string name="notifications_phone_body">Stips+ יבדוק בערך כל 15 דקות אם יש התראות או הודעות חדשות (פחות מ־1MB ביום). אפשר לכבות את זה בהגדרות.</string>
+    <string name="notifications_phone_turn_on">הפעלה</string>
+    <string name="notifications_permission_denied">ההתראות של Stips+ כבויות. אפשר להפעיל אותן בהגדרות של אנדרואיד.</string>
+    <string name="notification_channel_name">עדכונים מסטיפס</string>
+    <string name="notification_channel_description">תשובות חדשות, פרחים, תודות והודעות בסטיפס.</string>
+    <string name="notification_title">סטיפס</string>
+    <plurals name="notification_messages">
+        <item quantity="one">יש לך הודעה חדשה</item>
+        <item quantity="two">יש לך 2 הודעות שלא נקראו</item>
+        <item quantity="many">יש לך %d הודעות שלא נקראו</item>
+        <item quantity="other">יש לך %d הודעות שלא נקראו</item>
+    </plurals>
+
+    <!-- v0.2: Profiles -->
+    <string name="profile_stat_questions">שאלות</string>
+    <string name="profile_stat_answers">תשובות</string>
+    <string name="profile_stat_flowers">פרחים</string>
+    <string name="profile_credibility">אמינות</string>
+    <string name="profile_credibility_scale">נקודות אמינות, מתוך 100</string>
+    <string name="credibility_low">נמוכה</string>
+    <string name="credibility_fair">בינונית</string>
+    <string name="credibility_good">טובה</string>
+    <string name="credibility_high">גבוהה מאוד</string>
+    <string name="profile_online_male">מחובר עכשיו</string>
+    <string name="profile_online_female">מחוברת עכשיו</string>
+    <string name="profile_age_male">בן %1$d</string>
+    <string name="profile_age_female">בת %1$d</string>
+    <string name="profile_member_for">בסטיפס כבר %1$s</string>
+    <string name="profile_add_bio">הוספת ביו</string>
+    <string name="profile_edit_bio">עריכת הביו</string>
+    <string name="profile_bio_hint">כמה מילים עליך</string>
+    <string name="profile_bio_saved">הביו נשמר.</string>
+    <string name="profile_change_photo">החלפת תמונת הפרופיל</string>
+    <string name="profile_photo_updated">תמונת הפרופיל עודכנה.</string>
+    <string name="profile_message">הודעה</string>
+    <string name="profile_my_stuff">הרשימות שלך</string>
+    <string name="profile_tab_activity">פעילות</string>
+    <string name="profile_tab_thanks">קיר התודות</string>
+    <string name="chart_half_year">בחצי השנה האחרונה</string>
+    <string name="chart_week_of">בשבוע של %1$s</string>
+    <string name="chart_this_week">השבוע</string>
+    <string name="chart_unavailable">הגרף לא זמין כרגע.</string>
+    <string name="flowered_answers_title">תשובות שקיבלו פרח</string>
+    <string name="flowered_empty">אין עדיין פרחים.</string>
+    <string name="thanks_empty">אין עדיין תודות.</string>
+    <string name="thanks_delete">מחיקת ההודעה</string>
+    <string name="thanks_delete_title">למחוק את ההודעה?</string>
+    <string name="thanks_delete_body">היא תוסר מקיר התודות שלך.</string>
+    <string name="thanks_deleted">ההודעה נמחקה.</string>
+    <string name="badge_moderator_m">נאמן סטיפס</string>
+    <string name="badge_moderator_f">נאמנת סטיפס</string>
+    <string name="badge_senior_moderator_m">נאמן בכיר</string>
+    <string name="badge_senior_moderator_f">נאמנה בכירה</string>
+    <string name="badge_expert_m">מומחה סטיפס</string>
+    <string name="badge_expert_f">מומחית סטיפס</string>
+    <string name="badge_senior_advisor_m">עונה בכיר</string>
+    <string name="badge_senior_advisor_f">עונה בכירה</string>
+    <plurals name="span_years">
+        <item quantity="one">שנה</item>
+        <item quantity="two">שנתיים</item>
+        <item quantity="many">%d שנים</item>
+        <item quantity="other">%d שנים</item>
+    </plurals>
+    <plurals name="span_months">
+        <item quantity="one">חודש</item>
+        <item quantity="two">חודשיים</item>
+        <item quantity="many">%d חודשים</item>
+        <item quantity="other">%d חודשים</item>
+    </plurals>
+
+    <!-- v0.2: Settings -->
+    <string name="settings_account">חשבון סטיפס</string>
+    <string name="settings_edit_profile">תמונת פרופיל וביו</string>
+    <string name="settings_edit_profile_summary">אפשר לשנות אותם בפרופיל שלך</string>
+    <string name="settings_safe_mode">מצב בטוח</string>
+    <string name="settings_safe_mode_summary">מסתיר שאלות שסטיפס מסמנת כלא מתאימות לכולם. נשמר בחשבון הסטיפס שלך.</string>
+    <string name="settings_account_details">שינוי פרטי המשתמש</string>
+    <string name="settings_change_password">שינוי סיסמה</string>
+    <string name="settings_on_site">באתר של סטיפס</string>
+    <string name="settings_updates">עדכונים</string>
+    <string name="settings_phone_notifications">התראות בטלפון</string>
+    <string name="settings_phone_notifications_summary">תשובות חדשות, פרחים, תודות והודעות. בדיקה בערך כל 15 דקות, פחות מ־1MB ביום.</string>
+    <string name="settings_phone_notifications_signed_out">צריך להתחבר קודם: ההתראות מגיעות מחשבון הסטיפס שלך.</string>
+    <string name="settings_live_new">שאלות חדשות בלייב</string>
+    <string name="settings_live_new_summary">שאלות חדשות מופיעות בבית מעצמן. בדיקה כל 30 שניות כשהבית פתוח (בערך 1MB לשעה).</string>
+    <string name="settings_stips">סטיפס</string>
+    <string name="settings_contact">יצירת קשר</string>
+    <string name="settings_rules">חוקי האתר</string>
+    <string name="settings_about_stips">אודות סטיפס</string>
+    <string name="settings_delete_account">מחיקת החשבון</string>
 </resources>

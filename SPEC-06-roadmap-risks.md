@@ -6,8 +6,9 @@
 |---|---|---|
 | **M0 Pipeline** | Repo, CI, signing, pre-releases | A green build installs on the owner's phone |
 | **M1 v0.1** | SPEC-01 v0.1 scope | Spikes S-01…S-06 pass on the owner's phone |
-| M2 v0.2 | Notifications (in-app), ask a question, report, per-app language, owner feedback | Owner uses it daily instead of the official app |
-| M3 v0.3 | Widget, shortcuts, tablet layout, lint in CI | DESIGN-PHILOSOPHY §13 checklist passes on every screen |
+| M2 v0.2 | Owner feedback: hot-first Home with Live, compact question header, pins, Get updates, answer links/editing/detaching, notifications, social profiles, photo and bio, account settings, motion | Owner uses it daily instead of the official app |
+| M2.5 v0.3 | Ask a question, report, per-app language | — |
+| M3 v0.4 | Widget, shortcuts, tablet layout, lint in CI | DESIGN-PHILOSOPHY §13 checklist passes on every screen |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes
@@ -26,7 +27,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-06 | Compile errors cost CI round trips (no local compiler) | Medium | Low | Versions from a CI-tested sample; signatures checked in source jars; `ci-status` branch for fast feedback |
 | R-07 | The signing key is lost | Low | High | CI secret + a backup file on the owner's computer |
 | R-08 | Users are mostly minors; their content is personal | Medium | Medium | Nothing stored beyond caches and the user's own saved list; hidden profile fields are never shown; no analytics |
-| R-09 | Unsafe content or harassment with no report button | Medium | Medium | "Open on Stips" to report there in v0.1; an in-app report action in v0.2 (`reports.send`) |
+| R-09 | Unsafe content or harassment with no report button | Medium | Medium | "Open on Stips" to report there; an in-app report action in v0.3 (`reports.send`) |
 
 ## 4. The permission request
 
@@ -59,4 +60,4 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | Q-01 | Does Stips permit an independent client, and on what conditions? | Going public |
 | Q-02 | Public name: keep "Stips+" or rename? | Going public |
 | Q-03 | Google Play, or GitHub/Obtainium only? | Going public |
-| Q-04 | Notifications: in-app only, or a periodic background check (costs battery and data)? | v0.2 |
+| Q-04 | ~~Notifications: in-app only, or a periodic background check?~~ **Both:** the in-app list always; the background check is opt-in (SPEC D-26) | Answered in v0.2 |

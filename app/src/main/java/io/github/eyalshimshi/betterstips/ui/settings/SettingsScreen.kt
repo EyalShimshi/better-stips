@@ -53,19 +53,56 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import io.github.eyalshimshi.betterstips.data.model.SITE_URL
+import io.github.eyalshimshi.betterstips.notify.Notifier
+import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
     val container = LocalAppContainer.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
+    val session by container.session.session.collectAsStateWithLifecycle()
     val timings by container.timings.recent.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val dynamicAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val store = container.settings
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    val failedText = stringResource(R.string.action_failed)
+    val toggleNotifications = rememberPhoneNotificationsToggle(snackbar)
+    val notificationsOn = settings.backgroundNotifications && Notifier.canPost(context)
+    var safeBusy by remember { mutableStateOf(false) }
+    fun toggleSafeMode() {
+        safeBusy = true
+        scope.launch {
+            try {
+                container.repository.setSafeMode(!session.safeFilter)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                snackbar.showSnackbar(failedText)
+            } finally {
+                safeBusy = false
+            }
+        }
+    }
+    val external: @Composable () -> Unit = {
+        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.opens_in_browser))
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }, navigationIcon = { BackButton(onBack) }) },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         LazyColumn(
             Modifier
@@ -73,6 +110,68 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 32.dp),
         ) {
+            if (session.signedIn) {
+                item(key = "account") {
+                    Column {
+                        GroupLabel(stringResource(R.string.settings_account))
+                        GroupRow(
+                            stringResource(R.string.settings_edit_profile),
+                            0,
+                            5,
+                            onOpenMyProfile,
+                            summary = stringResource(R.string.settings_edit_profile_summary),
+                        )
+                        GroupRow(
+                            title = stringResource(R.string.settings_safe_mode),
+                            summary = stringResource(R.string.settings_safe_mode_summary),
+                            index = 1,
+                            count = 5,
+                            onClick = if (safeBusy) null else ({ toggleSafeMode() }),
+                            trailing = { Switch(checked = session.safeFilter, onCheckedChange = null, enabled = !safeBusy) },
+                        )
+                        GroupRow(
+                            stringResource(R.string.settings_account_details),
+                            2,
+                            5,
+                            { openInBrowser(context, "$SITE_URL/settings/account-details") },
+                            summary = stringResource(R.string.settings_on_site),
+                            trailing = external,
+                        )
+                        GroupRow(
+                            stringResource(R.string.settings_change_password),
+                            3,
+                            5,
+                            { openInBrowser(context, "$SITE_URL/settings/change-password") },
+                            summary = stringResource(R.string.settings_on_site),
+                            trailing = external,
+                        )
+                        GroupRow(stringResource(R.string.sign_out), 4, 5, { scope.launch { container.session.signOut() } })
+                    }
+                }
+            }
+            item(key = "updates") {
+                Column {
+                    GroupLabel(stringResource(R.string.settings_updates))
+                    GroupRow(
+                        title = stringResource(R.string.settings_phone_notifications),
+                        summary = stringResource(
+                            if (session.signedIn) R.string.settings_phone_notifications_summary else R.string.settings_phone_notifications_signed_out,
+                        ),
+                        index = 0,
+                        count = 2,
+                        onClick = { toggleNotifications(!notificationsOn) },
+                        trailing = { Switch(checked = notificationsOn, onCheckedChange = null) },
+                    )
+                    GroupRow(
+                        title = stringResource(R.string.settings_live_new),
+                        summary = stringResource(R.string.settings_live_new_summary),
+                        index = 1,
+                        count = 2,
+                        onClick = { store.update { it.copy(autoRefreshNew = !it.autoRefreshNew) } },
+                        trailing = { Switch(checked = settings.autoRefreshNew, onCheckedChange = null) },
+                    )
+                }
+            }
             item(key = "colors") {
                 Column {
                     GroupLabel(stringResource(R.string.settings_colors))
@@ -201,6 +300,22 @@ fun SettingsScreen(onBack: () -> Unit) {
                             )
                         }
                     }
+                }
+            }
+            item(key = "stips") {
+                Column {
+                    GroupLabel(stringResource(R.string.settings_stips))
+                    GroupRow(stringResource(R.string.settings_contact), 0, 4, { openInBrowser(context, "$SITE_URL/contact-us") }, trailing = external)
+                    GroupRow(stringResource(R.string.settings_rules), 1, 4, { openInBrowser(context, "$SITE_URL/rules") }, trailing = external)
+                    GroupRow(stringResource(R.string.settings_about_stips), 2, 4, { openInBrowser(context, "$SITE_URL/about") }, trailing = external)
+                    GroupRow(
+                        stringResource(R.string.settings_delete_account),
+                        3,
+                        4,
+                        { openInBrowser(context, "$SITE_URL/delete-account") },
+                        summary = stringResource(R.string.settings_on_site),
+                        trailing = external,
+                    )
                 }
             }
             item(key = "about") {

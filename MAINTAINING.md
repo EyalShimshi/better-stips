@@ -56,6 +56,19 @@ Symptoms: feeds or questions stop loading, or show "Stips answered in a way the 
 3. Fix the parser in [Parsers.kt](app/src/main/java/io/github/eyalshimshi/betterstips/data/parse/Parsers.kt), add a trimmed, anonymized fixture under `app/src/test/resources/fixtures/`, and a test.
 4. **If Stips blocks the app** (for example by its User-Agent), stop and talk to them. Don't work around it.
 
+**Account calls** (profiles, pins, notifications, thanks wall; SPEC-04 §2.3) can't be probed without signing in. Check them on the phone: open your profile (counts, graphs, thanks wall), the bell on Home, and pin and unpin a question. A profile is public, so `profile.page_data` and `profile.actions_chart` can still be probed from PowerShell with any user id:
+
+```powershell
+$p = [uri]::EscapeDataString('{"userid":275580,"action":"ans"}')
+(Invoke-WebRequest "https://stips.co.il/api?name=profile.actions_chart&api_params=$p" -UseBasicParsing).Content.Substring(0, 300)
+```
+
+## Phone notifications
+
+- Off by default. When turned on (Settings → Updates, or the card on the notifications screen), `Notifier.schedule` registers job **4201** with Android's JobScheduler: every 15 minutes, any network, kept across reboots. Turning it off cancels the job and forgets what was seen.
+- Each run asks `messages.count`; only when notifications are waiting does it read `notifications.list` (Stips then treats them as seen, as when the bell is opened on the site).
+- Debug on a connected phone: `adb shell cmd jobscheduler run -f io.github.eyalshimshi.betterstips 4201` runs it now; `adb shell dumpsys jobscheduler | Select-String betterstips` shows when it last ran.
+
 ## Data files
 
 | File | What | Rule |

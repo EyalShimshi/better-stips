@@ -75,6 +75,30 @@
 | Profile | `profile.page_data` | — |
 | Report | `reports.send` | — |
 
+**Account calls used since v0.2** (read in the web bundle and watched on the site with the owner's account, D-22; write calls were watched, not sent, unless noted):
+
+| Purpose | `name` | Parameters | Returns / notes |
+|---|---|---|---|
+| A user | `omniobj` GET | `{"objType":"user","data":{"id":…}}` | `data.points` (credibility 0–100), `data.gender` (1 male, 2 female), `extra.photostamp`, `extra.item_profile.online` |
+| Profile page | `profile.page_data` | `{"userid":…}` | `questions`, `answers`, `flowers`, `age`, `hebrew_active_since` ("6 שנים ו-9 חודשים"), `badges[{name}]`, `user_profile_page.data.text_status` (bio), `user_profile_page.meta.permissions.edit`; older profiles: `profile_quote` |
+| Activity graph | `profile.actions_chart` | `{"userid":…,"action":"ans"}` (`ans` · `ask` · `flowers`) | `chartData[{time:"2026/10/25 00:00:00", actionsCount}]`: 26 weekly points, newest first |
+| Answers that got a flower | `objectlist` | `{"method":"ans.flower_for_user","userid":…,"page":1}` | Answers with `extra.parent_item_title` |
+| Thanks wall | `objectlist` | `{"objType":"thanksmsg","userid":…,"page":1}` | 30 per page: `data{id, fromuserid, touserid, msg, time}`, `extra.item_profile` (the writer), `meta.permissions.deleteWithoutMsg` (the wall's owner) |
+| Delete a thanks message | `omniobj` DELETE | `{"objType":"thanksmsg","data":{"id":…}}` | — |
+| Notifications | `notifications.list` | `{"page":1}` | `[{id, contentHtml, msgText, linkPageName ("ask"·"profile"), linkItemId, viewed, time, type}]`; types are words like `new_ask_ans_registered` |
+| Unread counts | `messages.count` | `{}` | `{messagesCount, notificationsCount}` |
+| Pin / unpin | `item.add_pin` | `{"id":…,"minus":false}` (`true` unpins) | The question's `data.user_pinned` is 1 when pinned (−1 when never pinned); pinned list: `ask.user_activity` with `pinned`. *Sent once by mistake during research and undone at once* |
+| Is following | `smartdata.get` | `{"namespace":"ask","unit":"AskAdditionalData","id":…}` | `results.notificationsRegistered` |
+| Follow / unfollow | `item.notifications_register` | `{"objType":"ask","id":…,"add":true}` | The site does this after an answer when its "קבלת עדכונים" toggle is on (the default) |
+| Edit an answer | `omniobj` POST (`rest_action`) | `{"objType":"ans","data":{"id", "a", "link1", "link1name"}}` | Only while the answer's `meta.permissions.edit` is true (it expires) |
+| Detach an answer from your account | `item.set_anonymous` | `{"objType":"ans","id":…}` | Offered when `meta.permissions.itemOwner`; the site confirms first |
+| A link's title | `smartdata.get` | `{"namespace":"utils","unit":"GetUrlMeta","url":…}` | `results.title` (may be empty); names the one link an answer can carry (`link1`, `link1name`) |
+| Safe mode | `user.update.settings` | `{"userid":…,"settings_name":"safeFilter","value":true}` | Stored on the account |
+| Bio | `omniobj` POST | `{"objType":"user_profile_page","data":{"userid","text_status"}}` with `api_params {"createIfNotExist":true}` | — |
+| Profile photo | multipart POST to `https://stips.co.il/scripts/upload/photo.asp?photo_type=profile_photo` (field `file`), then `profile.set_thumbnail` | `{"userid","x0","x1","y0","y1"}` (the crop square) | Upload answers `{success, error}`. The site adds `&flip=yes` / `&rotateR=yes` for camera photos; the app straightens the photo itself |
+
+Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f50057`, 30 yellow `#FDD835`, 50 indigo `#3f51b5`, 80 green `#09c286`. Badge codes: `moderator` (נאמן/ת סטיפס), `senior_moderator` (נאמן/ה בכיר/ה), `old_expert` (מומחה/ית סטיפס), `senior_advisor` (עונה בכיר/ה), `custom_rank`.
+
 ### 2.4 Question (`objType: "ask"`)
 
 | Field | Example | Use |
@@ -87,6 +111,8 @@
 | `data.anonflg` | `true` | Asked anonymously (no profile link) |
 | `data.photo` | `4791385491` or `unsplash:StifWyrXbdc` | Cover image (§2.6) |
 | `data.answer_count`, `data.pin_count` | `13`, `0` | Counts |
+| `data.q_link` | `https://example.com/…` | A link the asker attached (shown under the title) |
+| `data.user_pinned` | `1`, `0`, `-1` | 1 = pinned by the signed-in user |
 | `data.channel_id` | `4` | `0` = no channel |
 | `extra.hebrew_time` | "33 שניות" | The server's relative time (Hebrew only; the app formats its own) |
 | `extra.url` | `ask/19745126/<slug>` | Share link path |
@@ -107,6 +133,8 @@
 | `extra.userVote` | The current user's vote |
 | `extra.flowered` | Picked as a best answer (a "flower") |
 | `extra.item_profile` | The answerer |
+| `extra.parent_item_title` | The question's title (in lists of a user's answers) |
+| `meta.permissions.edit`, `meta.permissions.itemOwner` | The signed-in user may edit it (time-limited) / wrote it |
 
 ### 2.6 Images
 
@@ -143,6 +171,8 @@ The snapshot, with every channel's full gradient, ships as `app/src/main/assets/
 | Channels config | < 1 KB | 1.4 KB | 0.1 s |
 
 Browsing 100 questions with thumbnails costs roughly 0.5–1 MB; opening questions with large covers adds about 50 KB each.
+
+Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day.
 
 ## 3. Data model (in the app)
 

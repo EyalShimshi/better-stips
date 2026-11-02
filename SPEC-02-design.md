@@ -26,29 +26,37 @@
 
 ```mermaid
 flowchart TD
-  Home[Home: feed] --> Q[Question]
+  Home[Home: hot cards + new feed] --> Q[Question]
+  Home --> Hot[All hot questions]
   Home --> Topic[Topic feed]
-  Home --> Settings
+  Home --> Notif[Notifications]
+  Notif --> Q
+  Notif --> User[User profile]
   Q --> Topic
   Q --> SignIn[Sign in]
+  Q --> User
   Chats --> Conv[Conversation]
   Chats --> SignIn
-  Profile --> SignIn
-  Profile --> Mine[My questions / My answers]
+  Profile[Profile: my profile] --> SignIn
+  Profile --> Mine[Pinned / My questions / My answers]
   Profile --> Saved
   Profile --> Settings
+  Profile --> Q
+  User --> Conv
+  User --> Q
   Mine --> Q
   Saved --> Q
   Topic --> Q
-  Q --> Conv
+  Hot --> Q
 ```
 
 ## 4. Navigation and adaptive layout
 
-- **Bottom bar:** Home · Chats · Profile (icons with labels; filled icon when selected). It hides on inner screens.
+- **Bottom bar:** Home · Chats · Profile (icons with labels; filled icon when selected; Chats shows the unread count). It hides on inner screens, sliding away.
 - **Back:** system back and predictive back everywhere; the top bar's back arrow mirrors in RTL.
-- **Deep links:** `https://stips.co.il/ask/<id>` opens the question screen.
-- **Widths:** v0.1 is phone-first (compact). Rail and two-pane layouts are backlog items.
+- **Motion (D-32):** a new screen slides in from the end over the current one, which drifts a quarter of the way toward the start; Back reverses it. Tabs fade through (out 90 ms, in 210 ms). During the predictive back gesture the screen follows the finger toward the edge it was swiped from, and the screen below slides in from a quarter away. The *Animations* switch turns all of it off.
+- **Deep links:** `https://stips.co.il/ask/<id>` opens the question, `/profile/<id>` the profile, `/messages` the Chats tab. The same links work from phone notifications and inside answers.
+- **Widths:** phone-first (compact). Rail and two-pane layouts are backlog items.
 
 ## 5. Screens
 
@@ -56,49 +64,56 @@ flowchart TD
 
 ```
 ┌──────────────────────────────────────┐
-│ ( 🔍 Search a topic            ) ⚙   │  pill, surfaceContainerHigh
-│ [  New  |  Hot  ]                    │  segmented
+│ ( 🔍 Search a topic            ) 🔔² │  pill + notifications bell with badge
 │ (All) (● Music) (● Studies) (● Tech)…│  channel chips, scroll
-│ (Now) (Today) (Week)          ← Hot  │  window chips, only for Hot
-├──────────────────────────────────────┤
-│ ▢  Is my pendant nice? Paid 1000 ₪…  │  56 dp cover · title, 2 lines
-│    3 answers · 5 min · Mendy         │  bodyMedium, onSurfaceVariant
-│ ▢  What's the best way to study…     │
-│    12 answers · 1 h · Anonymous      │
+│ Hot right now                See all │
+│ ┌────────────────┐ ┌───────────      │  5 cards, 280×196 dp, snap scroll
+│ │ cover photo  1 │ │ cover…          │  rank badge, dark gradient,
+│ │ Title over the │ │                 │  white title on the photo
+│ │ photo, 3 lines │ │                 │
+│ └────────────────┘ └───────────      │
+│ New questions           (● Live)     │  Live chip: pulsing dot when on
+│ ▢  Is my pendant nice? Paid 1000 ₪…  │  56 dp cover · title, 3 lines
+│    3 answers · 2 pins · 5 min · Mendy│
 │               …                      │
 └──────────────────────────────────────┘
 ```
 
-- Pull to refresh; the next page loads near the end; "That's everything" at the end.
-- First launch with nothing cached: 6 skeleton rows. Later launches: the last-seen page at once.
+- Pull to refresh reloads both. The next page of New loads near the end; "That's everything" at the end.
+- **Live** (off by default, also in Settings): every 30 s while Home is on screen, new questions slide in at the top (items animate into place).
+- First launch with nothing cached: skeleton cards and rows. Later launches: the last-seen page at once.
 - Errors replace the list only when nothing is shown: "Can't reach Stips right now." + *Retry*. Otherwise a snackbar with *Retry*.
 
-### 5.2 Question (hero)
+### 5.2 Question (compact hero)
 
 ```
 ┌──────────────────────────────────────┐
-│ ←                        🔖  ⤴  ↗   │  save · share · open on Stips
+│ ←                     📌3  🔔  ⤴  ⋮  │  pin+count · updates · share · more
+│░░░░░░░░ cover photo, cropped ░░░░░░░░│  the photo is a background,
+│░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│  slight parallax on scroll
+│▒▒ Is my pendant nice? Paid 1000 ₪… ▒▒│  title fades out of the photo
+│ ◯ Mendy · 5 min · Studies · 3 pins   │  (surface gradient at its bottom)
+│ #money #prices · 🔗 example.com      │  compact tags · the asker's link
+│ Body text, 3 lines…        Show more │  clamped
+├──────────────────────────────────────┤  ≤ half the screen until here
+│ 3 answers                            │
 │ ┌──────────────────────────────────┐ │
-│ │          cover image             │ │  20 dp corners, max 220 dp
+│ │ ◯ Anonymous · 24 min    🌸   ⋮   │ │  ⋮ on your own answers:
+│ │ Answer text…                     │ │    Edit (while allowed) · Detach
+│ │ 🔗 Source                         │ │  the answer's link
+│ │ ▲ 4 ▼                            │ │
 │ └──────────────────────────────────┘ │
-│ Photo: Damien Dufour · Unsplash      │  labelSmall
-│ Is my pendant nice? Paid 1000 ₪…     │  headlineSmall, bold
-│ Body text with a https://link…       │  bodyLarge, selectable
-│ (#money) (#prices)                   │  topic chips → topic feed
-│ ◯ Mendy · 5 min · Studies            │  avatar + meta
-│ 3 answers                            │  titleMedium
-│ ┌──────────────────────────────────┐ │
-│ │ ◯ Anonymous · 24 min      🌸     │ │  answer card, surfaceContainerLow
-│ │ Answer text…                     │ │
-│ │ ▲ 4 ▼                            │ │  vote (signed in)
-│ └──────────────────────────────────┘ │
-│ Loaded in 0.31 s                     │  labelSmall
 ├──────────────────────────────────────┤
-│ [ Write an answer…          ] (➤)    │  composer; anonymous switch above
+│ (Anonymous) (🔗 Add link) (🔔 Get updates) │  composer chips
+│ [ Write an answer…          ] (➤)    │
 └──────────────────────────────────────┘
 ```
 
-- Signed out, the composer is a tonal button: *Sign in to answer*.
+- Scrolling down collapses the header into a top bar that shows only the question's title (fade and slide, on a surface that tints as it fills).
+- Without a cover the header is tinted surface; nothing else changes.
+- *Add link* opens a dialog with one field ("Paste the link here"); the link's page title becomes its name, as on the site. One link per answer.
+- Editing an answer reuses the composer with a banner "Editing your answer" and Cancel.
+- Signed out, the composer is a tonal button: *Sign in to answer*; pin and updates lead to sign-in.
 - Tinted with the channel's scheme when the question has a channel.
 - Not found (`API_ERROR_EOF`): "This question was deleted or doesn't exist." + *Go back*.
 
@@ -133,21 +148,36 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 └──────────────────────────────────────┘
 ```
 
-### 5.5 Profile
+### 5.5 Profile (everyone's, social-style)
 
 ```
 ┌──────────────────────────────────────┐
-│        ◯ (photo)                     │
-│        Itay · 1,240 points           │
-│ ┌ My questions                     ┐ │  grouped card rows
-│ ├ My answers                       ┤ │
-│ └ Saved                            ┘ │
-│ ┌ Settings                         ┐ │
-│ └ Sign out                         ┘ │
+│ ←  Itay (appears on scroll)   ⤴  ⚙   │  ⚙ only on your own profile
+│ ◯ photo 📷     120      3,816  1,387 │  stats: questions · answers ·
+│ (88 dp)     Questions Answers Flowers│  flowers (tap → that graph)
+│ Itay                                 │  headlineSmall bold
+│ Online now                           │  only for others
+│ (🏅 Senior answerer) (🎂 17) (📅 On Stips for 6 years, 9 months) │
+│ Bio text…                            │
+│ ( 💬 Message )   or   ( ✎ Edit bio ) │
+│ ┌──────────────────────────────────┐ │
+│ │   ◜‾‾‾‾◝    Credibility          │ │  semicircle gauge, the site's
+│ │  (  93  )   Excellent            │ │  four bands tuned to the theme,
+│ │             points, out of 100   │ │  fills in reading direction
+│ └──────────────────────────────────┘ │
+│ Your lists: Pinned · My questions · My answers (· Saved)   │ own profile only
+│ [  Activity  |  Thanks wall  ]       │  sticky tabs
+│ [Answers|Questions|Flowers]          │  segmented
+│ 142  In the last 6 months            │  tap a bar: that week's count
+│ ▁▃▅▂▇▁▁▃▅▆▂▁▃▅▂▇▁▁▃▅▆▂▁▃▅▂           │  26 weekly bars, oldest → newest
+│ Flowers: answers that got a flower (question title, answer, time) │
+│ Thanks wall: speech bubbles from their writers; 🗑 on your own    │
 └──────────────────────────────────────┘
 ```
 
-Signed out: a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
+- Tapping any name or avatar (answers, thanks wall, chats, notifications) opens that user's profile.
+- On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (250 characters).
+- Signed out, the Profile tab is a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
 
 ### 5.6 Sign in
 
@@ -166,16 +196,37 @@ Signed out: a `secondaryContainer` card — "Sign in to answer, chat and see you
 
 ### 5.7 Settings
 
-Groups (DESIGN-PHILOSOPHY §8): **Colors** (Dynamic color · Accent swatches · Theme System/Light/Dark · Pure black) · **Interface** (Show images · Animations) · **Performance** (recent timings) · **About** (version, license, source, report a problem, disclaimer).
+Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and bio → your profile · Safe mode · Account details ↗ · Change password ↗ · Sign out) · **Updates** (Phone notifications · Live new questions, each with its data cost) · **Colors** (Dynamic color · Accent swatches · Theme System/Light/Dark · Pure black) · **Interface** (Show images · Animations) · **Performance** (recent timings) · **Stips** (Contact ↗ · Rules ↗ · About Stips ↗ · Delete account ↗) · **About** (version, license, source, report a problem, disclaimer). ↗ rows open the Stips site in the browser.
+
+### 5.8 Notifications
+
+```
+┌──────────────────────────────────────┐
+│ ←  Notifications                     │
+│ ┌ Get notified on your phone       ┐ │  only while phone notifications
+│ │ …every 15 minutes, under 1 MB…   │ │  are off; *Turn on* asks Android's
+│ └ ( Turn on )                      ┘ │  permission (13+)
+│ (💬) Dana answered your question… • │  unread: bold, tinted row, dot
+│      5 min                           │
+│ (🌸) Your answer got a flower        │  icon by type: answer, flower,
+│      2 h                             │  thanks, badge, message, other
+└──────────────────────────────────────┘
+```
+
+- Tapping opens the question or profile. Pull to refresh; older pages load at the end.
+- Opening the list clears the bell's badge (Stips marks them seen, as on the site).
+- Phone notifications: channel "Stips updates"; up to 5 new items per check, plus one "You have N unread messages"; tapping opens the item in the app.
 
 ## 6. System surfaces
 
-| Surface | v0.1 |
+| Surface | Since v0.2 |
 |---|---|
-| Share sheet | Question links |
-| Browser | "Open on Stips", sign-up and password reset |
-| Link handling | `stips.co.il/ask/…` (user-enabled) |
-| Notifications, widget, shortcuts | Later (SPEC-06) |
+| Share sheet | Question and profile links |
+| Browser | "Open on Stips", sign-up, password reset, the account pages in Settings |
+| Link handling | `stips.co.il/ask/…`, `/profile/…`, `/messages` (user-enabled) |
+| Notifications | Opt-in phone notifications (channel "Stips updates"), checked every ~15 minutes |
+| Photo picker | Choosing a profile photo (no storage permission) |
+| Widget, shortcuts | Later (SPEC-06) |
 
 ## 7. Localization
 

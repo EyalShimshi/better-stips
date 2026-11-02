@@ -108,6 +108,12 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
         }
     }
 
+    /** Keeps the local copy of the account's safe-mode setting in step after changing it on Stips. */
+    fun setSafeFilter(on: Boolean) {
+        val current = _session.value
+        if (current.signedIn) save(current.copy(safeFilter = on))
+    }
+
     suspend fun signOut() {
         try {
             withTimeout(5_000) { api.call("user.logout") }
