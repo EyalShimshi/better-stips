@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Stips+</string>
+
+    <!-- Navigation -->
+    <string name="tab_home">Home</string>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_profile">Profile</string>
+
+    <!-- Actions -->
+    <string name="action_settings">Settings</string>
+    <string name="action_back">Back</string>
+    <string name="action_go_back">Go back</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_save">Save</string>
+    <string name="action_unsave">Remove from saved</string>
+    <string name="action_share">Share</string>
+    <string name="action_open_site">Open on Stips</string>
+    <string name="action_send">Send</string>
+    <string name="action_sign_in">Sign in</string>
+
+    <!-- Feed -->
+    <string name="search_topic_hint">Search a topic</string>
+    <string name="feed_new">New</string>
+    <string name="feed_hot">Hot</string>
+    <string name="channel_all">All</string>
+    <string name="window_now">Now</string>
+    <string name="window_today">Today</string>
+    <string name="window_week">This week</string>
+    <string name="window_month">This month</string>
+    <string name="anonymous">Anonymous</string>
+    <string name="no_answers">No answers yet</string>
+    <plurals name="answers_count">
+        <item quantity="one">%d answer</item>
+        <item quantity="other">%d answers</item>
+    </plurals>
+    <string name="time_just_now">Just now</string>
+    <plurals name="time_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="other">%d min</item>
+    </plurals>
+    <plurals name="time_hours">
+        <item quantity="one">%d h</item>
+        <item quantity="other">%d h</item>
+    </plurals>
+    <plurals name="time_days">
+        <item quantity="one">%d d</item>
+        <item quantity="other">%d d</item>
+    </plurals>
+    <string name="end_of_list">That\'s everything for now.</string>
+    <string name="empty_feed">No questions here yet</string>
+    <string name="empty_topic">No questions with this topic yet</string>
+    <string name="empty_my_list">Nothing here yet</string>
+    <string name="topic_title">#%1$s</string>
+
+    <!-- Errors -->
+    <string name="error_offline">Can\'t reach Stips. Check your connection and try again.</string>
+    <string name="error_server">Stips couldn\'t do that right now. Try again in a moment.</string>
+    <string name="error_server_message">Stips says: %1$s</string>
+    <string name="error_bad_response">Stips answered in a way the app doesn\'t understand. Try again, or report it from Settings.</string>
+    <string name="error_not_found">This question was deleted or doesn\'t exist.</string>
+    <string name="error_banned">Stips has blocked this account.</string>
+    <string name="error_signed_out">You\'re signed out. Sign in again to continue.</string>
+
+    <!-- Question -->
+    <string name="photo_credit">Photo: %1$s · Unsplash</string>
+    <string name="loaded_in">Loaded in %1$s s</string>
+    <string name="flower_cd">Picked as the best answer</string>
+    <string name="vote_up">Vote up</string>
+    <string name="vote_down">Vote down</string>
+    <string name="vote_failed">Couldn\'t save your vote. Try again.</string>
+    <string name="composer_hint">Write an answer…</string>
+    <string name="composer_anonymous">Answer anonymously</string>
+    <string name="sign_in_to_answer">Sign in to answer</string>
+    <string name="answer_problem_empty">Write something first.</string>
+    <string name="answer_problem_long">That\'s too long: up to %1$d characters.</string>
+    <string name="answer_problem_repeated">Stips doesn\'t accept the same letter three times in a row.</string>
+    <string name="answer_posted">Your answer is posted.</string>
+
+    <!-- Chats -->
+    <string name="chats_title">Chats</string>
+    <string name="chats_signed_out_title">Sign in to see your chats</string>
+    <string name="chats_signed_out_body">Private messages with other Stips users show up here.</string>
+    <string name="chats_empty">No chats yet</string>
+    <string name="chats_empty_body">Chats start from someone\'s profile on Stips.</string>
+    <string name="you_prefix">You: %1$s</string>
+    <string name="message_hint">Message…</string>
+    <string name="load_earlier">Load earlier messages</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_signed_out_title">Sign in to Stips</string>
+    <string name="profile_signed_out_body">Answer questions, chat, and see your own questions and answers.</string>
+    <string name="points">Points: %1$d</string>
+    <string name="my_questions">My questions</string>
+    <string name="my_answers">Questions I answered</string>
+    <string name="saved_title">Saved</string>
+    <string name="saved_empty_title">Nothing saved yet</string>
+    <string name="saved_empty_body">Tap the bookmark on a question to keep it here. Saved questions stay on this phone.</string>
+    <string name="sign_out">Sign out</string>
+
+    <!-- Sign in -->
+    <string name="sign_in_title">Sign in to Stips</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="sign_in_privacy">Your password goes only to Stips. The app keeps only the sign-in token Stips gives back.</string>
+    <string name="sign_in_create_account">Create an account on Stips</string>
+    <string name="sign_in_forgot">Forgot your password?</string>
+    <string name="sign_in_failed">Stips didn\'t accept this email and password.</string>
+    <string name="disclaimer">An independent app, not affiliated with Stips.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_colors">Colors</string>
+    <string name="settings_dynamic">Dynamic color</string>
+    <string name="settings_dynamic_summary">Uses your wallpaper\'s colors.</string>
+    <string name="settings_dynamic_unavailable">Needs Android 12 or newer.</string>
+    <string name="settings_accent">Accent color</string>
+    <string name="settings_accent_summary">Picking a color turns dynamic color off.</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_pure_black">Pure black</string>
+    <string name="settings_pure_black_summary">In dark mode, uses true black backgrounds. Saves battery on OLED screens.</string>
+    <string name="settings_interface">Interface</string>
+    <string name="settings_images">Show images</string>
+    <string name="settings_images_summary">Question photos and profile pictures. About 30 KB per question; turning it off uses less data.</string>
+    <string name="settings_animations">Animations</string>
+    <string name="settings_animations_summary">Screen transitions. Off: instant changes.</string>
+    <string name="settings_performance">Performance</string>
+    <string name="settings_performance_empty">Load times show up here as you use the app.</string>
+    <string name="timing_feed">Feed page</string>
+    <string name="timing_question">Question and answers</string>
+    <string name="timing_value">%1$s s</string>
+    <string name="settings_about">About</string>
+    <string name="about_version">Version</string>
+    <string name="about_source">Source code</string>
+    <string name="about_source_summary">On GitHub (private for now)</string>
+    <string name="about_license">License</string>
+    <string name="about_license_summary">GNU GPL version 3 or later</string>
+    <string name="about_report">Report a problem</string>
+    <string name="about_report_summary">Opens a new issue on GitHub</string>
+
+    <!-- Crash -->
+    <string name="crash_title">The app closed unexpectedly</string>
+    <string name="crash_body">You can copy the details or report the problem on GitHub. Nothing was sent.</string>
+    <string name="crash_copy">Copy details</string>
+    <string name="crash_report">Report on GitHub</string>
+</resources>

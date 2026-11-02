@@ -1,0 +1,20 @@
+# Gradle and build output
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# Signing keys never belong in the repo
+*.keystore
+*.jks
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db

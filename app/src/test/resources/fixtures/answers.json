@@ -1,0 +1,4 @@
+{"status":"ok","data":[
+{"objType":"ans","data":{"id":105021432,"a":"לא צריך לחפש\nזה מגיע לבד","name":"אנונימית","link":"","link1":"https://example.com/a","link1name":"מקור","link2":"","link2name":"","link3":null,"link3name":null,"time":"2026/11/02 16:36:46","askid":19745077,"anonflg":true,"archive":false,"super_anonflg":false,"votes_count":3,"votes_score":"2","revision_flg":false},"extra":{"userVote":1,"flowered":true,"hebrew_time":"24 דקות","item_profile":{"nickname":"אנונימית","anonflg":true,"active":true}},"meta":{"active":true}},
+{"objType":"ans","data":{"id":105021500,"a":"תשובה שנייה","name":"משתמש","link1":"javascript:alert(1)","time":"bad time","askid":19745077,"anonflg":false,"votes_score":-1},"extra":{"item_profile":{"nickname":"משתמש","anonflg":false,"userid":1002,"photostamp":"","online":true}}}
+]}

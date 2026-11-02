@@ -1,0 +1,130 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # "basic" = the open-source cache on GitHub's own cache storage (the default is a commercial service).
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.5.0"
+          cache-provider: basic
+
+      # The same key for every build, so each APK installs over the previous one. The release build type
+      # signs with ~/.android/debug.keystore. Create the secret once: the keystore file in base64, under
+      # Settings → Secrets and variables → Actions → SIGNING_KEYSTORE_BASE64.
+      - name: Restore the signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p ~/.android
+          if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
+            echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          else
+            echo "::warning::SIGNING_KEYSTORE_BASE64 is missing: this APK is signed with a throwaway key and won't install over other builds."
+            echo "> ⚠️ No signing secret: this APK is signed with a throwaway key." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build
+        id: build
+        run: |
+          set -o pipefail
+          gradle assembleRelease --stacktrace 2>&1 | tee build.log
+
+      # The error lines, in a box on the run's Summary page: the agent reads it, or the owner pastes it.
+      - name: Show build errors in the summary
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          {
+            echo "## Build errors (copy everything in the box below)"
+            echo '```'
+            grep -E '^e: ' build.log | head -n 120 || true
+            grep -E -A 12 '^\* What went wrong' build.log | head -n 80 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Name the APK
+        id: apk
+        run: |
+          version="$(grep -oP 'val versionMajorMinor = "\K[^"]+' app/build.gradle.kts).${{ github.run_number }}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          cp app/build/outputs/apk/release/app-release.apk "stipsplus-${{ github.run_number }}.apk"
+
+      - name: Publish a pre-release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Stips+ ${{ steps.apk.outputs.version }}
+          prerelease: true
+          files: stipsplus-${{ github.run_number }}.apk
+
+      - name: Run unit tests
+        id: tests
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest --stacktrace 2>&1 | tee test.log
+
+      - name: Show test failures in the summary
+        if: failure() && steps.tests.outcome == 'failure'
+        run: |
+          {
+            echo "## Test failures (copy everything in the box below)"
+            echo '```'
+            grep -E -B 2 -A 8 'FAILED$' test.log | head -n 120 || true
+            grep -E '^e: ' test.log | head -n 60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The agent can't read Actions in a private repo, so each run also writes its outcome to the
+      # ci-status branch, which git can fetch. It never contains secrets: only error lines.
+      - name: Report to the ci-status branch
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          report="$RUNNER_TEMP/status.md"
+          {
+            echo "run: ${{ github.run_number }}"
+            echo "sha: ${{ github.sha }}"
+            echo "build: ${BUILD_OUTCOME:-skipped}"
+            echo "tests: ${TESTS_OUTCOME:-skipped}"
+            echo
+            echo "## Build errors"
+            [ -f build.log ] && grep -E '^e: ' build.log | head -n 150 || true
+            [ -f build.log ] && grep -E -A 15 '^\* What went wrong' build.log | head -n 80 || true
+            echo
+            echo "## Test failures"
+            [ -f test.log ] && grep -E -B 2 -A 12 'FAILED$' test.log | head -n 150 || true
+            [ -f test.log ] && grep -E '^e: ' test.log | head -n 60 || true
+          } > "$report"
+          dir="$RUNNER_TEMP/ci-status"
+          rm -rf "$dir" && mkdir -p "$dir" && cd "$dir"
+          git init -q -b ci-status
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp "$report" status.md
+          git add status.md
+          git commit -q -m "Run ${{ github.run_number }}: build ${BUILD_OUTCOME:-skipped}, tests ${TESTS_OUTCOME:-skipped}"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-status

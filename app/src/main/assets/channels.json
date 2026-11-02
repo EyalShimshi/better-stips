@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "updated": "2026-11-02",
+  "source": "https://stips.co.il/api?name=smartdata.get&api_params={\"namespace\":\"item\",\"unit\":\"RemoteConfig\"}",
+  "channels": [
+    { "id": 1, "name": "מוסיקה", "nameEn": "Music", "icon": "music", "colors": ["#ff5900", "#f27a00", "#fba100", "#ffc700", "#ffec27"] },
+    { "id": 8, "name": "בעלי חיים", "nameEn": "Animals", "icon": "animals", "colors": ["#7bd5fd", "#3bbafe", "#009dfc", "#007df5", "#3b58e3"] },
+    { "id": 4, "name": "לימודים", "nameEn": "Studies", "icon": "dna", "colors": ["#00b165", "#00bfc2", "#26c1f8"] },
+    { "id": 2, "name": "אינטרנט וטכנולוגיה", "nameEn": "Internet & tech", "icon": "technology", "colors": ["#1697b1", "#0074a1", "#00518c", "#002e71", "#00074e"] },
+    { "id": 7, "name": "סדרות וסרטים", "nameEn": "Series & movies", "icon": "movies", "colors": ["#af00c9", "#c90090", "#cb005c", "#bc0030", "#a30606"] },
+    { "id": 9, "name": "פילוסופיה", "nameEn": "Philosophy", "icon": "philosophy", "colors": ["#800080", "#a800b3", "#ea4fc9"] }
+  ]
+}

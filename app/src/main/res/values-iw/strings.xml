@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation -->
+    <string name="tab_home">בית</string>
+    <string name="tab_chats">שיחות</string>
+    <string name="tab_profile">פרופיל</string>
+
+    <!-- Actions -->
+    <string name="action_settings">הגדרות</string>
+    <string name="action_back">חזרה</string>
+    <string name="action_go_back">חזרה</string>
+    <string name="action_retry">לנסות שוב</string>
+    <string name="action_save">שמירה</string>
+    <string name="action_unsave">הסרה מהשמורים</string>
+    <string name="action_share">שיתוף</string>
+    <string name="action_open_site">פתיחה בסטיפס</string>
+    <string name="action_send">שליחה</string>
+    <string name="action_sign_in">התחברות</string>
+
+    <!-- Feed -->
+    <string name="search_topic_hint">חיפוש נושא</string>
+    <string name="feed_new">חדשות</string>
+    <string name="feed_hot">חמות</string>
+    <string name="channel_all">הכול</string>
+    <string name="window_now">עכשיו</string>
+    <string name="window_today">היום</string>
+    <string name="window_week">השבוע</string>
+    <string name="window_month">החודש</string>
+    <string name="anonymous">אנונימי</string>
+    <string name="no_answers">אין עדיין תשובות</string>
+    <plurals name="answers_count">
+        <item quantity="one">תשובה אחת</item>
+        <item quantity="two">שתי תשובות</item>
+        <item quantity="many">%d תשובות</item>
+        <item quantity="other">%d תשובות</item>
+    </plurals>
+    <string name="time_just_now">עכשיו</string>
+    <plurals name="time_minutes">
+        <item quantity="one">לפני דקה</item>
+        <item quantity="two">לפני 2 דקות</item>
+        <item quantity="many">לפני %d דקות</item>
+        <item quantity="other">לפני %d דקות</item>
+    </plurals>
+    <plurals name="time_hours">
+        <item quantity="one">לפני שעה</item>
+        <item quantity="two">לפני שעתיים</item>
+        <item quantity="many">לפני %d שעות</item>
+        <item quantity="other">לפני %d שעות</item>
+    </plurals>
+    <plurals name="time_days">
+        <item quantity="one">אתמול</item>
+        <item quantity="two">לפני יומיים</item>
+        <item quantity="many">לפני %d ימים</item>
+        <item quantity="other">לפני %d ימים</item>
+    </plurals>
+    <string name="end_of_list">זה הכול בינתיים.</string>
+    <string name="empty_feed">אין כאן שאלות עדיין</string>
+    <string name="empty_topic">אין עדיין שאלות בנושא הזה</string>
+    <string name="empty_my_list">אין כאן כלום עדיין</string>
+    <string name="topic_title">#%1$s</string>
+
+    <!-- Errors -->
+    <string name="error_offline">אין חיבור לסטיפס. כדאי לבדוק את החיבור ולנסות שוב.</string>
+    <string name="error_server">סטיפס לא הצליח לעשות את זה כרגע. אפשר לנסות שוב בעוד רגע.</string>
+    <string name="error_server_message">סטיפס: %1$s</string>
+    <string name="error_bad_response">התשובה מסטיפס לא ברורה לאפליקציה. אפשר לנסות שוב, או לדווח מההגדרות.</string>
+    <string name="error_not_found">השאלה נמחקה או שהיא לא קיימת.</string>
+    <string name="error_banned">סטיפס חסם את החשבון הזה.</string>
+    <string name="error_signed_out">ההתחברות הסתיימה. צריך להתחבר שוב כדי להמשיך.</string>
+
+    <!-- Question -->
+    <string name="photo_credit">צילום: %1$s · Unsplash</string>
+    <string name="loaded_in">נטען תוך %1$s שנ׳</string>
+    <string name="flower_cd">נבחרה כתשובה הטובה ביותר</string>
+    <string name="vote_up">הצבעה בעד</string>
+    <string name="vote_down">הצבעה נגד</string>
+    <string name="vote_failed">לא הצלחנו לשמור את ההצבעה. אפשר לנסות שוב.</string>
+    <string name="composer_hint">לכתוב תשובה…</string>
+    <string name="composer_anonymous">לענות באנונימיות</string>
+    <string name="sign_in_to_answer">להתחבר כדי לענות</string>
+    <string name="answer_problem_empty">צריך לכתוב משהו קודם.</string>
+    <string name="answer_problem_long">ארוך מדי: עד %1$d תווים.</string>
+    <string name="answer_problem_repeated">סטיפס לא מקבל אותה אות שלוש פעמים ברצף.</string>
+    <string name="answer_posted">התשובה פורסמה.</string>
+
+    <!-- Chats -->
+    <string name="chats_title">שיחות</string>
+    <string name="chats_signed_out_title">להתחבר כדי לראות את השיחות</string>
+    <string name="chats_signed_out_body">הודעות פרטיות עם משתמשים אחרים בסטיפס יופיעו כאן.</string>
+    <string name="chats_empty">אין עדיין שיחות</string>
+    <string name="chats_empty_body">שיחות מתחילות מהפרופיל של מישהו בסטיפס.</string>
+    <string name="you_prefix">אני: %1$s</string>
+    <string name="message_hint">הודעה…</string>
+    <string name="load_earlier">טעינת הודעות קודמות</string>
+
+    <!-- Profile -->
+    <string name="profile_title">פרופיל</string>
+    <string name="profile_signed_out_title">התחברות לסטיפס</string>
+    <string name="profile_signed_out_body">לענות על שאלות, לשוחח ולראות את השאלות והתשובות שלך.</string>
+    <string name="points">נקודות: %1$d</string>
+    <string name="my_questions">השאלות שלי</string>
+    <string name="my_answers">שאלות שעניתי עליהן</string>
+    <string name="saved_title">שמורים</string>
+    <string name="saved_empty_title">עדיין אין שמורים</string>
+    <string name="saved_empty_body">אפשר לשמור שאלה בלחיצה על הסימנייה. השאלות השמורות נשארות רק בטלפון הזה.</string>
+    <string name="sign_out">התנתקות</string>
+
+    <!-- Sign in -->
+    <string name="sign_in_title">התחברות לסטיפס</string>
+    <string name="email">אימייל</string>
+    <string name="password">סיסמה</string>
+    <string name="show_password">הצגת הסיסמה</string>
+    <string name="hide_password">הסתרת הסיסמה</string>
+    <string name="sign_in_privacy">הסיסמה נשלחת רק לסטיפס. האפליקציה שומרת רק את אסימון ההתחברות שסטיפס מחזיר.</string>
+    <string name="sign_in_create_account">יצירת חשבון בסטיפס</string>
+    <string name="sign_in_forgot">שכחת את הסיסמה?</string>
+    <string name="sign_in_failed">סטיפס לא קיבל את האימייל והסיסמה האלה.</string>
+    <string name="disclaimer">אפליקציה עצמאית, ללא קשר לסטיפס.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">הגדרות</string>
+    <string name="settings_colors">צבעים</string>
+    <string name="settings_dynamic">צבעים דינמיים</string>
+    <string name="settings_dynamic_summary">לפי הצבעים של הטפט.</string>
+    <string name="settings_dynamic_unavailable">דורש אנדרואיד 12 ומעלה.</string>
+    <string name="settings_accent">צבע הדגשה</string>
+    <string name="settings_accent_summary">בחירת צבע מכבה את הצבעים הדינמיים.</string>
+    <string name="settings_theme">ערכת נושא</string>
+    <string name="theme_system">מערכת</string>
+    <string name="theme_light">בהירה</string>
+    <string name="theme_dark">כהה</string>
+    <string name="settings_pure_black">שחור מלא</string>
+    <string name="settings_pure_black_summary">במצב כהה, רקע שחור לגמרי. חוסך סוללה במסכי OLED.</string>
+    <string name="settings_interface">ממשק</string>
+    <string name="settings_images">הצגת תמונות</string>
+    <string name="settings_images_summary">תמונות של שאלות ותמונות פרופיל. כ־30KB לשאלה; כיבוי חוסך נתונים.</string>
+    <string name="settings_animations">אנימציות</string>
+    <string name="settings_animations_summary">מעברי מסך. כבוי: מעברים מיידיים.</string>
+    <string name="settings_performance">ביצועים</string>
+    <string name="settings_performance_empty">זמני הטעינה יופיעו כאן תוך כדי שימוש.</string>
+    <string name="timing_feed">עמוד בפיד</string>
+    <string name="timing_question">שאלה ותשובות</string>
+    <string name="timing_value">%1$s שנ׳</string>
+    <string name="settings_about">אודות</string>
+    <string name="about_version">גרסה</string>
+    <string name="about_source">קוד המקור</string>
+    <string name="about_source_summary">ב-GitHub (פרטי כרגע)</string>
+    <string name="about_license">רישיון</string>
+    <string name="about_license_summary">רישיון GNU GPL, גרסה 3 ואילך</string>
+    <string name="about_report">דיווח על בעיה</string>
+    <string name="about_report_summary">פותח דיווח חדש ב-GitHub</string>
+
+    <!-- Crash -->
+    <string name="crash_title">האפליקציה נסגרה באופן לא צפוי</string>
+    <string name="crash_body">אפשר להעתיק את הפרטים או לדווח על הבעיה ב-GitHub. שום דבר לא נשלח.</string>
+    <string name="crash_copy">העתקת הפרטים</string>
+    <string name="crash_report">דיווח ב-GitHub</string>
+</resources>

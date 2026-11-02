@@ -1,0 +1,5 @@
+{"status":"ok","data":{"messages":[
+{"id":5001,"msg":"תודה על התשובה","time":"2026/11/02 14:02:00","fromuserid":2002,"touserid":1001,"newCount":2,"itemProfile":{"userid":2002,"nickname":"יעל","photostamp":"123","online":true}},
+{"id":5000,"msg":"ok","time":"2026/11/01 20:00:00","fromuserid":1001,"touserid":2003,"newCount":0,"itemProfile":{"userid":2003,"nickname":"עומר","photostamp":""}},
+{"id":4999,"msg":"no profile, skipped"}
+]}}

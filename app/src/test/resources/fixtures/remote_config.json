@@ -1,0 +1,6 @@
+{"status":"ok","error_code":"","data":{"results":{"itemChannels":{"channels":[
+{"id":1,"name":"מוסיקה","icon":"music","slogan":null,"backgroundUrl":"","noChannelRemoveNotification":false,"backgroundColorCss":"linear-gradient(to right bottom, #ff5900, #f27a00, #fba100, #ffc700, #ffec27)"},
+{"id":8,"name":"בעלי חיים","icon":"animals","slogan":null,"backgroundUrl":"","noChannelRemoveNotification":false,"backgroundColorCss":"linear-gradient(to left top, #7bd5fd, #3bbafe, #009dfc, #007df5, #3b58e3)"},
+{"id":4,"name":"לימודים","icon":"dna","slogan":null,"backgroundUrl":"","noChannelRemoveNotification":false,"backgroundColorCss":"linear-gradient(to left top, #00b165, #00bfc2,#26c1f8)"},
+{"id":99,"name":"","icon":"broken"}
+]},"newStipsTest":""}},"exec_time":"12ms"}
