@@ -420,6 +420,19 @@ class StipsRepository(
         Parsers.messages(api.call("messages.from_user", params)).sortedBy { it.id }
     }
 
+    /**
+     * Messages in the thread newer than [afterId]: what the site's open chat asks every 1.6 s (`first_load: false`,
+     * no `history`). Stips+ asks every 3 s while a chat is on screen (#6).
+     */
+    suspend fun newMessages(userId: Long, afterId: Long): List<ChatMessage> = withSession {
+        val params = buildJsonObject {
+            put("userid", userId)
+            put("msgid", afterId)
+            put("first_load", false)
+        }
+        Parsers.messages(api.call("messages.from_user", params)).sortedBy { it.id }
+    }
+
     suspend fun sendMessage(userId: Long, text: String): Long? = withSession {
         Parsers.newId(
             api.call(

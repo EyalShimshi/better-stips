@@ -91,7 +91,19 @@
     <string name="chats_empty_body">שיחות מתחילות מהפרופיל של מישהו בסטיפס.</string>
     <string name="you_prefix">אני: %1$s</string>
     <string name="message_hint">הודעה…</string>
-    <string name="load_earlier">טעינת הודעות קודמות</string>
+    <string name="message_copied">ההודעה הועתקה</string>
+    <string name="presence_online">מחובר/ת</string>
+    <string name="chat_view_profile">לצפייה בפרופיל</string>
+    <string name="chat_credibility">אמינות %1$d</string>
+    <plurals name="chat_flowers">
+        <item quantity="one">פרח אחד</item>
+        <item quantity="two">שני פרחים</item>
+        <item quantity="many">%d פרחים</item>
+        <item quantity="other">%d פרחים</item>
+    </plurals>
+    <string name="chat_start">כאן מתחילה השיחה שלכם.</string>
+    <string name="chat_earlier_failed">לא הצלחנו לטעון הודעות קודמות. אפשר להקיש כדי לנסות שוב.</string>
+    <string name="chat_yesterday_at">אתמול, %1$s</string>
 
     <!-- Profile -->
     <string name="profile_title">פרופיל</string>

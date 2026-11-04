@@ -4,7 +4,7 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.6)
+## Features (v0.7)
 
 - **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it). Search finds topics and people.
 - **Home-screen widget:** "Hot right now" shows the hottest questions on your home screen, in your wallpaper's colors. Tap a question to open it, or ⟳ to refresh. Add it from your launcher's widgets, or from Settings → Updates.
@@ -15,7 +15,8 @@
 - **Report and hide:** report a question, answer or pen-pal post to Stips' moderators; hide an item or everything from one user (Settings → Hidden content brings it all back).
 - **Pen pals (חברים לעט):** read the board, post your own message, and tap a post to start a private chat.
 - **Profiles** for everyone: photo (tap to view it big), questions · answers · flowers, bio, badges, age, how long they've been on Stips, the **credibility** gauge, the **thanks wall** first (write on others', delete on yours), and activity graphs.
-- **Notifications:** Stips' list with new ones highlighted, a badge on the bell and on Chats, and optional **phone notifications**.
+- **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began.
+- **Notifications:** Stips' list with new ones highlighted until you open them, a badge on the bell and on Chats, and optional **phone notifications**.
 - **Settings:** safe mode, the Stips account pages, anonymous mode, hidden content, Live's rate, and **Diagnostics → Network log** for bug reports.
 - **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, haptic feedback, and transitions that follow your finger on predictive back.
 
@@ -48,7 +49,8 @@
 
 | What | When | Cost |
 |---|---|---|
-| Unread chats and notifications | Once a minute, only while the app is open and you're signed in | Under 1 KB each |
+| Unread chats and notifications | Every 10 seconds, only while the app is open and you're signed in | Under 1 KB each |
+| An open chat | New messages every 3 seconds, and whether the other person is online once a minute, only while the chat is on screen | Under 1 KB for each check with nothing new, about 1 MB an hour |
 | **Live** new questions | Every 5–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 6.7 MB at 5 s |
 | **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Updates) | Under 1 MB a day |
 | **Home-screen widget** | When Android wakes it (hourly), only if its list is over 30 minutes old; nothing extra when the app loaded the same list recently. Only if you add the widget | About 9 KB each, at most 0.2 MB a day |
@@ -77,4 +79,4 @@ There's nothing to install locally: GitHub Actions builds every push to `main` (
 
 ## בעברית
 
-**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ווידג'ט "חם עכשיו" למסך הבית, שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.
+**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ווידג'ט "חם עכשיו" למסך הבית, שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות חיות (מי מחובר/ת, והודעות חדשות תוך שניות). בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.

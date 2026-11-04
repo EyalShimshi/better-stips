@@ -149,7 +149,8 @@ private val tabs = listOf(
     Tab(Routes.PROFILE, R.string.tab_profile, Icons.Outlined.Person, Icons.Filled.Person),
 )
 
-private const val COUNTS_INTERVAL_MS = 60_000L
+/** Unread chats and notifications are asked this often while the app is on screen (#6; the site's lists: 5–10 s). */
+private const val COUNTS_INTERVAL_MS = 10_000L
 
 @Composable
 fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
@@ -177,7 +178,8 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         container.session.expired.collect { snackbar.showSnackbar(signedOutText) }
     }
 
-    // Unread chats and notifications: one tiny request a minute, only while the app is on screen and signed in.
+    // Unread chats and notifications: one tiny request every 10 s, only while the app is on screen and signed in,
+    // and only while the request budget has room (#6).
     LaunchedEffect(signedIn, lifecycleOwner) {
         if (!signedIn) {
             counts = UnreadCounts()

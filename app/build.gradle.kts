@@ -6,7 +6,7 @@ plugins {
 }
 
 // Raise the minor version every round. The build number comes from CI.
-val versionMajorMinor = "0.6"
+val versionMajorMinor = "0.7"
 val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 
 android {

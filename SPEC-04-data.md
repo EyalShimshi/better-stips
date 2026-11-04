@@ -122,6 +122,17 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 | Pen pals: my last post | `smartdata.get` | `{"namespace":"penfriends","unit":"LastMessageForUser"}` | `results.messageText` |
 | Pen pals: post | `omniobj` PUT | `{"objType":"penfriendsitem","data":{"msg"}}` | Up to 255 characters; ages 13–21 (the site's rule) |
 
+**Chats, as the site's chat screen calls them** (read in the web bundle for v0.7, #6):
+
+| Purpose | `name` | Parameters | Returns / notes |
+|---|---|---|---|
+| Open a chat | `messages.from_user` | `{"userid","msgid":0,"first_load":true}` | `messages[{id,msg,time,fromuserid,touserid}]`, the newest page; `userBlocked` |
+| New messages | `messages.from_user` | `{"userid","msgid":<the last id>,"first_load":false}` | Only messages after that id. The site asks every 1.6 s while a chat is open (`syncTime`); Stips+ every 3 s (D-53) |
+| Earlier messages | `messages.from_user` | `{"userid","msgid":<the first id>,"history":true}` (the site adds `"first_load":false`) | The page before that message, empty at the start. The site asks when the list is scrolled within 300 px of its top |
+| The chats list | `messages.list` | `{"page"}` | One row per person; `itemProfile{userid,nickname,photostamp,online}`. The site reloads it every 5 s while it's open |
+| Send | `messages.send` | `{"touserid","msg"}` | `{newid}`; the site treats a reply without it as a failure |
+| Who's in the chat | `omniobj` GET user | As "A user" above | The site's chat header shows the photo, the name and `online` |
+
 **Sessions and errors (measured in v0.3):**
 - Account calls made without a live session return `status: "ok"` with **empty data** (`messages.count` → 0/0, `notifications.list` → `[]`, `AskAdditionalData` → false). Only `user.get_app_user` fails, with "המשתמש אינו מחובר למערכת".
 - `user.login` with a token Stips no longer accepts returns `{"status":"ok","data":{"logged":false}}`.
@@ -203,7 +214,7 @@ The snapshot, with every channel's full gradient, ships as `app/src/main/assets/
 
 Browsing 100 questions with thumbnails costs roughly 0.5–1 MB; opening questions with large covers adds about 50 KB each.
 
-Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day. **The widget** asks for the first Hot page (≈9 KB) only when Android wakes it (hourly) and its copy is over 30 minutes old: at most 24 a day, ≈0.2 MB; nothing when the app loaded that list recently.
+Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB every 10 s while the app is open (≈0.3 MB an hour at most). **An open chat** asks for new messages every 3 s (under 1 KB when nothing is new, ≈1 MB an hour) and for the other person's profile once a minute, only while it's on screen. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day. **The widget** asks for the first Hot page (≈9 KB) only when Android wakes it (hourly) and its copy is over 30 minutes old: at most 24 a day, ≈0.2 MB; nothing when the app loaded that list recently.
 
 ### 2.10 Request limit (`IP_RATE_LIMIT`, #5)
 

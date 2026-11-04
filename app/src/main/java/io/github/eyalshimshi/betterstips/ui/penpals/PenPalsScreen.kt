@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -66,10 +65,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
-import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
+import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
@@ -259,21 +258,7 @@ private fun PenPalCard(
     ) {
         Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box {
-                    Avatar(post.author, 36.dp)
-                    if (post.author.online) {
-                        Box(
-                            Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(12.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                                .padding(2.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary),
-                        )
-                    }
-                }
+                PresenceAvatar(post.author, 36.dp, ring = MaterialTheme.colorScheme.surfaceContainerLow)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     AuthorName(post.author, MaterialTheme.typography.labelLarge)

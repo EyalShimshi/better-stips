@@ -85,7 +85,17 @@
     <string name="chats_empty_body">Chats start from someone\'s profile on Stips.</string>
     <string name="you_prefix">You: %1$s</string>
     <string name="message_hint">Message…</string>
-    <string name="load_earlier">Load earlier messages</string>
+    <string name="message_copied">Message copied</string>
+    <string name="presence_online">Online</string>
+    <string name="chat_view_profile">View profile</string>
+    <string name="chat_credibility">Credibility %1$d</string>
+    <plurals name="chat_flowers">
+        <item quantity="one">%d flower</item>
+        <item quantity="other">%d flowers</item>
+    </plurals>
+    <string name="chat_start">This is where your conversation starts.</string>
+    <string name="chat_earlier_failed">Couldn\'t load earlier messages. Tap to try again.</string>
+    <string name="chat_yesterday_at">Yesterday, %1$s</string>
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>

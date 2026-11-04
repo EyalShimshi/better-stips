@@ -53,7 +53,7 @@
 | D-22 | For v0.2 research the owner shared their Stips sign-in. The agent used it only in its own browser, mostly to read; it is not stored anywhere in the repo or the app | Learn the signed-in features (profiles, pins, follow, edit, notifications) from the real site. One pin was set by mistake and removed at once | Owner, agent |
 | D-23 | Home = the **top 5 hot questions as big cards**, then the New feed. A bell for notifications sits in Home's search bar; Settings moved to Profile | The owner's layout | Owner |
 | D-24 | **Live** new questions (chip on Home, switch in Settings) is opt-in: the New feed is checked every 30 s, only while Home is on screen (≈1 MB an hour) | The owner asked; refines D-13: it runs only while the user is looking | Owner |
-| D-25 | Unread chats and notifications are fetched once a minute while the app is on screen and signed in (`messages.count`, under 1 KB) | Badges must be current; the site polls the same call. Refines D-13 | Agent |
+| D-25 | Unread chats and notifications are fetched every 10 s (v0.2–v0.6: once a minute; D-53) while the app is on screen and signed in (`messages.count`, under 1 KB) | Badges must be current; the site polls the same call. Refines D-13 | Agent |
 | D-26 | **Phone notifications are opt-in.** A JobScheduler job checks every 15 minutes (≈96 tiny requests a day) and fetches the list only when the count says something is new. The first check only records where things stand. No Firebase, no WorkManager | Stips has no push service for other apps; JobScheduler is built in. Refines D-13 for users who turn it on | Owner (feature), agent (design) |
 | D-27 | **Pins** (Stips' own "save", with a count) replace the local bookmark on the question screen. The local Saved list stays for signed-out reading | Pins sync with the site and show how many people saved a question | Owner |
 | D-28 | Questions have a **Get updates** toggle (`item.notifications_register`); answering turns it on unless the composer's chip is off, like the site | The owner's ask; same behavior as the site | Owner |
@@ -81,6 +81,8 @@
 | D-50 | A manual workflow, "Probe Stips' rate limit" (`tools/probe_rate_limit.py`), re-measures the limit from GitHub's runners: `app` checks Stips+'s own pattern, `limit` triggers and times the limit without the Referer, `site` is a real browser page | Stips can change the rule. Each runner has its own address, and the owner's office network isolates web pages | Agent |
 | D-51 | **A "Hot right now" home-screen widget** (Jetpack Glance 1.2.0, the version in Google's CI-tested samples catalog): up to 10 hot questions with rank, title, answers and pins; tap a question to open it, the title to open the app, ⟳ to refresh. It shows the list any screen last loaded (Home's top cards load the same list), and by itself asks Stips only when Android wakes it (hourly), its copy is over 30 minutes old and the budget allows (D-46). Wallpaper colors when the app uses them (Android 12+), else the app's accent; the system's corner radius. Settings → Updates can ask the launcher to place it | The owner's ask; SPEC-01's backlog item; DESIGN-PHILOSOPHY §10. No times on rows: a widget may redraw only hourly, so "5 min" would mislead | Owner (ask), agent |
 | D-52 | **Opening the app warms up; waking it doesn't.** Refreshing the channels and restoring the session moved from app start to the first screen. A process started for the widget or the notification check makes only its own requests; account calls restore the session when they need it | Each background wake-up cost about 3 extra requests (channels, sign-in, profile) | Agent |
+| D-53 | **Chats keep up by themselves (#6).** An open chat asks for new messages every 3 s while it's on screen (`messages.from_user` after the last id), slowing to 24 s after failures, and asks for the other person's profile (photo, online status) once a minute. The unread counts are asked every 10 s while the app is open (D-25), and the chats list reloads quietly when they change. All of these wait while the request budget is low (D-46). Phone notifications in the background stay at every 15 minutes (D-26) | The owner's ask: messages faster, and faster still inside a chat. The site's own chat asks every 1.6 s, its chat list every 5 s and its notifications every 10 s. At these rates an open chat costs about 27 requests a minute, under the budget's 30 a minute; 15 minutes is the shortest Android allows for a background job | Owner (ask), agent (rates) |
+| D-54 | **Chats look like a messaging app (#6).** The chat's top bar shows the other person's photo, name and "Online now", and opens their profile. The chats list and pen pals show the same green dot as profiles. Bubbles are compact and show no time: a tap shows it ("14:05", "Yesterday, 14:05" or the date), a long-press copies the text, and each visit starts with every time folded. Earlier messages load by themselves when the top comes into view, without a "Load earlier" button. At the very start, a card sums up the other person (photo, credibility, answers, flowers, time on Stips). An opened notification leaves "New" at once | The owner's six asks in #6. The site loads history the same way, on scrolling up (`history: true`), and marks "online" on the photo. Messaging apps show a contact card where a chat begins | Owner (ask), agent (design) |
 
 ## Next steps
 
@@ -88,9 +90,21 @@
 2. Owner: change the Stips password that was shared for research (D-22).
 3. Owner: if the "Stips paused this phone" banner still appears, report the network log on GitHub (Settings → Diagnostics). It says how many requests went out before the refusal and how long it lasted.
 4. Owner: test the v0.3 account features: asking a question, pen-pal posts, reports, flowers, thanks messages, deleting your own question.
-5. Next round candidates: report and block from chats (`usermsgs`, `messages.block_user`), launcher shortcuts (Hot, Chats), choosing an Unsplash cover with our own Unsplash key.
+5. Owner: test the v0.7 chats (#6) with someone who answers: the online dot, the top bar, messages arriving within a few seconds, tap and long-press on bubbles, scrolling up to the start.
+6. Next round candidates: report and block from chats (`usermsgs`, `messages.block_user`), launcher shortcuts (Hot, Chats), choosing an Unsplash cover with our own Unsplash key.
 
 ## Implementation notes
+
+### Seventh build (v0.7, #6 chats)
+
+| Spec says / the site does | v0.7 does | Why / next step |
+|---|---|---|
+| The site's open chat asks for new messages every 1.6 s | Every 3 s while the chat is on screen, slower after failures (D-53) | About half the site's rate keeps an open chat within the request budget |
+| The site's chat list refreshes every 5 s, its bell every 10 s | The unread counts every 10 s; the chats list reloads when they change | One small request covers both badges and the list |
+| The site marks "online" with a pulsing green ring around the photo | A still green dot at the photo's corner, as Stips+'s profiles already showed | Readable at 36 dp; nothing moves in a list (DESIGN-PHILOSOPHY §4) |
+| The site loads older messages on scrolling up | The same, with a small spinner, down to a summary card at the start (D-54) | The "Load earlier" button is gone |
+| A time under every message | Times on tap only; a long-press copies (D-54) | The owner's ask; the text stays selectable in answers, not in bubbles |
+| Background phone notifications every 15 minutes | Unchanged | Android's minimum for a background job; anything faster needs a push service, which Stips doesn't offer other apps |
 
 ### Sixth build (v0.6, the widget)
 

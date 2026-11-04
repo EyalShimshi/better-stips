@@ -57,7 +57,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….data` | `StipsRepository`, `SessionStore`, `SavedStore`, `SettingsStore`, `FeedCache`, `Timings` |
 | `….ui` | `AppRoot` (scaffold, bottom bar, nav host), `Routes` |
 | `….ui.theme` | `Theme`, `SchemeGenerator` (pure), `Type` |
-| `….ui.components` | Cover/monogram, avatar, question row, states (empty, error, skeleton), linkified text |
+| `….ui.components` | Cover/monogram, avatar (with the online dot: `PresenceAvatar`), question row, states (empty, error, skeleton), linkified text |
 | `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.user`, `.notifications`, `.signin`, `.settings` | Screens and their ViewModels |
 | `….notify` | `Notifier` (channel, posting, scheduling) and `NotificationCheckJob` (JobScheduler, every 15 min, opt-in) |
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules) |
@@ -70,7 +70,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 
 - **Single activity**, Compose only, edge-to-edge, `enableOnBackInvokedCallback` for predictive back.
 - **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}`, `user/{id}`, `notifications`, `hot`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`. Custom enter/exit and predictive-back transitions (SPEC-02 §4).
-- **App-wide state through composition locals:** `LocalOpenProfile` (any name or avatar opens a profile) and `LocalUnreadCounts` (badges), provided by `AppRoot`, which polls `messages.count` once a minute while the app is started and signed in.
+- **App-wide state through composition locals:** `LocalOpenProfile` (any name or avatar opens a profile) and `LocalUnreadCounts` (badges), provided by `AppRoot`, which polls `messages.count` every 10 s while the app is started and signed in (D-25, D-53).
 - **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages) that `AppRoot` navigates to once.
 - **ViewModels** expose `StateFlow<UiState>`; screens collect with `collectAsStateWithLifecycle`. Factories come from `AppContainer` (no DI framework).
 - **Theme** reads `SettingsStore`: dynamic color → else a generated scheme from the accent; dark/light/system; pure black. A `ChannelTheme` wrapper re-themes a subtree with a channel's scheme.
@@ -81,7 +81,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 |---|---|
 | `StipsApi` | Builds `name` + JSON params; replaces `+` with `~MODU_PLUS_SIGN~`; GET for reads, form POST for writes and sign-in; parses the envelope; maps failures to `ApiException(code, message)` (429 → `RATE_LIMITED`, 403 → `BLOCKED`, 5xx → `SERVER`); tags each request with its method name for the log; drops idle connections after a network error; runs on `Dispatchers.IO` |
 | HTTP clients | **API: HTTP/2** on one connection (D-48), with the cookie jar and the site's Referer (D-49); 10 s connect / 20 s read / 30 s call timeouts. **Images (Coil): a separate client** (own connection pool, HTTP/2, no cookies). Both log through `NetLogListener`. A `ConnectivityManager` default-network callback logs changes and drops idle connections (D-36) |
-| `RateGuard` | A request budget (40 at once, then 30 a minute) that automatic checks (Live, badges, phone notifications, the widget) yield to, and a pause with one try a minute when Stips refuses (D-46) |
+| `RateGuard` | A request budget (40 at once, then 30 a minute) that automatic checks (Live, badges, an open chat, phone notifications, the widget) yield to, and a pause with one try a minute when Stips refuses (D-46) |
 | `BlockStore`, `AnonymousAnswers`, `SeenNotifications` | Local lists: hidden items/users (D-42), questions answered anonymously (D-43), the newest notification seen in the app per account |
 | Cookies | An in-memory `CookieJar` for the ASP session. Restarted apps restore the session with `user.login {auth_token}` |
 | `SessionStore` | Sign-in (`user.login` with email + password by POST) → keeps `a_token`, user id, nickname, gender in app-private prefs. When the first screen opens (not for background work, D-52), restores once in the background. After 10 idle minutes it checks the server session with `user.get_app_user` and signs in again with the token if needed; at most once per 30 s when Stips says "not signed in". Only `{"logged": false}` signs the user out (D-37). Sign out clears prefs and cookies |

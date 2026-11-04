@@ -125,12 +125,14 @@ flowchart TD
 ```
 ┌──────────────────────────────────────┐
 │ Chats                                │
-│ ◯ Yael              14:02        (2) │  unread badge in primary
-│   Thanks for the answer!             │
+│ ◉ Yael              14:02        (2) │  unread badge in primary; ◉ = the green
+│   Thanks for the answer!             │  online dot, as on profiles (#6)
 │ ◯ Omer              Yesterday        │
 │   ok                                 │
 └──────────────────────────────────────┘
 ```
+
+The list updates by itself when the unread count changes (checked every 10 s while the app is open) and on returning from a chat.
 
 Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
@@ -138,18 +140,27 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
 ```
 ┌──────────────────────────────────────┐
-│ ←  ◯ Yael                            │
-│          ( Load earlier messages )   │
-│  ┌───────────────┐                   │  theirs: start side, surfaceContainerHigh
-│  │ hi, saw your… │                   │
-│  └───────────────┘                   │
+│ ←  ◉ Yael                            │  photo with the green online dot; tap → profile
+│      Online now                      │  only while they're online
+│         ╭──────────────╮             │  at the very start (no more history):
+│         │   ◉ (72 dp)  │             │  photo, name, status, credibility ·
+│         │     Yael     │             │  answers · flowers, time on Stips,
+│         │ Credibility… │             │  "View profile"
+│         ╰──────────────╯             │
+│    This is where your conversation…  │
+│  ┌──────────────┐                    │  theirs: start side, surfaceContainerHigh
+│  │ hi, saw your…│                    │  same sender: 2 dp apart, otherwise 10 dp
+│  └──────────────┘                    │
+│  14:05                               │  the time shows only after a tap
 │                   ┌───────────────┐  │  mine: end side, primaryContainer
-│                   │ thanks!       │  │
+│                   │ thanks!       │  │  long-press copies
 │                   └───────────────┘  │
 ├──────────────────────────────────────┤
 │ [ Message…                 ] (➤)     │
 └──────────────────────────────────────┘
 ```
+
+Earlier messages load by themselves as the top comes into view; there's no "Load earlier" button (#6). Every visit starts with all times folded. The chat asks for new messages every 3 s while it's on screen.
 
 ### 5.5 Profile (everyone's, social-style)
 

@@ -126,6 +126,8 @@ import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
+import io.github.eyalshimshi.betterstips.ui.components.memberForText
+import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.components.shareText
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
@@ -133,7 +135,6 @@ import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
-import io.github.eyalshimshi.betterstips.util.TextUtils
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.time.ZoneId
@@ -409,7 +410,7 @@ private fun ProfileHeader(
     onStat: (ChartAction) -> Unit,
     onOpenPhoto: (() -> Unit)?,
 ) {
-    val online = bandColor(0xFF09C286.toInt())
+    val online = onlineColor()
     Column(
         Modifier
             .fillMaxWidth()
@@ -899,25 +900,6 @@ private fun badgeLabel(code: String, female: Boolean): String? {
         else -> return null
     }
     return stringResource(id)
-}
-
-/** "On Stips for 6 years, 9 months". Stips sends the span as a Hebrew phrase, shown as is in Hebrew. */
-@Composable
-private fun memberForText(raw: String?): String? {
-    if (raw == null) return null
-    val resources = LocalContext.current.resources
-    val hebrewUi = resources.configuration.locales[0].language.let { it == "iw" || it == "he" }
-    val span = if (hebrewUi) null else TextUtils.parseHebrewSpan(raw)
-    val duration = when {
-        hebrewUi -> raw
-        span == null -> return null
-        span.years > 0 && span.months > 0 ->
-            resources.getQuantityString(R.plurals.span_years, span.years, span.years) + ", " +
-                resources.getQuantityString(R.plurals.span_months, span.months, span.months)
-        span.years > 0 -> resources.getQuantityString(R.plurals.span_years, span.years, span.years)
-        else -> resources.getQuantityString(R.plurals.span_months, span.months, span.months)
-    }
-    return stringResource(R.string.profile_member_for, duration)
 }
 
 /** A vivid accent from a fixed hue, at a tone that reads well on the current light or dark surface. */

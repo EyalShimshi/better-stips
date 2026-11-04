@@ -305,6 +305,8 @@ fun LinkifiedText(
     modifier: Modifier = Modifier,
     maxLines: Int = Int.MAX_VALUE,
     onOverflow: ((Boolean) -> Unit)? = null,
+    /** False where taps and long-presses belong to the container (chat bubbles); links still open. */
+    selectable: Boolean = true,
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
     val annotated = remember(text, linkColor) {
@@ -320,6 +322,17 @@ fun LinkifiedText(
             }
             append(text.substring(last))
         }
+    }
+    if (!selectable) {
+        Text(
+            annotated,
+            style = style,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result -> onOverflow?.invoke(result.hasVisualOverflow) },
+            modifier = modifier,
+        )
+        return
     }
     SelectionContainer(modifier) {
         Text(

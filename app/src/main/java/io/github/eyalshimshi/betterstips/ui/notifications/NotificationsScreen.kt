@@ -115,6 +115,9 @@ class NotificationsViewModel(
     val state: StateFlow<NotificationsState> = _state.asStateFlow()
     private var generation = 0
 
+    /** Opened during this visit: read, whatever Stips' flag says on a refresh. */
+    private val opened = mutableSetOf<Long>()
+
     init {
         refresh()
     }
@@ -140,9 +143,15 @@ class NotificationsViewModel(
     /** Remembers which items are new now, then records the newest one as seen. */
     private fun markNew(list: List<StipsNotification>) {
         val me = userId ?: return
-        val fresh = SeenNotifications.newIds(list.map { it.id to it.viewed }, seen.lastSeenId(me))
+        val fresh = SeenNotifications.newIds(list.map { it.id to it.viewed }, seen.lastSeenId(me)) - opened
         _state.update { it.copy(newIds = it.newIds + fresh) }
         list.maxOfOrNull { it.id }?.let { seen.markSeen(me, it) }
+    }
+
+    /** The user opened this one: it's read, so it leaves "New" right away rather than on the next visit (#6). */
+    fun markRead(id: Long) {
+        opened += id
+        _state.update { it.copy(newIds = it.newIds - id) }
     }
 
     fun loadMore() {
@@ -257,13 +266,16 @@ private fun NotificationsList(
                 }
                 else -> {
                     val (fresh, earlier) = state.items.partition { it.id in state.newIds }
+                    val open = { item: StipsNotification ->
+                        targetAction(item, onOpenQuestion, onOpenProfile)?.let { action -> { vm.markRead(item.id); action() } }
+                    }
                     if (fresh.isNotEmpty()) {
                         item(key = "new-label") { SectionLabel(stringResource(R.string.notifications_new)) }
-                        items(fresh, key = { it.id }) { item -> NotificationRow(item, isNew = true, onClick = targetAction(item, onOpenQuestion, onOpenProfile)) }
+                        items(fresh, key = { it.id }) { item -> NotificationRow(item, isNew = true, onClick = open(item)) }
                     }
                     if (earlier.isNotEmpty()) {
                         if (fresh.isNotEmpty()) item(key = "earlier-label") { SectionLabel(stringResource(R.string.notifications_earlier)) }
-                        items(earlier, key = { it.id }) { item -> NotificationRow(item, isNew = false, onClick = targetAction(item, onOpenQuestion, onOpenProfile)) }
+                        items(earlier, key = { it.id }) { item -> NotificationRow(item, isNew = false, onClick = open(item)) }
                     }
                     item(key = "more") {
                         when {
