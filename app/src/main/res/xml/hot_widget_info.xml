@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Hot right now" widget (D-51). Android wakes it at most hourly; it asks Stips only when its copy is over 30 minutes old. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_hot_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minHeight="110dp"
+    android:minResizeHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minWidth="180dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="3600000"
+    android:widgetCategory="home_screen" />

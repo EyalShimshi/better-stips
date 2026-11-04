@@ -4,9 +4,10 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.3)
+## Features (v0.6)
 
 - **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it). Search finds topics and people.
+- **Home-screen widget:** "Hot right now" shows the hottest questions on your home screen, in your wallpaper's colors. Tap a question to open it, or ⟳ to refresh. Add it from your launcher's widgets, or from Settings → Updates.
 - **Ask a question** in three steps, like the site: the question (anonymous with your own nickname, and a link if you like), its tags (suggested by Stips), and a cover photo from Stips' gallery.
 - **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, and a header that folds into a small title bar as you scroll.
 - **Answer** (anonymously too, with one link), **edit**, **delete** or **detach** your answers; **vote**, **pin**, **get updates**. If you answered a question anonymously, your next answer there starts anonymous. As the asker, **send flowers** to good answers.
@@ -50,6 +51,7 @@
 | Unread chats and notifications | Once a minute, only while the app is open and you're signed in | Under 1 KB each |
 | **Live** new questions | Every 5–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 6.7 MB at 5 s |
 | **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Updates) | Under 1 MB a day |
+| **Home-screen widget** | When Android wakes it (hourly), only if its list is over 30 minutes old; nothing extra when the app loaded the same list recently. Only if you add the widget | About 9 KB each, at most 0.2 MB a day |
 
 **Stips' request limit:** Stips stops answering an address after about 100 requests that don't come from its own site, for 20 minutes or more. Requests from the site and the official app carry the site's Referer and aren't limited that way, even from an address Stips is refusing; Stips+ sends the same Referer, and still identifies itself honestly. It also keeps to about the official app's pace: 40 requests at once, then 30 a minute, and the checks above wait while you're busy. If Stips stops answering anyway, a banner counts down, nothing is sent except one try a minute, and everything resumes as soon as Stips answers.
 
@@ -75,4 +77,4 @@ There's nothing to install locally: GitHub Actions builds every push to `main` (
 
 ## בעברית
 
-**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.
+**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ווידג'ט "חם עכשיו" למסך הבית, שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.

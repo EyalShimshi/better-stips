@@ -73,6 +73,9 @@ class FeedCache(private val dir: File) {
         file(key).writeText(json)
     }
 
+    /** When that list was last saved (epoch ms), or null. */
+    fun savedAt(key: String): Long? = file(key).takeIf { it.exists() }?.lastModified()
+
     private fun file(key: String) = File(dir, "feed-" + Integer.toHexString(key.hashCode()) + ".json")
 }
 

@@ -451,4 +451,13 @@
     <string name="blocks_clear_body">You\'ll see content from the users and items you hid again. Message blocks aren\'t affected.</string>
     <string name="blocks_clear_confirm">Remove all</string>
     <string name="blocks_cleared">All content blocks were removed.</string>
+
+    <!-- v0.6: the "Hot right now" widget (its name is hot_now, as on Home) -->
+    <string name="widget_hot_description">The hottest questions on Stips right now. Tap one to open it.</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_empty">Nothing hot right now. Tap to check again.</string>
+    <string name="settings_widget">Home-screen widget</string>
+    <string name="settings_widget_summary">Add “Hot right now” to your home screen</string>
+    <string name="settings_widget_by_hand">Your launcher can\'t add it from here. Touch and hold an empty spot on your home screen, tap Widgets, and find Stips+.</string>
 </resources>

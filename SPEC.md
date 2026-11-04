@@ -79,6 +79,8 @@
 | D-48 | **API calls share one HTTP/2 connection again**, as the official app's do (reverses v0.3's HTTP/1.1 from D-36) | #3 was the request limit, not a stalled connection; HTTP/1.1 only added a TLS handshake per extra connection (about 20 in four minutes in #5) | Agent |
 | D-49 | **Every request to Stips carries the site's Referer (`https://stips.co.il/`)**, as every call from the website and the official app does. The User-Agent still says "StipsPlus … unofficial", so Stips can tell Stips+ apart and block it if they choose; if they do, we stop and ask them (R-02). This replaces v0.4's "never work around the limit" | Stips refuses an address after about 100 calls without the Referer, at any pace from 150 s to 6 minutes, and not calls with it, even while it refuses the others (SPEC-04 §2.10). Without it Stips+ couldn't support normal use: even v0.4's budget was refused after 6 minutes | Owner (decision), agent (measurement) |
 | D-50 | A manual workflow, "Probe Stips' rate limit" (`tools/probe_rate_limit.py`), re-measures the limit from GitHub's runners: `app` checks Stips+'s own pattern, `limit` triggers and times the limit without the Referer, `site` is a real browser page | Stips can change the rule. Each runner has its own address, and the owner's office network isolates web pages | Agent |
+| D-51 | **A "Hot right now" home-screen widget** (Jetpack Glance 1.2.0, the version in Google's CI-tested samples catalog): up to 10 hot questions with rank, title, answers and pins; tap a question to open it, the title to open the app, ⟳ to refresh. It shows the list any screen last loaded (Home's top cards load the same list), and by itself asks Stips only when Android wakes it (hourly), its copy is over 30 minutes old and the budget allows (D-46). Wallpaper colors when the app uses them (Android 12+), else the app's accent; the system's corner radius. Settings → Updates can ask the launcher to place it | The owner's ask; SPEC-01's backlog item; DESIGN-PHILOSOPHY §10. No times on rows: a widget may redraw only hourly, so "5 min" would mislead | Owner (ask), agent |
+| D-52 | **Opening the app warms up; waking it doesn't.** Refreshing the channels and restoring the session moved from app start to the first screen. A process started for the widget or the notification check makes only its own requests; account calls restore the session when they need it | Each background wake-up cost about 3 extra requests (channels, sign-in, profile) | Agent |
 
 ## Next steps
 
@@ -86,9 +88,18 @@
 2. Owner: change the Stips password that was shared for research (D-22).
 3. Owner: if the "Stips paused this phone" banner still appears, report the network log on GitHub (Settings → Diagnostics). It says how many requests went out before the refusal and how long it lasted.
 4. Owner: test the v0.3 account features: asking a question, pen-pal posts, reports, flowers, thanks messages, deleting your own question.
-5. Next round candidates: report and block from chats (`usermsgs`, `messages.block_user`), a home-screen widget, choosing an Unsplash cover with our own Unsplash key.
+5. Next round candidates: report and block from chats (`usermsgs`, `messages.block_user`), launcher shortcuts (Hot, Chats), choosing an Unsplash cover with our own Unsplash key.
 
 ## Implementation notes
+
+### Sixth build (v0.6, the widget)
+
+| Spec says / the site does | v0.6 does | Why / next step |
+|---|---|---|
+| A home-screen widget with hot questions (SPEC-01 backlog, F-42) | "Hot right now": a list widget with the app's mark, ⟳ and up to 10 questions (D-51) | Shortcuts are next |
+| DESIGN-PHILOSOPHY §10: dynamic colors and the system's widget corner radius | Glance's `Scaffold` (system radius on Android 12+) and `GlanceTheme`: wallpaper colors, or the app's accent when dynamic color is off or unavailable | Android 8–11 show square corners |
+| A preview in the widget picker | The app icon and the name only | A generated preview (Android 15) can come later |
+| Background work starts the whole app | Only the first screen warms up (D-52) | Fewer requests for the notification check too |
 
 ### Fifth build (v0.5, #5 follow-up)
 

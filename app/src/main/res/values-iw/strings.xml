@@ -467,4 +467,13 @@
     <string name="blocks_clear_body">לאחר הביטול תחזור לראות תכנים של משתמשים ופריטים שבחרת לחסום. לא משפיע על חסימות מסרים.</string>
     <string name="blocks_clear_confirm">הסרת הכול</string>
     <string name="blocks_cleared">כל חסימות התוכן הוסרו בהצלחה.</string>
+
+    <!-- v0.6: הווידג'ט "חם עכשיו" -->
+    <string name="widget_hot_description">השאלות הכי חמות בסטיפס עכשיו. אפשר להקיש על שאלה כדי לפתוח אותה.</string>
+    <string name="widget_refresh">רענון</string>
+    <string name="widget_loading">טוען…</string>
+    <string name="widget_empty">אין כרגע שאלות חמות. אפשר להקיש כדי לבדוק שוב.</string>
+    <string name="settings_widget">ווידג\'ט למסך הבית</string>
+    <string name="settings_widget_summary">הוספת \"חם עכשיו\" למסך הבית</string>
+    <string name="settings_widget_by_hand">אי אפשר להוסיף אותו מכאן במסך הבית שלך. אפשר ללחוץ לחיצה ארוכה על מקום ריק במסך הבית, לבחור \"ווידג\'טים\" ולחפש את Stips+.</string>
 </resources>

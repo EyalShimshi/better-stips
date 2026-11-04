@@ -257,7 +257,8 @@ Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and 
 | Link handling | `stips.co.il/ask/…`, `/profile/…`, `/messages` (user-enabled) |
 | Notifications | Opt-in phone notifications (channel "Stips updates"), checked every ~15 minutes |
 | Photo picker | Choosing a profile photo (no storage permission) |
-| Widget, shortcuts | Later (SPEC-06) |
+| Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
+| Shortcuts | Later (SPEC-06) |
 
 ## 7. Localization
 

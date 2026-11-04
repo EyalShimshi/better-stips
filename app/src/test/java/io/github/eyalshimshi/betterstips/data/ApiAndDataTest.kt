@@ -5,6 +5,7 @@ import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
 import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
+import io.github.eyalshimshi.betterstips.widget.HotWidgetFeed
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -51,6 +52,20 @@ class ApiAndDataTest {
         val request = StipsApi.siteRequest(StipsApi.BASE_URL + "?name=objectlist").build()
         assertEquals("https://stips.co.il/", request.header("Referer"))
         assertNull("the honest User-Agent comes from the client's interceptor", request.header("User-Agent"))
+    }
+
+    @Test
+    fun widgetShowsHomesHotListAndAsksAtMostEveryHalfHour() {
+        assertEquals(
+            "Home's top cards load the widget's list, so the widget updates for free",
+            FeedQuery(sort = FeedSort.Hot, channelName = null).normalized(),
+            HotWidgetFeed.QUERY,
+        )
+        assertEquals(HotWindow.Now, HotWidgetFeed.QUERY.window)
+        val savedAt = 1_000_000L
+        assertFalse(HotWidgetFeed.isStale(savedAt, savedAt + 29 * 60_000L))
+        assertTrue(HotWidgetFeed.isStale(savedAt, savedAt + 30 * 60_000L))
+        assertTrue("never saved", HotWidgetFeed.isStale(0L, savedAt))
     }
 
     @Test

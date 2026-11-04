@@ -35,7 +35,10 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | **v0.1** (this round) | Feeds (new, hot + window), channel chips, topic search and topic feeds, question + answers, links, share / open on site, save questions on the phone, native sign-in, post an answer (also anonymously), vote, chats (list, thread, send), profile (my questions, my answers), settings, about, crash catcher, timings |
 | **v0.2** (owner feedback round) | Home with the top 5 hot questions and Live new questions; a compact question header with the cover behind the title and a collapsing title bar; the asker's link; pins; Get updates; answer links, editing and detaching; notifications (in-app, plus optional phone notifications); social profiles for everyone (credibility, graphs, flowered answers, thanks wall); profile photo and bio; Stips account settings; new screen motion |
 | **v0.3** (issues #1–#4) | Fix the notifications crash and the "can't reach Stips" disconnects (network log, back-off, no false sign-outs); Live 2–30 s; ask a question; pen pals; report and block content; anonymous mode; flowers; thanks-wall writing; people search; own-question actions; image viewer; compact notifications and question meta; haptics |
-| v0.4 | Chat moderation (report and block users), per-app language, home-screen widget, shortcuts |
+| v0.4 | Issue #5: a request budget, a pause with one try a minute and a banner when Stips refuses; fewer requests per screen |
+| v0.5 | Send the site's Referer, as the official app's calls do (D-49); budget at the official app's pace; Live from 5 s |
+| v0.6 | The "Hot right now" home-screen widget (F-42) |
+| Later | Chat moderation (report and block users), per-app language, launcher shortcuts |
 | Public | Only after Stips' written permission (D-02) |
 
 ## 6. Functional requirements
@@ -83,6 +86,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-39 | Compact meta and notifications (#4) | P1 | Under questions: the asker at the start, answers/pins/time as symbols at the end; notifications in uniform two-line rows, new ones highlighted in their own section |
 | F-40 | Tactile editing (#4) | P2 | Editing an answer puts the cursor at the end and opens the keyboard; toggles, votes, sending and sliders give haptic feedback |
 | F-41 | More from the site (#4) | P2 | Send flowers (the asker), write on thanks walls, find people from Home's search, edit/delete/detach your own question, thanks wall first on profiles |
+| F-42 | Home-screen widget | P2 | "Hot right now" lists up to 10 hot questions (rank, title, answers and pins) in the wallpaper's colors (Android 12+) or the app's accent, with the system's corner radius. Tapping a question opens it in the app, the title opens the app, ⟳ refreshes. It shows the list the app last loaded, and by itself asks Stips at most every 30 minutes (Android wakes it hourly), within the request budget. Settings → Updates → Home-screen widget asks the launcher to place it |
 
 ## 7. Non-functional requirements
 
@@ -95,13 +99,12 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Security | HTTPS only; session token in app-private storage, excluded from backups |
 | Accessibility | 48 dp targets, labels on icon buttons, 200% text, TalkBack reads rows as one sentence |
 | Locale | Hebrew (RTL) and English; content direction follows the text |
-| Respect | User-initiated requests, plus small checks while the app is open (unread counts) and two opt-in ones (Live, phone notifications; SPEC D-24…D-26); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
+| Respect | User-initiated requests, plus small checks while the app is open (unread counts) and three opt-in ones (Live, phone notifications, the widget; SPEC D-24…D-26, D-51); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
 
 ## 8. Backlog (beyond v0.2)
 
-- Home-screen widget with hot questions; launcher shortcuts (Hot, Chats).
+- Launcher shortcuts (Hot, Chats).
 - Follow topics as shelves on Home.
-- Image viewer with pinch-zoom for question photos.
 - Draft answers saved while typing.
 
 ## 9. Assumptions

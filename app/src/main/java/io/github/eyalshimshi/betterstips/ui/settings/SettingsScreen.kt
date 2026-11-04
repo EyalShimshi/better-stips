@@ -64,6 +64,7 @@ import androidx.compose.runtime.setValue
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
+import io.github.eyalshimshi.betterstips.widget.requestPinHotWidget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.TheaterComedy
@@ -95,6 +96,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit, onOpenNetLog
     val blockCount = remember(blockVersion) { container.blocks.count }
     val anonymousOn = rememberAnonymousModeOn(settings.anonymousUntil)
     val blocksClearedText = stringResource(R.string.blocks_cleared)
+    val widgetByHandText = stringResource(R.string.settings_widget_by_hand)
     fun toggleSafeMode() {
         safeBusy = true
         scope.launch {
@@ -222,9 +224,18 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit, onOpenNetLog
                             if (session.signedIn) R.string.settings_phone_notifications_summary else R.string.settings_phone_notifications_signed_out,
                         ),
                         index = 0,
-                        count = 2,
+                        count = 3,
                         onClick = { toggleNotifications(!notificationsOn) },
                         trailing = { Switch(checked = notificationsOn, onCheckedChange = null) },
+                    )
+                    GroupRow(
+                        title = stringResource(R.string.settings_widget),
+                        summary = stringResource(R.string.settings_widget_summary),
+                        index = 1,
+                        count = 3,
+                        onClick = {
+                            if (!requestPinHotWidget(context)) scope.launch { snackbar.showSnackbar(widgetByHandText) }
+                        },
                     )
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainer,

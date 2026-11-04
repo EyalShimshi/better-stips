@@ -203,7 +203,7 @@ The snapshot, with every channel's full gradient, ships as `app/src/main/assets/
 
 Browsing 100 questions with thumbnails costs roughly 0.5–1 MB; opening questions with large covers adds about 50 KB each.
 
-Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day.
+Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day. **The widget** asks for the first Hot page (≈9 KB) only when Android wakes it (hourly) and its copy is over 30 minutes old: at most 24 a day, ≈0.2 MB; nothing when the app loaded that list recently.
 
 ### 2.10 Request limit (`IP_RATE_LIMIT`, #5)
 

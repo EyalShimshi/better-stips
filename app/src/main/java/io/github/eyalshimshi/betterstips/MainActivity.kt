@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val container = (application as StipsApp).container
+        container.warmUp()
         // After a rotation or a restore, the back stack already holds the linked screen.
         if (savedInstanceState == null) pendingLink.value = Links.deepLink(intent?.dataString)
         setContent {

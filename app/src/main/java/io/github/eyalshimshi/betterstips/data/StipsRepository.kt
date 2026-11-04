@@ -80,6 +80,10 @@ class StipsRepository(
 
     private fun safeFilter(): Boolean = session.session.value.let { if (it.signedIn) it.safeFilter else true }
 
+    /** Told about every first page Stips sends, from any screen, so the widget can show it without asking again. */
+    @Volatile
+    var onFirstPage: ((FeedQuery, List<Question>) -> Unit)? = null
+
     suspend fun feedPage(query: FeedQuery, page: Int): List<Question> {
         val myList = query.myList
         val params = buildJsonObject {
@@ -108,6 +112,7 @@ class StipsRepository(
         if (page == 1 && myList == null && list.isNotEmpty()) {
             withContext(Dispatchers.IO) { runCatching { feedCache.write(query.cacheKey, data.toString()) } }
         }
+        if (page == 1 && myList == null) onFirstPage?.invoke(query, list)
         return list
     }
 
@@ -116,6 +121,11 @@ class StipsRepository(
         val list = runCatching { Parsers.questions(Json.parseToJsonElement(text)) }.getOrDefault(emptyList())
         remember(list, fresh = false)
         list
+    }
+
+    /** When [query]'s first page was last saved from Stips (epoch ms), or null. */
+    suspend fun firstPageSavedAt(query: FeedQuery): Long? = withContext(Dispatchers.IO) {
+        runCatching { feedCache.savedAt(query.cacheKey) }.getOrNull()
     }
 
     suspend fun question(id: Long): Question {

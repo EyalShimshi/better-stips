@@ -23,6 +23,7 @@ import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.api.UserAgentInterceptor
 import io.github.eyalshimshi.betterstips.diag.NetLog
+import io.github.eyalshimshi.betterstips.widget.HotWidgetFeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,7 @@ import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** The app's objects, built once by hand (no dependency-injection framework, playbook §4). */
 class AppContainer(private val app: Application) {
@@ -84,6 +86,9 @@ class AppContainer(private val app: Application) {
     val blocks = BlockStore(app)
     val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks)
 
+    /** The "Hot right now" widget's list (D-51). */
+    val hotWidget = HotWidgetFeed(app, repository, appScope)
+
     val imageLoader: ImageLoader = ImageLoader.Builder(app)
         .okHttpClient(imageClient)
         .memoryCache { MemoryCache.Builder(app).maxSizePercent(0.2).build() }
@@ -91,8 +96,20 @@ class AppContainer(private val app: Application) {
         .crossfade(true)
         .build()
 
+    /** Runs for every process start, including the widget's and the notification check's: nothing that costs requests. */
     fun start() {
         watchNetwork()
+        repository.onFirstPage = { query, list -> if (query == HotWidgetFeed.QUERY) hotWidget.publish(list) }
+    }
+
+    private val warmedUp = AtomicBoolean(false)
+
+    /**
+     * The screens are opening: refresh the channels and restore the session, once per process. Background work (the
+     * widget, phone notifications) skips this; account calls restore the session when they need it.
+     */
+    fun warmUp() {
+        if (!warmedUp.compareAndSet(false, true)) return
         appScope.launch { channels.refresh() }
         if (session.session.value.signedIn) {
             appScope.launch {

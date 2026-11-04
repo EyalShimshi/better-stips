@@ -39,8 +39,9 @@ Versions come from Google's CI-tested [compose-samples](https://github.com/andro
 | Navigation Compose | String routes | 2.10.1 |
 | Coroutines | | 1.11.0 |
 | kotlinx-serialization-json | `JsonElement` API only, no compiler plugin | 1.11.0 |
-| OkHttp | HTTP/2, gzip, cookies | 5.5.0 |
+| OkHttp | HTTP/2, gzip, cookies | 4.12.0 |
 | Coil (Compose) | Images, memory + disk cache | 2.7.0 |
+| Glance (app widget, Material 3 colors) | The home-screen widget | 1.2.0 |
 | JUnit | Unit tests | 4.13.2 |
 
 Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were checked in their published source jars before writing code (playbook §4).
@@ -59,6 +60,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….ui.components` | Cover/monogram, avatar, question row, states (empty, error, skeleton), linkified text |
 | `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.user`, `.notifications`, `.signin`, `.settings` | Screens and their ViewModels |
 | `….notify` | `Notifier` (channel, posting, scheduling) and `NotificationCheckJob` (JobScheduler, every 15 min, opt-in) |
+| `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
 | `….util` | Time parsing and relative formatting, answer validation, links and deep links, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
@@ -78,14 +80,15 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | Subsystem | How it works |
 |---|---|
 | `StipsApi` | Builds `name` + JSON params; replaces `+` with `~MODU_PLUS_SIGN~`; GET for reads, form POST for writes and sign-in; parses the envelope; maps failures to `ApiException(code, message)` (429 → `RATE_LIMITED`, 403 → `BLOCKED`, 5xx → `SERVER`); tags each request with its method name for the log; drops idle connections after a network error; runs on `Dispatchers.IO` |
-| HTTP clients | **API: HTTP/1.1** with the cookie jar, 10 s connect / 20 s read / 30 s call timeouts. **Images (Coil): a separate client** (own connection pool, HTTP/2, no cookies). Both log through `NetLogListener`. A `ConnectivityManager` default-network callback logs changes and drops idle connections (D-36) |
-| `Backoff` | After HTTP 429/403: background checks (Live, badges, phone notifications) pause 1→15 minutes or `Retry-After`; any success lifts it (D-38) |
+| HTTP clients | **API: HTTP/2** on one connection (D-48), with the cookie jar and the site's Referer (D-49); 10 s connect / 20 s read / 30 s call timeouts. **Images (Coil): a separate client** (own connection pool, HTTP/2, no cookies). Both log through `NetLogListener`. A `ConnectivityManager` default-network callback logs changes and drops idle connections (D-36) |
+| `RateGuard` | A request budget (40 at once, then 30 a minute) that automatic checks (Live, badges, phone notifications, the widget) yield to, and a pause with one try a minute when Stips refuses (D-46) |
 | `BlockStore`, `AnonymousAnswers`, `SeenNotifications` | Local lists: hidden items/users (D-42), questions answered anonymously (D-43), the newest notification seen in the app per account |
 | Cookies | An in-memory `CookieJar` for the ASP session. Restarted apps restore the session with `user.login {auth_token}` |
-| `SessionStore` | Sign-in (`user.login` with email + password by POST) → keeps `a_token`, user id, nickname, gender in app-private prefs. On launch, restores once in the background. After 10 idle minutes it checks the server session with `user.get_app_user` and signs in again with the token if needed; at most once per 30 s when Stips says "not signed in". Only `{"logged": false}` signs the user out (D-37). Sign out clears prefs and cookies |
+| `SessionStore` | Sign-in (`user.login` with email + password by POST) → keeps `a_token`, user id, nickname, gender in app-private prefs. When the first screen opens (not for background work, D-52), restores once in the background. After 10 idle minutes it checks the server session with `user.get_app_user` and signs in again with the token if needed; at most once per 30 s when Stips says "not signed in". Only `{"logged": false}` signs the user out (D-37). Sign out clears prefs and cookies |
 | `StipsRepository` | Feeds, question, answers, channels (asset snapshot + live refresh), answer posting/editing/detaching, votes, pins, follow, profiles (page, graphs, flowered answers, thanks wall), notifications and unread counts, safe mode, bio, profile photo upload, chats. Memory cache for questions and answers already shown |
 | `Notifier` | Opt-in. `JobScheduler` runs `NotificationCheckJob` every 15 minutes with any network (persisted across reboots). It asks `messages.count`; only when notifications are waiting does it read the list and post up to 5 new ones (ids above the last seen); a higher unread-messages count posts one summary. The first run after turning it on only records the current state |
-| `FeedCache` | Saves the first page of the Home feed as JSON in app files; shown at once on the next launch |
+| `FeedCache` | Saves the first page of each list as JSON in app files; shown at once on the next launch, and by the widget |
+| `HotWidgetFeed` | The widget's list: the first Hot page (now). Any screen that loads it updates the widget through `StipsRepository.onFirstPage`; by itself the widget asks Stips only when Android wakes it (hourly), its copy is over 30 minutes old and `RateGuard` allows; ⟳ always asks. One refresh at a time (D-51) |
 | `SavedStore` | Saved questions (id, title, cover, time) in prefs as JSON |
 | `SettingsStore` | SharedPreferences exposed as `StateFlow` |
 | `Timings` | Records load durations (feed page, question) for the "Loaded in" line and Settings → Performance |
