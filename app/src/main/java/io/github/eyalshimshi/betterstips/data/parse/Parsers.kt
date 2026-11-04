@@ -4,14 +4,18 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
 import io.github.eyalshimshi.betterstips.data.model.AppUser
+import io.github.eyalshimshi.betterstips.data.model.AskAllowance
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.ChartPoint
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.Cover
+import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
 import io.github.eyalshimshi.betterstips.data.model.LoginResult
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
+import io.github.eyalshimshi.betterstips.data.model.PenPalAllowance
+import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
@@ -55,6 +59,7 @@ object Parsers {
         val d = item.obj("data") ?: return null
         val id = d.long("id") ?: return null
         val extra = item.obj("extra")
+        val permissions = item.obj("meta")?.obj("permissions")
         return Question(
             id = id,
             title = d.str("q").orEmpty().trim(),
@@ -68,6 +73,10 @@ object Parsers {
             cover = cover(d.str("photo"), extra?.obj("content_image")),
             link = d.str("q_link")?.trim()?.takeIf { it.startsWith("http://") || it.startsWith("https://") },
             userPinned = d.int("user_pinned") == 1,
+            canEdit = permissions?.bool("edit") ?: false,
+            canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
+            isOwner = permissions?.bool("itemOwner") ?: false,
+            canReport = permissions?.bool("report") ?: false,
         )
     }
 
@@ -119,6 +128,9 @@ object Parsers {
             canEdit = permissions?.bool("edit") ?: false,
             isOwner = permissions?.bool("itemOwner") ?: false,
             parentTitle = extra?.str("parent_item_title")?.trim()?.takeIf { it.isNotEmpty() },
+            canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
+            canReport = permissions?.bool("report") ?: false,
+            byAsker = extra?.bool("parentItemCreatorResponse") ?: false,
         )
     }
 
@@ -160,6 +172,12 @@ object Parsers {
             userId = user.long("id") ?: user.long("userid"),
             safeFilter = user.bool("safeFilter") ?: user.bool("safe_filter"),
         )
+    }
+
+    /** `user.login` with a token Stips no longer accepts answers `{"logged": false}` (measured). */
+    fun loginRejected(data: JsonElement?): Boolean {
+        val d = data.asObject() ?: return false
+        return d.bool("logged") == false && d.obj("appUser") == null
     }
 
     /** `omniobj` GET for `objType: "user"`. Only the fields the site shows its owner are kept. */
@@ -230,13 +248,17 @@ object Parsers {
             n.str("linkPageName") == "profile" -> NotificationTarget.OpenProfile(targetId)
             else -> null
         }
+        val html = TextUtils.htmlToPlain(n.str("contentHtml"))
+        val msg = n.str("msgText")?.trim()?.takeIf { it.isNotEmpty() }
         StipsNotification(
             id = id,
-            text = TextUtils.htmlToPlain(n.str("contentHtml")).ifBlank { n.str("msgText").orEmpty().trim() },
+            text = html.ifBlank { msg.orEmpty() },
             type = n.str("type").orEmpty(),
             viewed = n.bool("viewed") ?: true,
             time = StipsTime.parse(n.str("time")),
             target = target,
+            note = if (html.isNotBlank()) msg else null,
+            pointsRemoved = (n.int("pointsRemoved") ?: 0).coerceAtLeast(0),
         )
     }.orEmpty()
 
@@ -319,4 +341,58 @@ object Parsers {
 
     /** Creating an object returns `{newid: …}`. */
     fun newId(data: JsonElement?): Long? = data.asObject()?.long("newid")
+
+    /** `item.autotags {title}` and `item.tag_suggest {q}`: `{tags: [...]}`. */
+    fun tags(data: JsonElement?): List<String> =
+        data.asObject()?.arr("tags")?.mapNotNull { it.primitiveText()?.trim()?.takeIf { tag -> tag.isNotEmpty() } }?.distinct().orEmpty()
+
+    /** `photos.tag_gallery {tags}`: Stips' own photos for those tags. */
+    fun galleryPhotos(data: JsonElement?): List<GalleryPhoto> =
+        data.asObject()?.arr("photos")?.mapNotNull { element ->
+            val id = element.asObject()?.str("photo_id")?.trim()
+            if (id.isNullOrEmpty() || !id.all { it.isDigit() }) null else GalleryPhoto(id)
+        }?.distinctBy { it.photoId }.orEmpty()
+
+    /** `ask/DailyAskCount`: `{allowed, maxPerDay}`. Unknown answers allow asking; the server has the last word. */
+    fun askAllowance(data: JsonElement?): AskAllowance {
+        val r = data.asObject()?.obj("results")
+        return AskAllowance(allowed = r?.bool("allowed") ?: true, maxPerDay = r?.int("maxPerDay"))
+    }
+
+    /** `objectlist {method: "penfriendsitem.new"}`. */
+    fun penPals(data: JsonElement?): List<PenPalPost> = data.asArray()?.mapNotNull { element ->
+        val item = element.asObject() ?: return@mapNotNull null
+        val d = item.obj("data") ?: return@mapNotNull null
+        val id = d.long("id") ?: return@mapNotNull null
+        if (d.bool("active") == false) return@mapNotNull null
+        val permissions = item.obj("meta")?.obj("permissions")
+        PenPalPost(
+            id = id,
+            text = d.str("msg").orEmpty().trim(),
+            time = StipsTime.parse(d.str("time")),
+            author = author(item.obj("extra")?.obj("item_profile"), null, false),
+            canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
+        )
+    }.orEmpty()
+
+    /** `penfriends/PostAllowed`: `{allowed, postInterval, nextTimeInMinutes}`. */
+    fun penPalAllowance(data: JsonElement?): PenPalAllowance {
+        val r = data.asObject()?.obj("results")
+        return PenPalAllowance(allowed = r?.bool("allowed") ?: true, intervalMinutes = r?.int("postInterval"), nextInMinutes = r?.int("nextTimeInMinutes"))
+    }
+
+    /** `penfriends/LastMessageForUser`: `{messageText}`. */
+    fun lastPenPalMessage(data: JsonElement?): String? =
+        data.asObject()?.obj("results")?.str("messageText")?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** `item.send_flower {id}` answers `{flowerSent: true}`. */
+    fun flowerSent(data: JsonElement?): Boolean = data.asObject()?.bool("flowerSent") ?: false
+
+    /** `users/Search {q}`: `{profiles: [...]}` in the shape of `item_profile`. */
+    fun userSearch(data: JsonElement?): List<Author> =
+        data.asObject()?.obj("results")?.arr("profiles")?.mapNotNull { element ->
+            val profile = element.asObject() ?: return@mapNotNull null
+            val user = author(profile, null, false)
+            if (user.userId == null || user.nickname.isBlank()) null else user
+        }?.distinctBy { it.userId }.orEmpty()
 }

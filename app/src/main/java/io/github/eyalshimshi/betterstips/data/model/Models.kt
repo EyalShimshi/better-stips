@@ -12,10 +12,17 @@ data class Author(
     val anonymous: Boolean,
     val online: Boolean,
 ) {
+    /** The cropped square photo: `t` is 50 px, `a` 200 px (measured). */
     fun avatarUrl(large: Boolean = false): String? {
         if (anonymous || userId == null || photoStamp.isNullOrBlank()) return null
-        val size = if (large) "l" else "t"
+        val size = if (large) "a" else "t"
         return "$CDN_URL/photos/user_profile/$size/$userId/$photoStamp.jpg"
+    }
+
+    /** The whole uploaded photo (`l`, the largest Stips keeps), for the full-screen viewer. */
+    fun fullPhotoUrl(): String? {
+        if (anonymous || userId == null || photoStamp.isNullOrBlank()) return null
+        return "$CDN_URL/photos/user_profile/l/$userId/$photoStamp.jpg"
     }
 }
 
@@ -23,16 +30,36 @@ sealed interface Cover {
     val thumbnailUrl: String
     val largeUrl: String
 
-    /** A photo the asker uploaded to Stips. */
+    /** The biggest version, for the full-screen viewer. */
+    val fullUrl: String
+
+    /** A photo from Stips' own gallery. */
     data class Stips(val photoId: String) : Cover {
         override val thumbnailUrl get() = "$CDN_URL/photos/s/$photoId.jpg"
         override val largeUrl get() = "$CDN_URL/photos/w400/$photoId.jpg"
+
+        /** `z` is the largest size Stips serves (about 500–640 px wide). */
+        override val fullUrl get() = "$CDN_URL/photos/z/$photoId.jpg"
     }
 
     /** A stock photo the asker picked; Unsplash asks for the photographer's credit. */
     data class Unsplash(val small: String, val medium: String, val creatorName: String?) : Cover {
         override val thumbnailUrl get() = small
         override val largeUrl get() = medium
+
+        /** Unsplash resizes on request: asking for 1080 px wide works (measured). */
+        override val fullUrl get() = Cover.widen(medium, 1080)
+    }
+
+    companion object {
+        private val widthParam = Regex("([?&])w=\\d+")
+
+        /** The same Unsplash image at [width] pixels. Pure. */
+        fun widen(url: String, width: Int): String = when {
+            widthParam.containsMatchIn(url) -> widthParam.replace(url) { it.groupValues[1] + "w=" + width }
+            url.contains('?') -> "$url&w=$width"
+            else -> "$url?w=$width"
+        }
     }
 }
 
@@ -49,6 +76,11 @@ data class Question(
     val cover: Cover?,
     /** The link the asker attached (`q_link`), if any. */
     val link: String? = null,
+    /** What Stips lets the signed-in user do with this question (`meta.permissions`). */
+    val canEdit: Boolean = false,
+    val canDelete: Boolean = false,
+    val isOwner: Boolean = false,
+    val canReport: Boolean = false,
     /** Whether the signed-in user pinned it (`user_pinned == 1`). */
     val userPinned: Boolean = false,
 ) {
@@ -73,6 +105,10 @@ data class Answer(
     val isOwner: Boolean = false,
     /** The question's title, sent with lists such as a user's flowered answers. */
     val parentTitle: String? = null,
+    val canDelete: Boolean = false,
+    val canReport: Boolean = false,
+    /** The asker's own reply on their question (it can't get a flower). */
+    val byAsker: Boolean = false,
 )
 
 data class Channel(
@@ -136,6 +172,10 @@ data class StipsNotification(
     val viewed: Boolean,
     val time: Instant?,
     val target: NotificationTarget?,
+    /** A note from Stips' team (`msgText`), shown in a box under the text. */
+    val note: String? = null,
+    /** Credibility points a moderator removed (`pointsRemoved`). */
+    val pointsRemoved: Int = 0,
 )
 
 data class UnreadCounts(val messages: Int = 0, val notifications: Int = 0)
@@ -194,3 +234,29 @@ data class FeedQuery(
             sort.name, if (sort == FeedSort.Hot) window.name else "", channelName.orEmpty(), topic.orEmpty(), myList?.name.orEmpty(),
         ).joinToString("|")
 }
+
+/** A photo from Stips' own gallery (`photos.tag_gallery`), offered as a question's cover. */
+data class GalleryPhoto(val photoId: String) {
+    val thumbnailUrl: String get() = "$CDN_URL/photos/w400/$photoId.jpg"
+}
+
+/** A post on the pen-pals board (חברים לעט): a short message; replies go to private messages. */
+data class PenPalPost(val id: Long, val text: String, val time: Instant?, val author: Author, val canDelete: Boolean)
+
+/** Whether the user may post to the pen-pals board now (`penfriends/PostAllowed`). */
+data class PenPalAllowance(val allowed: Boolean, val intervalMinutes: Int?, val nextInMinutes: Int?)
+
+/** `ask/DailyAskCount`: Stips limits how many questions one may ask a day. */
+data class AskAllowance(val allowed: Boolean, val maxPerDay: Int?)
+
+/** A question about to be asked, in the fields the site sends (`omniobj` PUT, `objType: "ask"`). */
+data class AskDraft(
+    val title: String,
+    val body: String,
+    val tags: List<String>,
+    val photoId: String?,
+    val link: String?,
+    val anonymous: Boolean,
+    val nickname: String?,
+    val channelId: Int?,
+)

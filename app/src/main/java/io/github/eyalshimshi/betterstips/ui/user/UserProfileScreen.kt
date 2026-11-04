@@ -1,5 +1,9 @@
 package io.github.eyalshimshi.betterstips.ui.user
 
+import io.github.eyalshimshi.betterstips.ui.components.ImageViewerDialog
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -166,6 +170,8 @@ fun UserProfileScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val titleVisible by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     var editingBio by rememberSaveable { mutableStateOf(false) }
+    var photoOpen by rememberSaveable { mutableStateOf(false) }
+    val showImages = LocalAppSettings.current.showImages
     var pendingDelete by remember { mutableStateOf<ThanksMessage?>(null) }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) vm.uploadPhoto(uri)
@@ -175,6 +181,7 @@ fun UserProfileScreen(
         ProfileMessage.BioSaved to stringResource(R.string.profile_bio_saved),
         ProfileMessage.PhotoUpdated to stringResource(R.string.profile_photo_updated),
         ProfileMessage.ThanksDeleted to stringResource(R.string.thanks_deleted),
+        ProfileMessage.ThanksSent to stringResource(R.string.thanks_sent),
         ProfileMessage.Failed to stringResource(R.string.action_failed),
     )
     LaunchedEffect(state.message) {
@@ -256,6 +263,7 @@ fun UserProfileScreen(
                             onEditBio = { editingBio = true },
                             onMessage = onMessage,
                             onStat = ::showChart,
+                            onOpenPhoto = if (profile.avatar.fullPhotoUrl() != null && showImages) ({ photoOpen = true }) else null,
                         )
                     }
                     item(key = "credibility") { CredibilityCard(profile.points) }
@@ -296,14 +304,14 @@ fun UserProfileScreen(
                     stickyHeader(key = "tabs") {
                         PrimaryTabRow(selectedTabIndex = state.section.ordinal) {
                             Tab(
-                                selected = state.section == ProfileSection.Activity,
-                                onClick = { vm.selectSection(ProfileSection.Activity) },
-                                text = { Text(stringResource(R.string.profile_tab_activity)) },
-                            )
-                            Tab(
                                 selected = state.section == ProfileSection.Thanks,
                                 onClick = { vm.selectSection(ProfileSection.Thanks) },
                                 text = { Text(stringResource(R.string.profile_tab_thanks)) },
+                            )
+                            Tab(
+                                selected = state.section == ProfileSection.Activity,
+                                onClick = { vm.selectSection(ProfileSection.Activity) },
+                                text = { Text(stringResource(R.string.profile_tab_activity)) },
                             )
                         }
                     }
@@ -328,6 +336,15 @@ fun UserProfileScreen(
                             }
                         }
                         ProfileSection.Thanks -> {
+                            if (session.signedIn && !isMe) {
+                                item(key = "thanks-write") {
+                                    ThanksComposer(
+                                        nickname = profile.nickname,
+                                        sending = state.sendingThanks,
+                                        onSend = vm::writeThanks,
+                                    )
+                                }
+                            }
                             items(state.thanks.items, key = { "t" + it.id }) { message ->
                                 val onDelete: (() -> Unit)? = if (message.canDelete) ({ pendingDelete = message }) else null
                                 ThanksRow(message, onDelete)
@@ -342,6 +359,15 @@ fun UserProfileScreen(
         }
     }
 
+    val fullPhoto = profile?.avatar?.fullPhotoUrl()
+    if (photoOpen && fullPhoto != null) {
+        ImageViewerDialog(
+            fullUrl = fullPhoto,
+            previewUrl = profile?.avatar?.avatarUrl(large = true),
+            caption = profile?.nickname,
+            onDismiss = { photoOpen = false },
+        )
+    }
     if (editingBio) {
         BioDialog(
             initial = state.page?.bio.orEmpty(),
@@ -381,6 +407,7 @@ private fun ProfileHeader(
     onEditBio: () -> Unit,
     onMessage: (() -> Unit)?,
     onStat: (ChartAction) -> Unit,
+    onOpenPhoto: (() -> Unit)?,
 ) {
     val online = bandColor(0xFF09C286.toInt())
     Column(
@@ -390,7 +417,20 @@ private fun ProfileHeader(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box {
-                Avatar(profile.avatar, 88.dp, large = true, clickable = false)
+                val photoLabel = stringResource(R.string.profile_view_photo)
+                Avatar(
+                    profile.avatar,
+                    88.dp,
+                    large = true,
+                    clickable = false,
+                    modifier = if (onOpenPhoto != null) {
+                        Modifier
+                            .clip(CircleShape)
+                            .clickable(onClickLabel = photoLabel, onClick = onOpenPhoto)
+                    } else {
+                        Modifier
+                    },
+                )
                 if (busy) {
                     CircularProgressIndicator(Modifier.matchParentSize(), strokeWidth = 3.dp)
                 }
@@ -889,3 +929,43 @@ private fun bandColor(seed: Int): Color {
         Color(SchemeGenerator.TonalPalette(lch.h, minOf(lch.c, 72.0)).tone(if (dark) 78 else 50))
     }
 }
+
+/** Writing on someone's thanks wall, as on the site ("כתוב משהו ל…"). */
+@Composable
+private fun ThanksComposer(nickname: String, sending: Boolean, onSend: (String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    val haptics = LocalHapticFeedback.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it.take(THANKS_MAX) },
+            placeholder = { Text(stringResource(R.string.thanks_write_hint, nickname), maxLines = 1) },
+            maxLines = 4,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        FilledIconButton(
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                onSend(text)
+                text = ""
+            },
+            enabled = !sending && text.isNotBlank(),
+        ) {
+            if (sending) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.action_send))
+            }
+        }
+    }
+}
+
+private const val THANKS_MAX = 500
+

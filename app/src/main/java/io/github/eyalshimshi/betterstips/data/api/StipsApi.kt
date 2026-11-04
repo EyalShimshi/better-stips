@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.data.api
 
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
+import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
@@ -30,23 +31,23 @@ class StipsApi(private val client: OkHttpClient) {
         val fields = buildFields(name, apiParams, restAction, omniobj)
         val jsonLength = fields.filter { it.first == "api_params" || it.first == "omniobj" }.sumOf { it.second.length }
         val post = forcePost || restAction == "PUT" || restAction == "POST" || jsonLength > 200
-        val request = if (post) {
-            Request.Builder().url(BASE_URL).post(formEncode(fields).toRequestBody(FORM)).build()
+        val builder = if (post) {
+            Request.Builder().url(BASE_URL).post(formEncode(fields).toRequestBody(FORM))
         } else {
             val url = BASE_URL.toHttpUrl().newBuilder().apply {
                 fields.forEach { (key, value) -> addQueryParameter(key, value) }
             }.build()
-            Request.Builder().url(url).get().build()
+            Request.Builder().url(url).get()
         }
-        val text = try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw ApiException(ApiException.HTTP, "HTTP ${response.code}")
-                response.body?.string().orEmpty()
-            }
-        } catch (e: IOException) {
-            throw ApiException(ApiException.NETWORK, e.message)
+        val request = builder.tag(ApiTag::class.java, ApiTag(name)).build()
+        val text = execute(request)
+        try {
+            Parsers.envelope(text)
+        } catch (e: ApiException) {
+            val start = if (e.code == ApiException.BAD_RESPONSE) " (body starts: " + text.take(40).replace(Regex("\\s+"), " ") + ")" else ""
+            NetLog.event("api", "$name: ${e.code}$start")
+            throw e
         }
-        Parsers.envelope(text)
     }
 
     /** Multipart upload (the profile photo). Returns the raw response; the upload script doesn't use the envelope. */
@@ -55,15 +56,30 @@ class StipsApi(private val client: OkHttpClient) {
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, bytes.toRequestBody(mediaType.toMediaType()))
             .build()
-        val request = Request.Builder().url(url).post(body).build()
-        try {
+        execute(Request.Builder().url(url).post(body).tag(ApiTag::class.java, ApiTag("upload")).build())
+    }
+
+    /** Runs a request on the calling (IO) thread and returns the body, or throws an [ApiException] that says why not. */
+    private fun execute(request: Request): String {
+        val text = try {
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw ApiException(ApiException.HTTP, "HTTP ${response.code}")
+                if (!response.isSuccessful) {
+                    val error = ApiException.forHttp(response.code)
+                    if (error.code == ApiException.RATE_LIMITED || error.code == ApiException.BLOCKED) {
+                        Backoff.onLimited(response.code, response.header("Retry-After")?.trim()?.toLongOrNull())
+                    }
+                    throw error
+                }
                 response.body?.string().orEmpty()
             }
         } catch (e: IOException) {
-            throw ApiException(ApiException.NETWORK, e.message)
+            // A dead connection can outlive the network it was made on; drop the idle ones so the next try starts
+            // fresh, as a network change would (#3).
+            client.connectionPool.evictAll()
+            throw ApiException(ApiException.NETWORK, NetLogListener.describe(e))
         }
+        Backoff.onSuccess()
+        return text
     }
 
     companion object {

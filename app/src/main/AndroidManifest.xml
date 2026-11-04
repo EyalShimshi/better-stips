@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required by JobScheduler for jobs that wait for a network (Android 14+), and to notice network changes (#1, #2). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Phone notifications, only after the user turns them on (Settings or the notifications screen). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Keeps the 15-minute notification check scheduled after a restart (JobInfo.setPersisted). -->

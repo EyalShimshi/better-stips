@@ -7,7 +7,7 @@
 | **M0 Pipeline** | Repo, CI, signing, pre-releases | A green build installs on the owner's phone |
 | **M1 v0.1** | SPEC-01 v0.1 scope | Spikes S-01…S-06 pass on the owner's phone |
 | M2 v0.2 | Owner feedback: hot-first Home with Live, compact question header, pins, Get updates, answer links/editing/detaching, notifications, social profiles, photo and bio, account settings, motion | Owner uses it daily instead of the official app |
-| M2.5 v0.3 | Ask a question, report, per-app language | — |
+| M2.5 v0.3 | Issues #1–#4: crash and connection fixes, network log, Live rate, ask a question, pen pals, report/block, anonymous mode, flowers, thanks writing, people search | The owner uses posting and moderation daily |
 | M3 v0.4 | Widget, shortcuts, tablet layout, lint in CI | DESIGN-PHILOSOPHY §13 checklist passes on every screen |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
@@ -27,7 +27,8 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-06 | Compile errors cost CI round trips (no local compiler) | Medium | Low | Versions from a CI-tested sample; signatures checked in source jars; `ci-status` branch for fast feedback |
 | R-07 | The signing key is lost | Low | High | CI secret + a backup file on the owner's computer |
 | R-08 | Users are mostly minors; their content is personal | Medium | Medium | Nothing stored beyond caches and the user's own saved list; hidden profile fields are never shown; no analytics |
-| R-09 | Unsafe content or harassment with no report button | Medium | Medium | "Open on Stips" to report there; an in-app report action in v0.3 (`reports.send`) |
+| R-09 | Unsafe content or harassment | Medium | Medium | Report and block content in the app since v0.3 (`reports.send`, `ask/BlockContent`); chats next |
+| R-10 | Cloudflare limits the phone's address (fast Live, bursts) and Stips seems "down" (#3) | Medium | Medium | Back-off on 429/403, Live slows down after failures, costs shown next to the fast rates, the network log to see what happened |
 
 ## 4. The permission request
 

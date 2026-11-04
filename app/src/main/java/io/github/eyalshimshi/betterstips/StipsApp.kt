@@ -1,25 +1,35 @@
 package io.github.eyalshimshi.betterstips
 
 import android.app.Application
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
+import io.github.eyalshimshi.betterstips.data.BlockStore
 import io.github.eyalshimshi.betterstips.data.ChannelsSource
 import io.github.eyalshimshi.betterstips.data.FeedCache
 import io.github.eyalshimshi.betterstips.data.SavedStore
+import io.github.eyalshimshi.betterstips.data.SeenNotifications
 import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.SettingsStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.Timings
+import io.github.eyalshimshi.betterstips.data.api.NetLogListener
 import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.api.UserAgentInterceptor
+import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -38,12 +48,29 @@ class AppContainer(private val app: Application) {
     }
 
     private val cookieJar = SessionCookieJar()
+    private val userAgent = UserAgentInterceptor("StipsPlus/$versionName (Android ${Build.VERSION.RELEASE}; unofficial; +$REPO_URL)")
 
+    /**
+     * API calls use HTTP/1.1: with HTTP/2 every request shared one connection, so a single stalled connection made
+     * all of Stips unreachable until the network changed (#3). Small JSON calls lose nothing by it.
+     */
     val httpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
-        .addInterceptor(UserAgentInterceptor("StipsPlus/$versionName (Android ${Build.VERSION.RELEASE}; unofficial; +$REPO_URL)"))
+        .addInterceptor(userAgent)
+        .protocols(listOf(Protocol.HTTP_1_1))
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
+        .callTimeout(30, TimeUnit.SECONDS)
+        .eventListenerFactory(NetLogListener.factory(verbose = true))
+        .build()
+
+    /** Images (cdn.stips.co.il, Unsplash) on their own connections, without cookies, so they never share the API's. */
+    private val imageClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(userAgent)
+        .connectionPool(ConnectionPool())
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .eventListenerFactory(NetLogListener.factory(verbose = false))
         .build()
 
     private val api = StipsApi(httpClient)
@@ -51,18 +78,22 @@ class AppContainer(private val app: Application) {
     val settings = SettingsStore(app)
     val session = SessionStore(app, api, cookieJar)
     val saved = SavedStore(app)
+    val anonymousAnswers = AnonymousAnswers(app)
+    val seenNotifications = SeenNotifications(app)
     val timings = Timings()
     val channels = ChannelsSource(app, api)
-    val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings)
+    val blocks = BlockStore(app)
+    val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks)
 
     val imageLoader: ImageLoader = ImageLoader.Builder(app)
-        .okHttpClient(httpClient)
+        .okHttpClient(imageClient)
         .memoryCache { MemoryCache.Builder(app).maxSizePercent(0.2).build() }
         .diskCache { DiskCache.Builder().directory(File(app.cacheDir, "images")).maxSizeBytes(64L * 1024 * 1024).build() }
         .crossfade(true)
         .build()
 
     fun start() {
+        watchNetwork()
         appScope.launch { channels.refresh() }
         if (session.session.value.signedIn) {
             appScope.launch {
@@ -70,6 +101,60 @@ class AppContainer(private val app: Application) {
                 session.refreshProfile()
             }
         }
+    }
+
+    /** First lines of a shared network log: which app and phone it came from. */
+    fun diagnosticsHeader(): String =
+        "Stips+ $versionName | Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}) | ${Build.MANUFACTURER} ${Build.MODEL}"
+
+    /** Closes idle connections (off the main thread: closing TLS is network I/O), so the next request starts fresh. */
+    fun dropIdleConnections() {
+        appScope.launch(Dispatchers.IO) {
+            httpClient.connectionPool.evictAll()
+            imageClient.connectionPool.evictAll()
+        }
+    }
+
+    /** Logs network changes and drops connections made on the previous network (#3). */
+    private fun watchNetwork() {
+        val connectivity = app.getSystemService(ConnectivityManager::class.java) ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            private var last: String? = null
+
+            override fun onAvailable(network: Network) {
+                NetLog.event("network", "network available")
+                dropIdleConnections()
+            }
+
+            override fun onLost(network: Network) {
+                NetLog.event("network", "network lost")
+                dropIdleConnections()
+            }
+
+            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+                val text = describeNetwork(networkCapabilities)
+                if (text != last) {
+                    last = text
+                    NetLog.event("network", text)
+                }
+            }
+        }
+        try {
+            connectivity.registerDefaultNetworkCallback(callback)
+        } catch (e: RuntimeException) {
+            NetLog.event("network", "can't watch network changes: ${e.javaClass.simpleName}")
+        }
+    }
+
+    private fun describeNetwork(caps: NetworkCapabilities): String {
+        val transports = listOf(
+            NetworkCapabilities.TRANSPORT_WIFI to "wifi",
+            NetworkCapabilities.TRANSPORT_CELLULAR to "cellular",
+            NetworkCapabilities.TRANSPORT_ETHERNET to "ethernet",
+            NetworkCapabilities.TRANSPORT_VPN to "vpn",
+        ).filter { caps.hasTransport(it.first) }.joinToString("+") { it.second }.ifEmpty { "other" }
+        val validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return "now on $transports" + if (validated) "" else " (no internet yet)"
     }
 
     companion object {
@@ -86,6 +171,10 @@ class StipsApp : Application() {
         io.github.eyalshimshi.betterstips.crash.CrashReporter.install(this)
         container = AppContainer(this)
         container.start()
-        io.github.eyalshimshi.betterstips.notify.Notifier.schedule(this, container.settings.settings.value.backgroundNotifications)
+        val wanted = container.settings.settings.value.backgroundNotifications
+        if (!io.github.eyalshimshi.betterstips.notify.Notifier.schedule(this, wanted) && wanted) {
+            // Android refused the job; show the switch as off rather than pretend.
+            container.settings.update { it.copy(backgroundNotifications = false) }
+        }
     }
 }

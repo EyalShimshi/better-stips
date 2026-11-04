@@ -63,6 +63,27 @@ $p = [uri]::EscapeDataString('{"userid":275580,"action":"ans"}')
 (Invoke-WebRequest "https://stips.co.il/api?name=profile.actions_chart&api_params=$p" -UseBasicParsing).Content.Substring(0, 300)
 ```
 
+## When Stips stops answering (issue #3)
+
+The app keeps a network log: Settings → Diagnostics → Network log (Copy, Share, or Report on GitHub, which copies it for pasting). Each line is one request or event:
+
+```
+10:01:02.345  http     objectlist -> 200 | http/1.1 reused #1a2b 104.26.13.211 | 312 ms | 9 KB | ray=… cache=DYNAMIC
+10:01:05.120  http     messages.count FAILED SocketTimeoutException: timeout | http/1.1 new #3c4d 104.26.13.211 | 20011 ms
+10:01:05.200  backoff  HTTP 429: background checks pause for 60 s (strike 1)
+10:01:09.000  session  signing in again with the saved token failed: RATE_LIMITED; keeping the session
+10:01:30.000  network  now on cellular
+```
+
+How to read it:
+- **`-> 429` or `-> 403`** (often with `mitigated=…`): Stips' Cloudflare is limiting this phone's address. The app backs off by itself; a new address (VPN, airplane mode) helps at once. If it keeps happening, look at what ran just before (Live at 2 s? many images?).
+- **`FAILED … Timeout` or `ConnectException` on new connections:** the network (or Cloudflare dropping our address) — compare with `network` lines.
+- **`FAILED` on `reused` connections only, then fine on `new` ones:** a stale connection; the app drops idle connections after any failure and on network changes.
+- **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out.
+- **`api … BAD_RESPONSE (body starts: <!DOCTYPE …)`:** Stips sent a web page instead of JSON (a challenge page or an error page).
+
+The log never contains request parameters, cookies, tokens or text the user wrote.
+
 ## Phone notifications
 
 - Off by default. When turned on (Settings → Updates, or the card on the notifications screen), `Notifier.schedule` registers job **4201** with Android's JobScheduler: every 15 minutes, any network, kept across reboots. Turning it off cancels the job and forgets what was seen.

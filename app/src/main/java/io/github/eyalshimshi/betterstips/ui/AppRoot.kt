@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
@@ -69,8 +71,10 @@ import androidx.navigation.navArgument
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.crash.CrashReporter
+import io.github.eyalshimshi.betterstips.data.api.Backoff
 import io.github.eyalshimshi.betterstips.data.model.MyList
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
+import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
@@ -83,8 +87,10 @@ import io.github.eyalshimshi.betterstips.ui.feed.SavedScreen
 import io.github.eyalshimshi.betterstips.ui.feed.TopicScreen
 import io.github.eyalshimshi.betterstips.ui.home.HomeScreen
 import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsScreen
+import io.github.eyalshimshi.betterstips.ui.penpals.PenPalsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
 import io.github.eyalshimshi.betterstips.ui.question.QuestionScreen
+import io.github.eyalshimshi.betterstips.ui.settings.NetLogScreen
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsScreen
 import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
@@ -110,18 +116,23 @@ object Routes {
     const val USER = "user/{id}"
     const val NOTIFICATIONS = "notifications"
     const val HOT = "hot"
+    const val NETLOG = "netlog"
+    const val PENPALS = "penpals"
+    const val ASK = "ask?channel={channel}"
 
     fun question(id: Long) = "question/$id"
     fun topic(name: String) = "topic/" + Uri.encode(name)
     fun conversation(userId: Long, name: String) = "conversation/$userId?name=" + Uri.encode(name)
     fun myList(kind: MyList) = "mylist/" + kind.name
     fun user(id: Long) = "user/$id"
+    fun ask(channelId: Int?) = if (channelId != null) "ask?channel=$channelId" else "ask"
 }
 
 private data class Tab(val route: String, val label: Int, val icon: ImageVector, val selectedIcon: ImageVector)
 
 private val tabs = listOf(
     Tab(Routes.HOME, R.string.tab_home, Icons.Outlined.Home, Icons.Filled.Home),
+    Tab(Routes.PENPALS, R.string.tab_penpals, Icons.Outlined.Groups, Icons.Filled.Groups),
     Tab(Routes.CHATS, R.string.tab_chats, Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble),
     Tab(Routes.PROFILE, R.string.tab_profile, Icons.Outlined.Person, Icons.Filled.Person),
 )
@@ -162,7 +173,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                fetchCounts(container)?.let { counts = it }
+                if (!Backoff.active) fetchCounts(container)?.let { counts = it }
                 delay(COUNTS_INTERVAL_MS)
             }
         }
@@ -334,6 +345,8 @@ private class NavMotion(private val animate: Boolean) {
 @Composable
 private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit) {
     val animate = LocalAppSettings.current.animations
+    val session by LocalAppContainer.current.session.session.collectAsStateWithLifecycle()
+    val signedIn = session.signedIn
     val motion = remember(animate) { NavMotion(animate) }
     fun openQuestion(id: Long) = navController.navigate(Routes.question(id))
     fun openTopic(name: String) = navController.navigate(Routes.topic(name))
@@ -364,6 +377,30 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
                 onOpenTopic = ::openTopic,
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) { launchSingleTop = true } },
                 onOpenHot = { navController.navigate(Routes.HOT) { launchSingleTop = true } },
+                onAsk = { channelId -> if (signedIn) navController.navigate(Routes.ask(channelId)) { launchSingleTop = true } else signIn() },
+                onOpenProfile = ::openUser,
+            )
+        }
+        composable(Routes.PENPALS) {
+            PenPalsScreen(onOpenConversation = ::openConversation, onSignIn = ::signIn)
+        }
+        composable(
+            Routes.ASK,
+            arguments = listOf(
+                navArgument("channel") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+            ),
+        ) { entry ->
+            AskScreen(
+                channelId = entry.arguments?.getInt("channel")?.takeIf { it > 0 },
+                onClose = ::back,
+                onPosted = { id ->
+                    navController.navigate(Routes.question(id)) {
+                        popUpTo(Routes.ASK) { inclusive = true }
+                    }
+                },
             )
         }
         composable(Routes.CHATS) {
@@ -444,7 +481,14 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
             SignInScreen(onDone = ::back)
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = ::back, onOpenMyProfile = { navigateToTab(navController, Routes.PROFILE) })
+            SettingsScreen(
+                onBack = ::back,
+                onOpenMyProfile = { navigateToTab(navController, Routes.PROFILE) },
+                onOpenNetLog = { navController.navigate(Routes.NETLOG) { launchSingleTop = true } },
+            )
+        }
+        composable(Routes.NETLOG) {
+            NetLogScreen(onBack = ::back)
         }
     }
 }

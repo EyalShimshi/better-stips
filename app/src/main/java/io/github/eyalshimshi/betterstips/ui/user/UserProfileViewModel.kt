@@ -24,9 +24,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class ProfileSection { Activity, Thanks }
+/** The thanks wall comes first and opens by default (#4). */
+enum class ProfileSection { Thanks, Activity }
 
-enum class ProfileMessage { BioSaved, PhotoUpdated, ThanksDeleted, Failed }
+enum class ProfileMessage { BioSaved, PhotoUpdated, ThanksDeleted, ThanksSent, Failed }
 
 /** A list read page by page (thanks wall, flowered answers). */
 data class Paged<T>(
@@ -43,12 +44,13 @@ data class ProfileUiState(
     val page: ProfilePage? = null,
     val loading: Boolean = true,
     val error: ApiException? = null,
-    val section: ProfileSection = ProfileSection.Activity,
+    val section: ProfileSection = ProfileSection.Thanks,
     val chartAction: ChartAction = ChartAction.Answers,
     val charts: Map<ChartAction, List<ChartPoint>> = emptyMap(),
     val flowers: Paged<Answer> = Paged(),
     val thanks: Paged<ThanksMessage> = Paged(),
     val busy: Boolean = false,
+    val sendingThanks: Boolean = false,
     val message: ProfileMessage? = null,
 )
 
@@ -137,6 +139,25 @@ class UserProfileViewModel(
                 throw e
             } catch (e: Exception) {
                 _state.update { it.copy(message = ProfileMessage.Failed) }
+            }
+        }
+    }
+
+    /** Writes on this user's thanks wall, then shows the wall from the top. Returns at once; the result comes as a message. */
+    fun writeThanks(text: String) {
+        val message = text.trim()
+        if (message.isEmpty() || _state.value.sendingThanks) return
+        viewModelScope.launch {
+            _state.update { it.copy(sendingThanks = true) }
+            try {
+                repository.writeThanks(userId, message)
+                generation++
+                _state.update { it.copy(sendingThanks = false, thanks = Paged(), message = ProfileMessage.ThanksSent) }
+                loadMoreThanks()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(sendingThanks = false, message = ProfileMessage.Failed) }
             }
         }
     }

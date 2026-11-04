@@ -17,6 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -206,25 +210,91 @@ fun AuthorName(author: Author, style: TextStyle, modifier: Modifier = Modifier) 
 
 @Composable
 fun QuestionRow(question: Question, channel: Channel?, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val meta = listOf(
+    val description = listOf(
+        question.title,
         answersText(question.answerCount),
-        if (question.pinCount > 0) pinsText(question.pinCount) else "",
-        agoText(question.postedAt),
+        pinsText(question.pinCount),
         authorName(question.author),
-    )
-        .filter { it.isNotBlank() }
-        .joinToString(" · ")
+        agoText(question.postedAt),
+    ).filter { it.isNotBlank() }.joinToString(", ")
     ListItem(
         headlineContent = {
             Text(question.title, maxLines = 3, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
         },
-        supportingContent = { Text(meta, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { QuestionMetaRow(question, Modifier.padding(top = 6.dp)) },
         leadingContent = { CoverArt(question, channel?.seedColor, 56.dp) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = modifier
             .clickable(onClick = onClick)
-            .semantics(mergeDescendants = true) { contentDescription = question.title + ", " + meta },
+            .semantics(mergeDescendants = true) { contentDescription = description },
     )
+}
+
+/**
+ * Under a question: the asker (photo and name, cut with "…" when long) at the start; the number of answers and pins
+ * and the time, as symbols, at the end (#4).
+ */
+@Composable
+fun QuestionMetaRow(
+    question: Question,
+    modifier: Modifier = Modifier,
+    answerCount: Int = question.answerCount,
+    pinCount: Int = question.pinCount,
+    avatarSize: Dp = 18.dp,
+    clickableAuthor: Boolean = false,
+    color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+) {
+    val style = MaterialTheme.typography.labelMedium
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(question.author, avatarSize, clickable = clickableAuthor)
+            Spacer(Modifier.width(6.dp))
+            if (clickableAuthor) {
+                AuthorName(question.author, style, Modifier.weight(1f, fill = false))
+            } else {
+                Text(
+                    authorName(question.author),
+                    style = style,
+                    color = color,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        MetaItem(Icons.Outlined.ChatBubbleOutline, answerCount.toString(), color)
+        Spacer(Modifier.width(10.dp))
+        MetaItem(Icons.Outlined.PushPin, pinCount.toString(), color)
+        val ago = shortAgoText(question.postedAt)
+        if (ago.isNotEmpty()) {
+            Spacer(Modifier.width(10.dp))
+            MetaItem(Icons.Outlined.Schedule, ago, color)
+        }
+    }
+}
+
+@Composable
+private fun MetaItem(icon: ImageVector, text: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(3.dp))
+        Text(text, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1)
+    }
+}
+
+/** "5m", "3h", "2d" (Hebrew: "5 דק׳"…), or a short date: for tight rows. */
+@Composable
+fun shortAgoText(instant: Instant?): String {
+    if (instant == null) return ""
+    return when (val ago = StipsTime.ago(instant, Instant.now())) {
+        StipsTime.Ago.JustNow -> stringResource(R.string.time_short_now)
+        is StipsTime.Ago.Minutes -> stringResource(R.string.time_short_minutes, ago.count.toInt())
+        is StipsTime.Ago.Hours -> stringResource(R.string.time_short_hours, ago.count.toInt())
+        is StipsTime.Ago.Days -> stringResource(R.string.time_short_days, ago.count.toInt())
+        is StipsTime.Ago.OnDate -> ago.date.format(DateTimeFormatter.ofPattern("d.M"))
+    }
 }
 
 /** Text with tappable links; long-press selects and copies (F-06). */
@@ -265,6 +335,10 @@ fun LinkifiedText(
 @Composable
 fun errorMessage(error: ApiException): String = when {
     error.isNetwork -> stringResource(R.string.error_offline)
+    error.code == ApiException.RATE_LIMITED -> stringResource(R.string.error_rate_limited)
+    error.code == ApiException.BLOCKED -> stringResource(R.string.error_blocked)
+    error.code == ApiException.SERVER -> stringResource(R.string.error_server_down, error.serverMessage.orEmpty())
+    error.code == ApiException.HTTP -> stringResource(R.string.error_http, error.serverMessage.orEmpty())
     error.code == ApiException.NOT_FOUND -> stringResource(R.string.error_not_found)
     error.code == ApiException.BANNED -> stringResource(R.string.error_banned)
     error.code == ApiException.NOT_SIGNED_IN -> stringResource(R.string.error_signed_out)

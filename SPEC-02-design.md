@@ -52,7 +52,7 @@ flowchart TD
 
 ## 4. Navigation and adaptive layout
 
-- **Bottom bar:** Home · Chats · Profile (icons with labels; filled icon when selected; Chats shows the unread count). It hides on inner screens, sliding away.
+- **Bottom bar:** Home · Pen pals · Chats · Profile (icons with labels; filled icon when selected; Chats shows the unread count). It hides on inner screens, sliding away.
 - **Back:** system back and predictive back everywhere; the top bar's back arrow mirrors in RTL.
 - **Motion (D-32):** a new screen slides in from the end over the current one, which drifts a quarter of the way toward the start; Back reverses it. Tabs fade through (out 90 ms, in 210 ms). During the predictive back gesture the screen follows the finger toward the edge it was swiped from, and the screen below slides in from a quarter away. The *Animations* switch turns all of it off.
 - **Deep links:** `https://stips.co.il/ask/<id>` opens the question, `/profile/<id>` the profile, `/messages` the Chats tab. The same links work from phone notifications and inside answers.
@@ -109,7 +109,10 @@ flowchart TD
 └──────────────────────────────────────┘
 ```
 
-- Scrolling down collapses the header into a top bar that shows only the question's title (fade and slide, on a surface that tints as it fills).
+- Scrolling down collapses the header into a top bar that shows only the question's title (fade and slide, on a surface that tints as it fills). The cover is clipped to the header over a solid surface, so it never shows past the header while it drifts (#4).
+- The meta row: the asker (photo + name, cut with "…") at the start; 💬 answers, 📌 pins and 🕒 time at the end. Feeds and hot cards use the same row.
+- ⋮ in the top bar: Open on Stips, View image (full screen, zoom), Photo credit; on your question Edit, Detach, Delete; on others' Report, Hide, Hide everything from this user. Each answer has its own ⋮ (yours: Edit, Detach, Delete; others': Report, Hide, Hide everything from this user). The asker sees *Send a flower* on eligible answers.
+- The composer's options are three short chips (Anonymous · Link · Updates) that fit without sideways scrolling; editing puts the cursor at the end and opens the keyboard.
 - Without a cover the header is tinted surface; nothing else changes.
 - *Add link* opens a dialog with one field ("Paste the link here"); the link's page title becomes its name, as on the site. One link per answer.
 - Editing an answer reuses the composer with a banner "Editing your answer" and Cancel.
@@ -175,7 +178,8 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 └──────────────────────────────────────┘
 ```
 
-- Tapping any name or avatar (answers, thanks wall, chats, notifications) opens that user's profile.
+- Tapping any name or avatar (answers, thanks wall, chats, notifications) opens that user's profile. On the profile, tapping the photo opens it full screen.
+- Tabs: **Thanks wall** (first and default; others can write on it) · **Activity**.
 - On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (250 characters).
 - Signed out, the Profile tab is a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
 
@@ -198,6 +202,32 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
 Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and bio → your profile · Safe mode · Account details ↗ · Change password ↗ · Sign out) · **Updates** (Phone notifications · Live new questions, each with its data cost) · **Colors** (Dynamic color · Accent swatches · Theme System/Light/Dark · Pure black) · **Interface** (Show images · Animations) · **Performance** (recent timings) · **Stips** (Contact ↗ · Rules ↗ · About Stips ↗ · Delete account ↗) · **About** (version, license, source, report a problem, disclaimer). ↗ rows open the Stips site in the browser.
 
+### 5.9 Ask a question
+
+```
+┌──────────────────────────────────────┐
+│ ✕  Ask a question                    │
+│ (In the Studies channel ✕)           │  only when asked from a channel
+│ [ Your question              14/120 ]│  10–120 characters
+│ [ More details (optional)   0/2000 ] │
+│ (👤 Ask anonymously) (🔗 Add link)    │  anonymous → nickname field
+│ ▬▬▬▬▬▬▬▬▬▬░░░░░░░░░░                 │  step 1 of 3
+│ Step 1 of 3          ( Back ) (Next) │
+└──────────────────────────────────────┘
+```
+
+- Step 2: chosen tags (removable, 1–5), "Add a tag" with Stips' completions, suggested tags as filter chips.
+- Step 3: a photo grid from Stips' gallery for the first tag (search to change); tap to select (check mark); *Post*.
+- A YouTube link skips the photo step. Over the daily cap: a card says how many questions a day are allowed.
+- After posting, the new question opens in place of this screen. Anonymous mode forces *Ask anonymously*.
+
+### 5.10 Pen pals (tab)
+
+- Top bar "Pen pals"; a short intro line; cards with avatar (online dot), name, time and the message; ⋮ → Report / Hide / Hide everything from this user, or Delete on your own post.
+- Tap a card → the private chat with its author (sign in first if needed).
+- *New post* opens a sheet: 255 characters, "My last message", *Send*; or explains what's missing (sign in, 5 flowers, the posting interval).
+- Signed-in users outside ages 13–21 see Stips' "for teens" message instead of the board.
+
 ### 5.8 Notifications
 
 ```
@@ -213,6 +243,7 @@ Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and 
 └──────────────────────────────────────┘
 ```
 
+- Rows are uniform (icon, two lines of text, time; a note or removed points on one extra line). New items (Stips' `viewed` flag, or newer than what the app last showed) sit under **New** with a tinted background and a dot; the rest under **Earlier**. Times: today's time, "Yesterday", or the date.
 - Tapping opens the question or profile. Pull to refresh; older pages load at the end.
 - Opening the list clears the bell's badge (Stips marks them seen, as on the site).
 - Phone notifications: channel "Stips updates"; up to 5 new items per check, plus one "You have N unread messages"; tapping opens the item in the app.

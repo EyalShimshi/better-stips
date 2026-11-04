@@ -5,12 +5,18 @@ import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
 import io.github.eyalshimshi.betterstips.data.model.AppUser
+import io.github.eyalshimshi.betterstips.data.model.AskAllowance
+import io.github.eyalshimshi.betterstips.data.model.AskDraft
+import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.ChartAction
 import io.github.eyalshimshi.betterstips.data.model.ChartPoint
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
+import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
+import io.github.eyalshimshi.betterstips.data.model.PenPalAllowance
+import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
@@ -22,8 +28,10 @@ import io.github.eyalshimshi.betterstips.data.parse.Parsers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
 /** Everything the screens ask of Stips. Requests happen only when the user acts (D-13). */
@@ -33,6 +41,7 @@ class StipsRepository(
     private val feedCache: FeedCache,
     val channels: ChannelsSource,
     val timings: Timings,
+    val blocks: BlockStore,
 ) {
     private val questionCache = object : LinkedHashMap<Long, Question>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Question>?): Boolean = size > 300
@@ -389,13 +398,263 @@ class StipsRepository(
         )
     }
 
-    /** Account calls: make sure the session exists; if Stips refuses once, sign in again with the token and retry. */
+    // ---- Moderation (#4) ----
+
+    /** Reports a question, an answer or a pen-pal post to Stips' moderators, in the user's own words (5–500 characters). */
+    suspend fun report(objType: String, id: Long, reason: String) {
+        withSession {
+            api.call(
+                "reports.send",
+                buildJsonObject {
+                    put("itemid", id)
+                    put("itemtype", objType)
+                    put("reason", reason)
+                    put("reason_id", 0)
+                },
+                forcePost = true,
+            )
+        }
+    }
+
+    /** Reports a user from a chat (`itemtype: "usermsgs"`), with one of the site's reasons. */
+    suspend fun reportUser(userId: Long, reasonId: Int, details: String) {
+        withSession {
+            api.call(
+                "reports.send",
+                buildJsonObject {
+                    put("itemid", userId)
+                    put("itemtype", "usermsgs")
+                    put("reason", details)
+                    put("reason_id", reasonId)
+                },
+                forcePost = true,
+            )
+        }
+    }
+
+    /**
+     * "Block content": hides the item (and, with [authorId], everything by its author) on this phone, and tells
+     * Stips as its app does (`ask/BlockContent`), so it can show less of it. The answer is ignored, like on the site.
+     */
+    suspend fun blockContent(objType: String, id: Long, authorId: Long?) {
+        blocks.block(objType, id, authorId)
+        if (!session.session.value.signedIn) return
+        try {
+            withSession {
+                api.call(
+                    "smartdata.get",
+                    buildJsonObject {
+                        put("namespace", "ask")
+                        put("unit", "BlockContent")
+                        put("id", id)
+                        put("objType", objType)
+                        if (authorId != null) put("blockUser", true)
+                    },
+                )
+            }
+        } catch (e: ApiException) {
+            // The hiding already happened here; Stips hearing about it is a bonus.
+        }
+    }
+
+    /** Blocks (or unblocks) private messages from a user (`messages.block_user`). */
+    suspend fun setMessagesBlocked(userId: Long, blocked: Boolean) {
+        withSession {
+            api.call(
+                "messages.block_user",
+                buildJsonObject {
+                    put("userid", userId)
+                    put("action", if (blocked) "add" else "remove")
+                },
+            )
+        }
+    }
+
+    // ---- Your own items (#4) ----
+
+    /** Edits your question's title, details, tags and link (`omniobj` POST), when Stips allows it. */
+    suspend fun editQuestion(id: Long, title: String, body: String, tags: List<String>, link: String?) {
+        withSession {
+            val omniobj = buildJsonObject {
+                put("objType", "ask")
+                putJsonObject("data") {
+                    put("id", id)
+                    put("q", title)
+                    put("text_content", body)
+                    putJsonArray("tagslist") { tags.forEach { add(it) } }
+                    put("q_link", link.orEmpty())
+                }
+            }
+            api.call("omniobj", restAction = "POST", omniobj = omniobj)
+        }
+    }
+
+    /** Deletes your question, answer or pen-pal post (`omniobj` DELETE), when Stips allows it. */
+    suspend fun deleteItem(objType: String, id: Long) {
+        withSession {
+            api.call(
+                "omniobj",
+                restAction = "DELETE",
+                omniobj = buildJsonObject {
+                    put("objType", objType)
+                    putJsonObject("data") { put("id", id) }
+                },
+            )
+        }
+    }
+
+    /** "Detach from my account" for a question (answers use [detachAnswer]). */
+    suspend fun detachQuestion(id: Long) {
+        withSession {
+            api.call(
+                "item.set_anonymous",
+                buildJsonObject {
+                    put("objType", "ask")
+                    put("id", id)
+                },
+            )
+        }
+    }
+
+    /** The asker gives an answer a flower (up to 5 per question, answers up to 14 days old). */
+    suspend fun sendFlower(answerId: Long): Boolean = withSession {
+        Parsers.flowerSent(api.call("item.send_flower", buildJsonObject { put("id", answerId) }, forcePost = true))
+    }
+
+    /** Writes a message on someone's thanks wall (`omniobj` PUT, `objType: "thanksmsg"`). */
+    suspend fun writeThanks(userId: Long, text: String) {
+        withSession {
+            api.call(
+                "omniobj",
+                restAction = "PUT",
+                omniobj = buildJsonObject {
+                    put("objType", "thanksmsg")
+                    putJsonObject("data") {
+                        put("msg", text)
+                        put("touserid", userId)
+                    }
+                },
+            )
+        }
+    }
+
+    /** Users whose nickname matches [query] (the site's header search, `users/Search`). */
+    suspend fun searchUsers(query: String): List<Author> = Parsers.userSearch(
+        api.call(
+            "smartdata.get",
+            buildJsonObject {
+                put("namespace", "users")
+                put("unit", "Search")
+                put("q", query)
+            },
+        ),
+    )
+
+    // ---- Asking a question (#4) ----
+
+    suspend fun askAllowance(): AskAllowance = withSession {
+        Parsers.askAllowance(
+            api.call(
+                "smartdata.get",
+                buildJsonObject {
+                    put("namespace", "ask")
+                    put("unit", "DailyAskCount")
+                },
+            ),
+        )
+    }
+
+    /** Tags Stips suggests for a question's title. */
+    suspend fun suggestedTags(title: String): List<String> = Parsers.tags(api.call("item.autotags", buildJsonObject { put("title", title) }))
+
+    /** Tags that start like what the user is typing. */
+    suspend fun completeTag(prefix: String): List<String> = Parsers.tags(api.call("item.tag_suggest", buildJsonObject { put("q", prefix) }))
+
+    /** Photos from Stips' own gallery for these tags, the way the site offers covers. */
+    suspend fun galleryPhotos(tags: List<String>): List<GalleryPhoto> = Parsers.galleryPhotos(
+        api.call("photos.tag_gallery", buildJsonObject { putJsonArray("tags") { tags.forEach { add(it) } } }),
+    )
+
+    /** Asks the question; returns its id. Same fields as the site (`ask_type` 11). */
+    suspend fun askQuestion(draft: AskDraft): Long = withSession {
+        val omniobj = buildJsonObject {
+            put("objType", "ask")
+            putJsonObject("data") {
+                put("q", draft.title)
+                put("q_link", draft.link.orEmpty())
+                put("text_content", draft.body)
+                putJsonArray("tagslist") { draft.tags.forEach { add(it) } }
+                if (draft.photoId != null) put("photo", draft.photoId)
+                if (draft.anonymous) {
+                    put("anonflg", true)
+                    put("name", draft.nickname.orEmpty())
+                }
+                put("ask_type", 11)
+                if (draft.channelId != null) put("channel_id", draft.channelId)
+            }
+        }
+        Parsers.newId(api.call("omniobj", restAction = "PUT", omniobj = omniobj)) ?: throw ApiException(ApiException.BAD_RESPONSE)
+    }
+
+    // ---- Pen pals, חברים לעט (#4) ----
+
+    suspend fun penPals(page: Int): List<PenPalPost> = Parsers.penPals(
+        api.call(
+            "objectlist",
+            buildJsonObject {
+                put("method", "penfriendsitem.new")
+                put("page", page)
+            },
+        ),
+    )
+
+    suspend fun penPalAllowance(): PenPalAllowance = withSession {
+        Parsers.penPalAllowance(
+            api.call(
+                "smartdata.get",
+                buildJsonObject {
+                    put("namespace", "penfriends")
+                    put("unit", "PostAllowed")
+                },
+            ),
+        )
+    }
+
+    suspend fun lastPenPalMessage(): String? = withSession {
+        Parsers.lastPenPalMessage(
+            api.call(
+                "smartdata.get",
+                buildJsonObject {
+                    put("namespace", "penfriends")
+                    put("unit", "LastMessageForUser")
+                },
+            ),
+        )
+    }
+
+    suspend fun postPenPal(text: String): Long? = withSession {
+        Parsers.newId(
+            api.call(
+                "omniobj",
+                restAction = "PUT",
+                omniobj = buildJsonObject {
+                    put("objType", "penfriendsitem")
+                    putJsonObject("data") { put("msg", text) }
+                },
+            ),
+        )
+    }
+
+    /**
+     * Account calls: make sure the session exists; if Stips says we're signed out, sign in again with the token
+     * and retry once. Other errors are passed on untouched (a failed post must not be sent twice).
+     */
     private suspend fun <T> withSession(block: suspend () -> T): T {
         session.ensureSession()
         return try {
             block()
         } catch (e: ApiException) {
-            if (e.isNetwork || e.code == ApiException.NOT_FOUND || e.code == ApiException.BANNED) throw e
+            if (!e.looksSignedOut) throw e
             session.ensureSession(force = true)
             block()
         }

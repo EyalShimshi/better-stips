@@ -65,7 +65,7 @@ class FeedViewModel(
         load(reset = false, refreshing = false, showCache = false)
     }
 
-    /** Auto-refresh: fetches the first page and puts questions we don't have yet on top. */
+    /** Live: fetches page 1 and puts questions we don't have yet on top. Returns how many, or -1 when the check failed. */
     suspend fun pollNew(): Int {
         val s = _state.value
         if (s.loading || s.refreshing || s.items.isEmpty()) return 0
@@ -75,7 +75,7 @@ class FeedViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            return 0
+            return -1
         }
         if (query != _query.value) return 0
         var added = 0

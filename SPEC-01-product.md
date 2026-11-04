@@ -34,7 +34,8 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 |---|---|
 | **v0.1** (this round) | Feeds (new, hot + window), channel chips, topic search and topic feeds, question + answers, links, share / open on site, save questions on the phone, native sign-in, post an answer (also anonymously), vote, chats (list, thread, send), profile (my questions, my answers), settings, about, crash catcher, timings |
 | **v0.2** (owner feedback round) | Home with the top 5 hot questions and Live new questions; a compact question header with the cover behind the title and a collapsing title bar; the asker's link; pins; Get updates; answer links, editing and detaching; notifications (in-app, plus optional phone notifications); social profiles for everyone (credibility, graphs, flowered answers, thanks wall); profile photo and bio; Stips account settings; new screen motion |
-| v0.3 | Ask a question, report, per-app language, home-screen widget, shortcuts |
+| **v0.3** (issues #1–#4) | Fix the notifications crash and the "can't reach Stips" disconnects (network log, back-off, no false sign-outs); Live 2–30 s; ask a question; pen pals; report and block content; anonymous mode; flowers; thanks-wall writing; people search; own-question actions; image viewer; compact notifications and question meta; haptics |
+| v0.4 | Chat moderation (report and block users), per-app language, home-screen widget, shortcuts |
 | Public | Only after Stips' written permission (D-02) |
 
 ## 6. Functional requirements
@@ -61,7 +62,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-18 | Timings | P1 | The question screen shows "Loaded in 0.4 s"; Settings → Performance lists recent timings |
 | F-19 | Instant start | P1 | The last-seen first page of the Home feed shows at once on launch, then refreshes |
 | F-20 | Notifications | P1 | A bell on Home with an unread badge opens Stips' notification list (newest first, unread highlighted, tap opens the question or profile); Chats shows an unread badge; optional phone notifications (opt-in, ~15 min) |
-| F-21 | Ask a question | P2 | v0.3 |
+| F-21 | Ask a question | P1 | Three steps like the site: question (10–120, details ≤2000, anonymous nickname, link), 1–5 tags (suggested and typed), a cover from Stips' gallery (skipped for YouTube links); the daily cap is respected; the new question opens after posting |
 | F-22 | Home: hot first | P0 | The top 5 hot questions as large cards in a snapping row (with "See all"), then the New feed; a **Live** chip makes new questions appear by themselves every 30 s while Home is on screen |
 | F-23 | Compact question header | P0 | Title, meta and tags take at most half the screen; the cover is a background the title fades out of; the body is clamped with "Show more"; scrolling collapses the header into a top bar that shows only the question title |
 | F-24 | Pins | P1 | A pin with the pin count on every question; signed in, tapping pins or unpins on Stips; Profile lists pinned questions |
@@ -72,6 +73,16 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-29 | Profile photo and bio | P1 | On your profile: a camera button picks a photo (system picker), which is straightened, cropped square and uploaded; "Edit bio" saves the text on Stips |
 | F-30 | Account settings | P1 | Safe mode (saved on the account), Profile photo and bio, and links to the site's account details, password, contact, rules, about and account deletion; Sign out |
 | F-31 | Motion | P1 | Screens slide over each other (the old one drifts back); tabs fade through; predictive back follows the finger; everything respects the Animations switch |
+| F-32 | Live rate (#4) | P1 | 2–30 s, set in Settings or by long-pressing the Live chip; the data cost is shown as it changes |
+| F-33 | Reliable connection (#3) | P0 | No sign-out on errors; HTTP 429/403 explained and backed off; a stalled connection never blocks every request; the app recovers without a network change |
+| F-34 | Network log (#3) | P1 | Settings → Diagnostics shows recent requests and events; copy, share or report on GitHub; no private data |
+| F-35 | Report and block (#4) | P1 | ⋮ on questions, answers and pen-pal posts: report (5–500 characters), hide the item, hide everything from the user; Settings → Hidden content removes all blocks |
+| F-36 | Anonymous mode (#4) | P1 | The masks on Home or Settings: 30 min, 1/2/4/8/24 h or until turned off; everything posted meanwhile is anonymous; an anonymous answer makes the next one on that question anonymous by default |
+| F-37 | Pen pals (#4) | P1 | A tab with the board (pull to refresh, paging), tap to message the author, post with the site's rules (5 flowers, cooldown, 255 characters, ages 13–21), report, hide, delete your own |
+| F-38 | Image viewer (#4) | P2 | Question covers (⋮ → View image) and profile photos (tap) open full screen at the largest size, with pinch and double-tap zoom |
+| F-39 | Compact meta and notifications (#4) | P1 | Under questions: the asker at the start, answers/pins/time as symbols at the end; notifications in uniform two-line rows, new ones highlighted in their own section |
+| F-40 | Tactile editing (#4) | P2 | Editing an answer puts the cursor at the end and opens the keyboard; toggles, votes, sending and sliders give haptic feedback |
+| F-41 | More from the site (#4) | P2 | Send flowers (the asker), write on thanks walls, find people from Home's search, edit/delete/detach your own question, thanks wall first on profiles |
 
 ## 7. Non-functional requirements
 

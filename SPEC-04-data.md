@@ -99,6 +99,35 @@
 
 Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f50057`, 30 yellow `#FDD835`, 50 indigo `#3f51b5`, 80 green `#09c286`. Badge codes: `moderator` (נאמן/ת סטיפס), `senior_moderator` (נאמן/ה בכיר/ה), `old_expert` (מומחה/ית סטיפס), `senior_advisor` (עונה בכיר/ה), `custom_rank`.
 
+
+**Calls used since v0.3** (from the site's code, checked live where public; write calls not sent during research):
+
+| Purpose | `name` | Parameters | Returns / notes |
+|---|---|---|---|
+| Report | `reports.send` | `{"itemid","itemtype":"ask"/"ans"/"penfriendsitem","reason","reason_id":0}` | The user's words, 5–500 characters. Users are reported from chats with `itemtype:"usermsgs"`, `itemid` = their id and `reason_id` 2, 4, 8, 16 or 1024 (not in the app yet) |
+| Block content | `smartdata.get` | `{"namespace":"ask","unit":"BlockContent","id","objType","blockUser"?:true}` | Answer ignored. Hiding is done by the client; the site's app keeps `bc-item-{type}-{id}` / `bc-user-{id}` flags locally, and "remove all" just clears them |
+| Block messages | `messages.block_user` | `{"userid","action":"add"/"remove"}` | `messages.from_user` returns `userBlocked` |
+| Delete your item | `omniobj` DELETE | `{"objType","data":{"id"}}` | When `meta.permissions.delete` or `deleteWithoutMsg` |
+| Edit your question | `omniobj` POST | `{"objType":"ask","data":{"id","q","text_content","tagslist":[…],"q_link"}}` | When `meta.permissions.edit` |
+| Detach your question | `item.set_anonymous` | `{"objType":"ask","id"}` | As for answers |
+| Send a flower | `item.send_flower` | `{"id": answerId}` | `{flowerSent: true}`. Only the asker, to someone else's answer up to 14 days old, 5 per question; not to the asker's own reply (`extra.parentItemCreatorResponse`) |
+| Write on a thanks wall | `omniobj` PUT | `{"objType":"thanksmsg","data":{"msg","touserid"}}` | — |
+| Find people | `smartdata.get` | `{"namespace":"users","unit":"Search","q"}` | `results.profiles[{userid,nickname,photostamp,online,anonflg}]` (verified, public) |
+| Daily question limit | `smartdata.get` | `{"namespace":"ask","unit":"DailyAskCount"}` | `results{allowed,maxPerDay}` |
+| Tag suggestions | `item.autotags` / `item.tag_suggest` | `{"title"}` / `{"q"}` | `data.tags[]` (verified, public) |
+| Cover photos | `photos.tag_gallery` | `{"tags":["…"]}` | `data.photos[{photo_id,original_url}]`; the site falls back to the tag "רקעי פריטים" |
+| Ask | `omniobj` PUT | `{"objType":"ask","data":{"q","q_link","text_content","tagslist":[…],"photo","anonflg"?,"name"?,"ask_type":11,"channel_id"?}}` | `data.newid`. Title 10–120, details ≤2000, 1–5 tags, nickname 2–18; a photo unless the link is YouTube |
+| Pen pals: list | `objectlist` | `{"method":"penfriendsitem.new","page"}` | 30 per page, newest first: `data{id,msg,time,active}`, `extra.item_profile` (verified, public) |
+| Pen pals: may I post? | `smartdata.get` | `{"namespace":"penfriends","unit":"PostAllowed"}` | `results{allowed,postInterval,nextTimeInMinutes}`. Posting also needs 5 flowers (`user.get_app_user` → `flowersCount`) |
+| Pen pals: my last post | `smartdata.get` | `{"namespace":"penfriends","unit":"LastMessageForUser"}` | `results.messageText` |
+| Pen pals: post | `omniobj` PUT | `{"objType":"penfriendsitem","data":{"msg"}}` | Up to 255 characters; ages 13–21 (the site's rule) |
+
+**Sessions and errors (measured in v0.3):**
+- Account calls made without a live session return `status: "ok"` with **empty data** (`messages.count` → 0/0, `notifications.list` → `[]`, `AskAdditionalData` → false). Only `user.get_app_user` fails, with "המשתמש אינו מחובר למערכת".
+- `user.login` with a token Stips no longer accepts returns `{"status":"ok","data":{"logged":false}}`.
+- Stips is served through **Cloudflare** (`Server: cloudflare`, `CF-RAY`) from one ASP.NET origin (one `ASPSESSIONID…` cookie name across requests). A Cloudflare limit shows as HTTP 429 or 403.
+
+**Image sizes (measured):** question photos `s` (75×75), `w400`, `z` (about 500 px, the largest); Unsplash covers accept any `w=` (1080 used for full view); profile photos `t` (50×50), `a` (200×200, square crop), `l` (the whole upload, about 300×530).
 ### 2.4 Question (`objType: "ask"`)
 
 | Field | Example | Use |

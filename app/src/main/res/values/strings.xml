@@ -287,4 +287,166 @@
     <string name="settings_rules">Site rules</string>
     <string name="settings_about_stips">About Stips</string>
     <string name="settings_delete_account">Delete account</string>
+
+    <!-- v0.3: notifications job, network errors, Live rate, network log (#1–#4) -->
+    <string name="notifications_job_refused">Android didn\'t allow the background check, so phone notifications stay off.</string>
+    <string name="error_rate_limited">Stips is getting too many requests from this phone and paused it for a bit. Try again in a minute.</string>
+    <string name="error_blocked">Stips\' protection blocked this request (HTTP 403). It usually passes within minutes; switching networks also helps.</string>
+    <string name="error_server_down">Stips is having trouble right now (%1$s). Try again in a minute.</string>
+    <string name="error_http">Stips answered with an error (%1$s).</string>
+    <string name="live_what">New questions appear on Home by themselves while it\'s open.</string>
+    <string name="live_every">Check every %1$d seconds</string>
+    <string name="live_cost">About %1$s MB an hour while Home is on screen.</string>
+    <string name="live_fast_warning">Fast checks use more data and battery, and Stips may briefly limit the app. Live then slows down by itself.</string>
+    <string name="live_sheet_title">Live new questions</string>
+    <string name="live_with_rate">Live · %1$ds</string>
+    <string name="live_options">Live options</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="netlog_title">Network log</string>
+    <string name="netlog_summary">Recent requests and errors, to attach to a bug report</string>
+    <string name="netlog_copy">Copy log</string>
+    <string name="netlog_copied">Log copied.</string>
+    <string name="netlog_clear">Clear log</string>
+    <string name="netlog_empty">Nothing yet. Use the app and come back.</string>
+    <string name="netlog_about_title">When Stips stops loading</string>
+    <string name="netlog_about_body">This log keeps the last few hundred requests: which call, the answer code, timing and errors. No passwords, cookies or message text. Report on GitHub copies it, so you can paste it into the issue.</string>
+    <string name="netlog_report">Report on GitHub</string>
+    <string name="netlog_report_title">Network problem</string>
+    <string name="netlog_report_body">**What happened:**\n\n\n**Network log** (it\'s on your clipboard; paste it below):\n```\n\n```</string>
+
+    <!-- v0.3: shared -->
+    <string name="action_clear">Clear</string>
+    <string name="action_close">Close</string>
+    <string name="time_short_now">now</string>
+    <string name="time_short_minutes">%1$dm</string>
+    <string name="time_short_hours">%1$dh</string>
+    <string name="time_short_days">%1$dd</string>
+    <string name="time_yesterday">Yesterday</string>
+    <string name="search_hint">Search a topic or a person</string>
+    <string name="search_people">People</string>
+    <string name="tab_penpals">Pen pals</string>
+
+    <!-- v0.3: question screen -->
+    <string name="view_image">View image</string>
+    <string name="chip_anonymous">Anonymous</string>
+    <string name="chip_anonymous_mode">Anonymous mode</string>
+    <string name="chip_link">Link</string>
+    <string name="chip_updates">Updates</string>
+    <string name="send_flower">Send a flower</string>
+    <string name="flower_sent">Flower sent. Thanks for the appreciation!</string>
+    <string name="report_question">Report question</string>
+    <string name="report_answer">Report answer</string>
+    <string name="report_body">Tell Stips\' moderators what\'s wrong. They\'ll check it soon.</string>
+    <string name="report_hint_question">What bothered you in this question?</string>
+    <string name="report_hint_answer">What bothered you in this answer?</string>
+    <string name="report_hint_penpal">What bothered you in this message?</string>
+    <string name="report_send">Send</string>
+    <string name="report_sent">Your report was received and will be checked soon. Thanks for helping!</string>
+    <string name="hide_question">Hide this question</string>
+    <string name="hide_answer">Hide this answer</string>
+    <string name="hide_user_content">Hide everything from this user</string>
+    <string name="hide_user_title">Hide everything from %1$s?</string>
+    <string name="hide_user_body">Their questions, answers and pen-pal posts won\'t show in the app anymore. To see them again, use Settings, Remove all content blocks. Messages aren\'t affected.</string>
+    <string name="hide_user_confirm">Hide</string>
+    <string name="content_hidden">Hidden. You\'ll see less content like this.</string>
+    <string name="question_hidden_title">You chose to hide this content</string>
+    <string name="question_hidden_body">To see it again, remove your content blocks in Settings.</string>
+    <string name="delete_answer">Delete answer</string>
+    <string name="delete_answer_title">Delete this answer?</string>
+    <string name="answer_deleted">Answer deleted.</string>
+    <string name="edit_question">Edit question</string>
+    <string name="question_edited">Your question was updated.</string>
+    <string name="detach_question">Detach from my account</string>
+    <string name="detach_question_title">Detach this question from your account?</string>
+    <string name="detach_question_body">It stays, but shows as anonymous, won\'t appear in your questions, and you won\'t get reports about it. This can\'t be undone.</string>
+    <string name="question_detached">Your question is now anonymous.</string>
+    <string name="delete_question">Delete question</string>
+    <string name="delete_question_title">Delete this question?</string>
+
+    <!-- v0.3: asking a question -->
+    <string name="ask_fab">Ask</string>
+    <string name="ask_title">Ask a question</string>
+    <string name="ask_title_label">Your question</string>
+    <string name="ask_title_hint">What\'s your question?</string>
+    <string name="ask_body_label">More details (optional)</string>
+    <string name="ask_link_label">Link</string>
+    <string name="ask_anonymous">Ask anonymously</string>
+    <string name="ask_nickname_label">Anonymous nickname</string>
+    <string name="ask_nickname_help">%1$d to %2$d characters</string>
+    <string name="ask_in_channel">In the %1$s channel</string>
+    <string name="ask_leave_channel">Ask outside the channel</string>
+    <string name="ask_youtube_note">With a YouTube link, the video is the picture: no photo needed.</string>
+    <string name="ask_required">This field is required.</string>
+    <string name="ask_too_short">Too short: at least %1$d characters. Say clearly what you\'re asking.</string>
+    <string name="ask_too_long">Too long: up to %1$d characters.</string>
+    <string name="ask_step">Step %1$d of %2$d</string>
+    <string name="ask_next">Next</string>
+    <string name="ask_back">Back</string>
+    <string name="ask_post">Post</string>
+    <string name="ask_tags_chosen">Tags: %1$d of %2$d</string>
+    <string name="ask_add_tag">Add a tag</string>
+    <string name="ask_remove_tag">Remove tag</string>
+    <string name="ask_tags_suggested">Suggested tags</string>
+    <string name="ask_tags_none">No suggestions. Type your own tags above.</string>
+    <string name="ask_photo_search">Search a photo</string>
+    <string name="ask_photo_none">No photos for that. Try another word.</string>
+    <string name="ask_photo_needed">Pick a photo for your question.</string>
+    <string name="ask_photo_selected">Selected</string>
+    <string name="ask_limit_title">That\'s all the questions for today</string>
+    <string name="ask_limit_body">Stips allows up to %1$d questions a day. You can ask more tomorrow.</string>
+
+    <!-- v0.3: anonymous mode -->
+    <string name="anon_mode_title">Anonymous mode</string>
+    <string name="anon_mode_on_cd">Anonymous mode is on</string>
+    <string name="anon_mode_explain">While it\'s on, everything you post, answers and questions, goes out anonymously. For how long?</string>
+    <string name="anon_mode_on_until">Anonymous mode is on until %1$s.</string>
+    <string name="anon_mode_on_forever">Anonymous mode is on until you turn it off.</string>
+    <string name="anon_mode_turn_off">Turn off</string>
+    <string name="anon_for_30m">For 30 minutes</string>
+    <string name="anon_for_1h">For 1 hour</string>
+    <string name="anon_for_2h">For 2 hours</string>
+    <string name="anon_for_4h">For 4 hours</string>
+    <string name="anon_for_8h">For 8 hours</string>
+    <string name="anon_for_24h">For 24 hours</string>
+    <string name="anon_forever">Until I turn it off</string>
+
+    <!-- v0.3: pen pals -->
+    <string name="penpals_title">Pen pals</string>
+    <string name="penpals_intro">Short posts from people looking for someone to talk to. Tap one to send a private message.</string>
+    <string name="penpals_new">New post</string>
+    <string name="penpals_hint">What\'s your message to the world?</string>
+    <string name="penpals_last_message">My last message</string>
+    <string name="penpals_posted">Your post is up.</string>
+    <string name="penpals_deleted">Post deleted.</string>
+    <string name="penpals_delete">Delete post</string>
+    <string name="penpals_report">Report post</string>
+    <string name="penpals_hide">Hide this post</string>
+    <string name="penpals_empty">No pen-pal posts yet.</string>
+    <string name="penpals_closed_title">Pen pals is for teens</string>
+    <string name="penpals_closed_body">Sorry, for now Stips opens pen pals to teens only.</string>
+    <string name="penpals_sign_in">Sign in to post on pen pals.</string>
+    <string name="penpals_need_flowers">Posting on pen pals is open to users with 5 flowers or more. You have %1$d. Flowers come from other users, for good answers.</string>
+    <string name="penpals_cooldown">You can post again in %1$d minutes.</string>
+    <string name="penpals_cooldown_unknown">You posted recently. Try again a little later.</string>
+
+    <!-- v0.3: notifications, profile, settings -->
+    <string name="notifications_new">New</string>
+    <string name="notifications_earlier">Earlier</string>
+    <string name="notifications_points_removed">%1$d credibility points removed</string>
+    <string name="profile_view_photo">View photo</string>
+    <string name="thanks_write_hint">Write something to %1$s…</string>
+    <string name="thanks_sent">Your message is on the wall.</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_anon_on">On: what you post goes out anonymously</string>
+    <string name="settings_anon_off">Off. Post everything anonymously for a while.</string>
+    <string name="settings_blocks">Hidden content</string>
+    <string name="settings_blocks_none">Nothing hidden. Use ⋮ on a question or answer to hide it.</string>
+    <plurals name="settings_blocks_count">
+        <item quantity="one">%d hidden item or person. Tap to remove all content blocks.</item>
+        <item quantity="other">%d hidden items and people. Tap to remove all content blocks.</item>
+    </plurals>
+    <string name="blocks_clear_title">Remove all content blocks?</string>
+    <string name="blocks_clear_body">You\'ll see content from the users and items you hid again. Message blocks aren\'t affected.</string>
+    <string name="blocks_clear_confirm">Remove all</string>
+    <string name="blocks_cleared">All content blocks were removed.</string>
 </resources>

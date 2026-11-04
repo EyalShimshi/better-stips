@@ -6,6 +6,7 @@ import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
+import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -49,6 +50,13 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
     @Volatile
     private var liveToken: String? = null
 
+    /** When the server session was last known to be alive, and when we last signed in with the token. */
+    @Volatile
+    private var confirmedAt = 0L
+
+    @Volatile
+    private var loggedInAt = 0L
+
     suspend fun signIn(email: String, password: String) {
         val data = api.call(
             "user.login",
@@ -63,31 +71,61 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
         val userId = result.userId ?: throw ApiException(ApiException.BAD_RESPONSE)
         val token = result.token ?: throw ApiException(ApiException.BAD_RESPONSE)
         liveToken = token
+        confirmedAt = System.currentTimeMillis()
+        loggedInAt = confirmedAt
+        NetLog.event("session", "signed in")
         save(Session(token = token, userId = userId, profile = null, safeFilter = result.safeFilter ?: true))
         refreshProfile()
     }
 
-    /** Makes sure Stips knows this session; after a restart or an expired cookie it signs in again with the token. */
+    /**
+     * Makes sure Stips knows this session. After a restart, or when the session may have expired on the server
+     * (Stips quietly answers account calls with empty data then), it checks, and signs in again with the token.
+     * Only a clear "this token is not valid" ({"logged": false}) signs the user out; errors never do (#3).
+     */
     suspend fun ensureSession(force: Boolean = false) {
         val token = _session.value.token ?: throw ApiException(ApiException.NOT_SIGNED_IN)
         mutex.withLock {
-            if (!force && liveToken == token) return
+            val now = System.currentTimeMillis()
+            val live = liveToken == token
+            if (!force && live && now - confirmedAt < FRESH_MS) return
+            if (force && live && now - loggedInAt < RELOGIN_COOLDOWN_MS) return
+            if (!force && live && stillSignedIn()) {
+                confirmedAt = now
+                return
+            }
             val data = try {
                 api.call("user.login", buildJsonObject { put("auth_token", token) }, forcePost = true)
             } catch (e: ApiException) {
-                if (e.isNetwork) throw e
-                expire()
-                throw ApiException(ApiException.NOT_SIGNED_IN, e.serverMessage)
+                NetLog.event("session", "signing in again with the saved token failed: ${e.code}; keeping the session")
+                throw e
             }
-            val result = Parsers.login(data)
-            if (result?.userId == null) {
+            if (Parsers.loginRejected(data)) {
+                NetLog.event("session", "Stips rejected the saved sign-in (logged: false); signing out")
                 expire()
                 throw ApiException(ApiException.NOT_SIGNED_IN)
             }
+            val result = Parsers.login(data)
+            if (result?.userId == null) {
+                NetLog.event("session", "unexpected answer to signing in again; keeping the session")
+                throw ApiException(ApiException.BAD_RESPONSE)
+            }
             val newToken = result.token ?: token
             liveToken = newToken
+            confirmedAt = now
+            loggedInAt = now
+            NetLog.event("session", if (force) "signed in again (Stips said we were signed out)" else "session restored with the saved token")
             save(_session.value.copy(token = newToken, safeFilter = result.safeFilter ?: _session.value.safeFilter))
         }
+    }
+
+    /** `user.get_app_user` is the one call that fails when the server session is gone; the others return empty data. */
+    private suspend fun stillSignedIn(): Boolean = try {
+        Parsers.appUser(api.call("user.get_app_user"))?.id == _session.value.userId
+    } catch (e: ApiException) {
+        if (e.isTransient) throw e
+        NetLog.event("session", "the server session expired (${e.code})")
+        false
     }
 
     suspend fun refreshProfile() {
@@ -115,6 +153,7 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
     }
 
     suspend fun signOut() {
+        NetLog.event("session", "signed out by the user")
         try {
             withTimeout(5_000) { api.call("user.logout") }
         } catch (e: Exception) {
@@ -130,6 +169,8 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
 
     private fun clearLocal() {
         liveToken = null
+        confirmedAt = 0L
+        loggedInAt = 0L
         cookies.clear()
         prefs.edit().clear().apply()
         _session.value = Session()
@@ -163,5 +204,13 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
             )
         }
         return Session(token, userId, profile, prefs.getBoolean("safeFilter", true))
+    }
+
+    private companion object {
+        /** Stips (classic ASP) drops idle sessions after about 20 minutes; check sooner than that. */
+        const val FRESH_MS = 10 * 60_000L
+
+        /** Never sign in again more than once in this window, whatever the server says (no sign-in storms). */
+        const val RELOGIN_COOLDOWN_MS = 30_000L
     }
 }

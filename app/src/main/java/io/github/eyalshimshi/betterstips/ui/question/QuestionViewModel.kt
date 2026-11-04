@@ -2,7 +2,9 @@ package io.github.eyalshimshi.betterstips.ui.question
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
 import io.github.eyalshimshi.betterstips.data.SessionStore
+import io.github.eyalshimshi.betterstips.data.SettingsStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.data.api.ApiException
@@ -19,7 +21,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class QuestionMessage { AnswerPosted, AnswerEdited, AnswerDetached, VoteFailed, ActionFailed, Following, NotFollowing }
+enum class QuestionMessage {
+    AnswerPosted, AnswerEdited, AnswerDetached, VoteFailed, ActionFailed, Following, NotFollowing,
+    Reported, Hidden, AnswerDeleted, QuestionEdited, QuestionDetached, FlowerSent,
+}
 
 data class QuestionUiState(
     val question: Question? = null,
@@ -33,6 +38,8 @@ data class QuestionUiState(
     /** Whether the user gets updates on this question; null until known (or when signed out). */
     val following: Boolean? = null,
     val draft: String = "",
+    /** Bumped when the app (not the user's typing) replaces the draft, so the field moves its cursor to the end. */
+    val draftVersion: Int = 0,
     val anonymous: Boolean = false,
     /** The one link attached to the answer being written (Stips allows one). */
     val draftLink: AnswerLink? = null,
@@ -45,19 +52,34 @@ data class QuestionUiState(
     val problem: AnswerRules.Problem? = null,
     val postError: ApiException? = null,
     val message: QuestionMessage? = null,
+    /** The question was deleted: the screen closes. */
+    val closed: Boolean = false,
+    /** Answers that just got a flower from the asker here (the list refreshes in the background). */
+    val flowering: Set<Long> = emptySet(),
 )
 
 class QuestionViewModel(
     private val repository: StipsRepository,
     private val session: SessionStore,
+    private val settings: SettingsStore,
+    private val anonymousAnswers: AnonymousAnswers,
     private val questionId: Long,
 ) : ViewModel() {
     private val _state = MutableStateFlow(initialState())
     val state: StateFlow<QuestionUiState> = _state.asStateFlow()
 
+    /** Once the user flips the anonymous switch, their choice wins over the automatic default. */
+    private var anonymousTouched = false
+
     private fun initialState(): QuestionUiState {
         val cached = repository.cachedQuestion(questionId)
-        return QuestionUiState(question = cached, pinned = cached?.userPinned ?: false, pinCount = cached?.pinCount ?: 0)
+        return QuestionUiState(
+            question = cached,
+            pinned = cached?.userPinned ?: false,
+            pinCount = cached?.pinCount ?: 0,
+            // Answered anonymously here before? Then the next answer starts anonymous too (#4).
+            anonymous = anonymousAnswers.contains(questionId),
+        )
     }
 
     init {
@@ -78,16 +100,18 @@ class QuestionViewModel(
             if (q.isSuccess) repository.timings.record(Timings.QUESTION, elapsed)
             _state.update { s ->
                 val loaded = q.getOrNull()
+                val answers = a.getOrNull() ?: s.answers
                 s.copy(
                     question = loaded ?: s.question,
                     pinned = loaded?.userPinned ?: s.pinned,
                     pinCount = loaded?.pinCount ?: s.pinCount,
                     following = f ?: s.following,
                     error = q.exceptionOrNull()?.asApiException(),
-                    answers = a.getOrNull() ?: s.answers,
+                    answers = answers,
                     answersError = a.exceptionOrNull()?.asApiException(),
                     loading = false,
                     loadedInMs = if (q.isSuccess) elapsed else s.loadedInMs,
+                    anonymous = s.anonymous || (!anonymousTouched && answeredAnonymously(answers)),
                 )
             }
         }
@@ -129,8 +153,12 @@ class QuestionViewModel(
     }
 
     fun setAnonymous(anonymous: Boolean) {
+        anonymousTouched = true
         _state.update { it.copy(anonymous = anonymous) }
     }
+
+    /** Stips marks the signed-in user's own answers, anonymous ones included. */
+    private fun answeredAnonymously(answers: List<Answer>): Boolean = answers.any { it.isOwner && it.author.anonymous }
 
     fun setFollowOnAnswer(follow: Boolean) {
         _state.update { it.copy(followOnAnswer = follow) }
@@ -154,12 +182,21 @@ class QuestionViewModel(
 
     fun startEdit(answer: Answer) {
         _state.update {
-            it.copy(editing = answer, draft = answer.text, draftLink = answer.links.firstOrNull(), problem = null, postError = null)
+            it.copy(
+                editing = answer,
+                draft = answer.text,
+                draftVersion = it.draftVersion + 1,
+                draftLink = answer.links.firstOrNull(),
+                problem = null,
+                postError = null,
+            )
         }
     }
 
     fun cancelEdit() {
-        _state.update { it.copy(editing = null, draft = "", draftLink = null, problem = null, postError = null) }
+        _state.update {
+            it.copy(editing = null, draft = "", draftVersion = it.draftVersion + 1, draftLink = null, problem = null, postError = null)
+        }
     }
 
     fun post() {
@@ -178,7 +215,10 @@ class QuestionViewModel(
                 if (editing != null) {
                     repository.editAnswer(editing.id, text, current.draftLink)
                 } else {
-                    repository.postAnswer(questionId, text, current.anonymous, current.draftLink)
+                    // Anonymous mode (#4) makes every answer anonymous while it's on.
+                    val anonymous = current.anonymous || settings.settings.value.anonymousModeOn()
+                    repository.postAnswer(questionId, text, anonymous, current.draftLink)
+                    if (anonymous) anonymousAnswers.remember(questionId)
                     if (current.followOnAnswer) {
                         attempt { repository.setFollowing(questionId, true) }.onSuccess { _state.update { s -> s.copy(following = true) } }
                     }
@@ -187,6 +227,7 @@ class QuestionViewModel(
                     it.copy(
                         posting = false,
                         draft = "",
+                        draftVersion = it.draftVersion + 1,
                         draftLink = null,
                         editing = null,
                         message = if (editing != null) QuestionMessage.AnswerEdited else QuestionMessage.AnswerPosted,
@@ -235,6 +276,84 @@ class QuestionViewModel(
 
     fun consumeMessage() {
         _state.update { it.copy(message = null) }
+    }
+
+    /** Sends the user's words to Stips' moderators. */
+    fun report(objType: String, id: Long, reason: String) {
+        runAction(QuestionMessage.Reported) { repository.report(objType, id, reason) }
+    }
+
+    /** Hides an item (and everything by [authorId] when given) on this phone, and tells Stips. */
+    fun block(objType: String, id: Long, authorId: Long?) {
+        viewModelScope.launch {
+            repository.blockContent(objType, id, authorId)
+            _state.update { it.copy(message = QuestionMessage.Hidden) }
+        }
+    }
+
+    fun deleteAnswer(answer: Answer) {
+        runAction(QuestionMessage.AnswerDeleted) {
+            repository.deleteItem("ans", answer.id)
+            _state.update { s -> s.copy(answers = s.answers.filterNot { it.id == answer.id }) }
+            reloadAnswers()
+        }
+    }
+
+    fun deleteQuestion() {
+        viewModelScope.launch {
+            try {
+                repository.deleteItem("ask", questionId)
+                _state.update { it.copy(closed = true) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(message = QuestionMessage.ActionFailed) }
+            }
+        }
+    }
+
+    fun detachQuestion() {
+        runAction(QuestionMessage.QuestionDetached) {
+            repository.detachQuestion(questionId)
+            attempt { repository.question(questionId) }.onSuccess { q -> _state.update { it.copy(question = q) } }
+        }
+    }
+
+    fun editQuestion(title: String, body: String, link: String?) {
+        val question = _state.value.question ?: return
+        runAction(QuestionMessage.QuestionEdited) {
+            repository.editQuestion(questionId, title.trim(), body.trim(), question.topics, link?.trim()?.takeIf { it.isNotEmpty() })
+            attempt { repository.question(questionId) }.onSuccess { q -> _state.update { it.copy(question = q) } }
+        }
+    }
+
+    /** The asker's flower for a good answer (Stips allows 5 per question). */
+    fun sendFlower(answer: Answer) {
+        _state.update { it.copy(flowering = it.flowering + answer.id) }
+        viewModelScope.launch {
+            try {
+                repository.sendFlower(answer.id)
+                updateAnswer(answer.id) { it.copy(flowered = true) }
+                _state.update { it.copy(message = QuestionMessage.FlowerSent, flowering = it.flowering - answer.id) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(message = QuestionMessage.ActionFailed, flowering = it.flowering - answer.id) }
+            }
+        }
+    }
+
+    private fun runAction(success: QuestionMessage, block: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                block()
+                _state.update { it.copy(message = success) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(message = QuestionMessage.ActionFailed) }
+            }
+        }
     }
 
     private suspend fun reloadAnswers() {

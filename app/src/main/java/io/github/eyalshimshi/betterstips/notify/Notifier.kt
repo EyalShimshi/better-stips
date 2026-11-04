@@ -21,9 +21,11 @@ import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.MainActivity
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.StipsApp
+import io.github.eyalshimshi.betterstips.data.api.Backoff
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
+import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -52,29 +54,43 @@ object Notifier {
         Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    /** Turns the 15-minute check on or off. Safe to call often. */
-    fun schedule(context: Context, enabled: Boolean) {
-        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
-        if (!enabled) {
-            scheduler.cancel(JOB_ID)
-            // Next time it's turned on, start fresh rather than replaying what arrived meanwhile.
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
-            return
+    /**
+     * Turns the 15-minute check on or off. Safe to call often. Returns false when Android refused the job
+     * (it must never crash the app: issues #1 and #2 were a refused job thrown from here).
+     */
+    fun schedule(context: Context, enabled: Boolean): Boolean {
+        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return !enabled
+        return try {
+            if (!enabled) {
+                scheduler.cancel(JOB_ID)
+                // Next time it's turned on, start fresh rather than replaying what arrived meanwhile.
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+                return true
+            }
+            if (scheduler.allPendingJobs.any { it.id == JOB_ID }) return true
+            val info = JobInfo.Builder(JOB_ID, ComponentName(context, NotificationCheckJob::class.java))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setPeriodic(15 * 60 * 1000L)
+                .setPersisted(true)
+                .build()
+            scheduler.schedule(info) == JobScheduler.RESULT_SUCCESS
+        } catch (e: RuntimeException) {
+            // SecurityException (a missing permission), IllegalArgumentException or IllegalStateException (job limits).
+            NetLog.event("notifications", "job not scheduled: ${e.javaClass.simpleName}: ${e.message}")
+            false
         }
-        if (scheduler.allPendingJobs.any { it.id == JOB_ID }) return
-        val info = JobInfo.Builder(JOB_ID, ComponentName(context, NotificationCheckJob::class.java))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-            .setPeriodic(15 * 60 * 1000L)
-            .setPersisted(true)
-            .build()
-        scheduler.schedule(info)
     }
 
     suspend fun check(context: Context, container: AppContainer) {
         if (!container.settings.settings.value.backgroundNotifications) return
         if (!container.session.session.value.signedIn || !canPost(context)) return
+        if (Backoff.active) {
+            NetLog.event("notifications", "check skipped: Stips asked us to slow down")
+            return
+        }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val counts = container.repository.unreadCounts()
+        NetLog.event("notifications", "check: ${counts.notifications} notifications, ${counts.messages} messages unread")
         if (!prefs.contains("lastNotificationId")) {
             // First check after turning this on: remember where things stand instead of replaying old items.
             val newest = if (counts.notifications > 0) container.repository.notifications(page = 1).maxOfOrNull { it.id } else null
@@ -157,6 +173,7 @@ class NotificationCheckJob : JobService() {
                 Notifier.check(applicationContext, container)
             } catch (e: Exception) {
                 // Offline or signed out: try again next time.
+                NetLog.event("notifications", "check failed: ${e.javaClass.simpleName}: ${e.message.orEmpty().take(80)}")
             } finally {
                 jobFinished(params, false)
             }

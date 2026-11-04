@@ -14,12 +14,37 @@ data class AppSettings(
     val accent: Int = DEFAULT_ACCENT,
     val showImages: Boolean = true,
     val animations: Boolean = true,
-    /** New questions appear on Home by themselves (polls every 30 s while Home is open). */
+    /** New questions appear on Home by themselves (polls every [liveIntervalSeconds] while Home is open). */
     val autoRefreshNew: Boolean = false,
     /** Phone notifications from a background check every 15 minutes. */
     val backgroundNotifications: Boolean = false,
+    /** Live: seconds between checks, [LIVE_MIN_SECONDS] to [LIVE_MAX_SECONDS] (#4). */
+    val liveIntervalSeconds: Int = LIVE_MAX_SECONDS,
+    /** Anonymous mode: answers and questions go out anonymously until this time (epoch ms); 0 is off (#4). */
+    val anonymousUntil: Long = 0L,
 ) {
+    fun anonymousModeOn(now: Long = System.currentTimeMillis()): Boolean = anonymousUntil > now
+
     companion object {
+        const val LIVE_MIN_SECONDS = 2
+        const val LIVE_MAX_SECONDS = 30
+
+        /** Anonymous mode with no end time. */
+        const val ANONYMOUS_FOREVER = Long.MAX_VALUE
+
+        /** One Live check is the first New page: about 9.5 KB compressed (SPEC-04 §2.8). */
+        private const val LIVE_CHECK_KB = 9.5
+
+        /** Data Live uses in an hour of Home on screen at [seconds] between checks. Pure. */
+        fun liveMegabytesPerHour(seconds: Int): Double =
+            3_600.0 / seconds.coerceIn(LIVE_MIN_SECONDS, LIVE_MAX_SECONDS) * LIVE_CHECK_KB / 1_024.0
+
+        /** The wait before the next Live check: the chosen rate, doubled after each failed check, at most a minute. Pure. */
+        fun liveDelayMs(seconds: Int, misses: Int): Long {
+            val base = seconds.coerceIn(LIVE_MIN_SECONDS, LIVE_MAX_SECONDS) * 1_000L
+            return (base shl misses.coerceIn(0, 5)).coerceAtMost(60_000L)
+        }
+
         /** Stips green: the fallback seed when dynamic color is off (D-06). */
         val DEFAULT_ACCENT: Int = 0xFF09C286.toInt()
 
@@ -47,6 +72,8 @@ class SettingsStore(context: Context) {
             .putBoolean("animations", next.animations)
             .putBoolean("autoRefreshNew", next.autoRefreshNew)
             .putBoolean("backgroundNotifications", next.backgroundNotifications)
+            .putInt("liveIntervalSeconds", next.liveIntervalSeconds)
+            .putLong("anonymousUntil", next.anonymousUntil)
             .apply()
     }
 
@@ -61,6 +88,9 @@ class SettingsStore(context: Context) {
             animations = prefs.getBoolean("animations", defaults.animations),
             autoRefreshNew = prefs.getBoolean("autoRefreshNew", defaults.autoRefreshNew),
             backgroundNotifications = prefs.getBoolean("backgroundNotifications", defaults.backgroundNotifications),
+            liveIntervalSeconds = prefs.getInt("liveIntervalSeconds", defaults.liveIntervalSeconds)
+                .coerceIn(AppSettings.LIVE_MIN_SECONDS, AppSettings.LIVE_MAX_SECONDS),
+            anonymousUntil = prefs.getLong("anonymousUntil", defaults.anonymousUntil),
         )
     }
 }

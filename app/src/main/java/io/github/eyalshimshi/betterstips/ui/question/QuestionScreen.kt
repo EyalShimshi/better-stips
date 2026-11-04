@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -44,11 +45,19 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -82,21 +91,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -105,6 +123,7 @@ import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.Answer
+import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.Cover
 import io.github.eyalshimshi.betterstips.data.model.Question
@@ -112,21 +131,46 @@ import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.FooterNote
+import io.github.eyalshimshi.betterstips.ui.components.ImageViewerDialog
 import io.github.eyalshimshi.betterstips.ui.components.LinkifiedText
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
+import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.channelLabel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
+import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
 import io.github.eyalshimshi.betterstips.ui.components.shareText
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
 import io.github.eyalshimshi.betterstips.util.AnswerRules
 import io.github.eyalshimshi.betterstips.util.Links
+import java.time.Duration
+import java.time.Instant
 import java.util.Locale
+
+/** What a dialog on the question screen is about. */
+private sealed interface PendingAction {
+    data class Report(val objType: String, val id: Long) : PendingAction
+
+    data class HideUser(val objType: String, val id: Long, val author: Author) : PendingAction
+
+    data class DeleteAnswer(val answer: Answer) : PendingAction
+
+    data class DetachAnswer(val answer: Answer) : PendingAction
+
+    data object DeleteQuestion : PendingAction
+
+    data object DetachQuestion : PendingAction
+
+    data object EditQuestion : PendingAction
+}
+
+/** One row of a ⋮ menu. */
+private data class MenuEntry(val label: String, val icon: ImageVector, val destructive: Boolean = false, val onClick: () -> Unit)
 
 @Composable
 fun QuestionScreen(
@@ -136,13 +180,21 @@ fun QuestionScreen(
     onSignIn: () -> Unit,
 ) {
     val container = LocalAppContainer.current
-    val vm = appViewModel { QuestionViewModel(it.repository, it.session, questionId) }
+    val vm = appViewModel { QuestionViewModel(it.repository, it.session, it.settings, it.anonymousAnswers, questionId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val session by container.session.session.collectAsStateWithLifecycle()
+    val settings by container.settings.settings.collectAsStateWithLifecycle()
     val channels by container.channels.channels.collectAsStateWithLifecycle()
+    val blockVersion by container.blocks.version.collectAsStateWithLifecycle()
     val question = state.question
     val channel = question?.let { q -> channels.firstOrNull { it.id == q.channelId } }
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val anonymousMode = rememberAnonymousModeOn(settings.anonymousUntil)
+
+    LaunchedEffect(state.closed) {
+        if (state.closed) onBack()
+    }
 
     SeededTheme(seed = channel?.seedColor) {
         val snackbar = remember { SnackbarHostState() }
@@ -154,6 +206,12 @@ fun QuestionScreen(
             QuestionMessage.ActionFailed to stringResource(R.string.action_failed),
             QuestionMessage.Following to stringResource(R.string.following_on),
             QuestionMessage.NotFollowing to stringResource(R.string.following_off),
+            QuestionMessage.Reported to stringResource(R.string.report_sent),
+            QuestionMessage.Hidden to stringResource(R.string.content_hidden),
+            QuestionMessage.AnswerDeleted to stringResource(R.string.answer_deleted),
+            QuestionMessage.QuestionEdited to stringResource(R.string.question_edited),
+            QuestionMessage.QuestionDetached to stringResource(R.string.question_detached),
+            QuestionMessage.FlowerSent to stringResource(R.string.flower_sent),
         )
         LaunchedEffect(state.message) {
             val message = state.message ?: return@LaunchedEffect
@@ -161,7 +219,8 @@ fun QuestionScreen(
             vm.consumeMessage()
         }
         var showLinkDialog by remember { mutableStateOf(false) }
-        var detachTarget by remember { mutableStateOf<Answer?>(null) }
+        var pending by remember { mutableStateOf<PendingAction?>(null) }
+        var viewerOpen by remember { mutableStateOf(false) }
         var creditShown by remember { mutableStateOf(false) }
         val creditText = (question?.cover as? Cover.Unsplash)?.creatorName?.let { stringResource(R.string.photo_credit, it) }
         LaunchedEffect(creditShown) {
@@ -183,13 +242,51 @@ fun QuestionScreen(
             }
         }
         val notFound = state.error?.code == ApiException.NOT_FOUND
+        val hidden = question != null && remember(question.id, question.author.userId, blockVersion) {
+            container.blocks.isBlocked("ask", question.id, question.author.userId)
+        }
+        val answers = remember(state.answers, blockVersion) {
+            state.answers.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }
+        }
+        val signedIn = session.signedIn
+        val me = session.userId
+
+        fun requireSignIn(action: () -> Unit) {
+            if (signedIn) action() else onSignIn()
+        }
+
+        // The ⋮ menu of an answer: your own answers can be edited, detached or deleted; others reported or hidden.
+        val editLabel = stringResource(R.string.edit_answer)
+        val detachLabel = stringResource(R.string.detach_answer)
+        val deleteLabel = stringResource(R.string.delete_answer)
+        val reportAnswerLabel = stringResource(R.string.report_answer)
+        val hideAnswerLabel = stringResource(R.string.hide_answer)
+        val hideUserLabel = stringResource(R.string.hide_user_content)
+        val answerMenu: (Answer) -> List<MenuEntry> = { answer ->
+            buildList {
+                if (answer.isOwner) {
+                    if (answer.canEdit) add(MenuEntry(editLabel, Icons.Filled.Edit) { vm.startEdit(answer) })
+                    if (!answer.author.anonymous) add(MenuEntry(detachLabel, Icons.Outlined.PersonOff) { pending = PendingAction.DetachAnswer(answer) })
+                    if (answer.canDelete) add(MenuEntry(deleteLabel, Icons.Outlined.Delete, destructive = true) { pending = PendingAction.DeleteAnswer(answer) })
+                } else {
+                    add(MenuEntry(reportAnswerLabel, Icons.Outlined.Flag) { requireSignIn { pending = PendingAction.Report("ans", answer.id) } })
+                    add(MenuEntry(hideAnswerLabel, Icons.Outlined.VisibilityOff) { vm.block("ans", answer.id, null) })
+                    val authorId = answer.author.userId
+                    if (authorId != null && authorId != me) {
+                        add(MenuEntry(hideUserLabel, Icons.Outlined.Block) { pending = PendingAction.HideUser("ans", answer.id, answer.author) })
+                    }
+                }
+            }
+        }
+        val floweredCount = answers.count { it.flowered }
 
         Scaffold(
             bottomBar = {
-                if (question != null && !notFound) {
+                if (question != null && !notFound && !hidden) {
                     Composer(
-                        signedIn = session.signedIn,
+                        signedIn = signedIn,
                         state = state,
+                        anonymousMode = anonymousMode,
                         onDraft = vm::setDraft,
                         onAnonymous = vm::setAnonymous,
                         onFollowOnAnswer = vm::setFollowOnAnswer,
@@ -218,6 +315,18 @@ fun QuestionScreen(
                     ) {
                         MessageCard(stringResource(R.string.error_not_found), null, stringResource(R.string.action_go_back), onBack)
                     }
+                    hidden -> Column(
+                        Modifier
+                            .statusBarsPadding()
+                            .padding(top = 56.dp),
+                    ) {
+                        MessageCard(
+                            stringResource(R.string.question_hidden_title),
+                            stringResource(R.string.question_hidden_body),
+                            stringResource(R.string.action_go_back),
+                            onBack,
+                        )
+                    }
                     question == null && error != null -> Column(
                         Modifier
                             .statusBarsPadding()
@@ -228,31 +337,50 @@ fun QuestionScreen(
                         question = question,
                         channel = channel,
                         state = state,
-                        signedIn = session.signedIn,
+                        answers = answers,
+                        signedIn = signedIn,
                         listState = listState,
                         collapse = collapse,
                         onHeroHeight = { heroHeight = it },
                         onOpenTopic = onOpenTopic,
-                        onVote = vm::vote,
+                        onVote = { answer, direction ->
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            vm.vote(answer, direction)
+                        },
                         onRetry = vm::load,
-                        onEdit = vm::startEdit,
-                        onDetach = { detachTarget = it },
+                        answerMenu = answerMenu,
+                        canFlower = { answer -> canSendFlower(question, answer, floweredCount) },
+                        onFlower = { answer ->
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            vm.sendFlower(answer)
+                        },
                     )
                 }
                 QuestionTopBar(
-                    collapse = if (question == null) 1f else collapse,
+                    collapse = if (question == null || hidden) 1f else collapse,
                     title = question?.title.orEmpty(),
                     onBack = onBack,
                 ) {
-                    if (question != null && !notFound) {
+                    if (question != null && !notFound && !hidden) {
                         PinAction(
                             pinned = state.pinned,
                             count = state.pinCount,
                             collapse = collapse,
-                            onClick = { if (session.signedIn) vm.togglePin() else onSignIn() },
+                            onClick = {
+                                requireSignIn {
+                                    haptics.performHapticFeedback(if (state.pinned) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                    vm.togglePin()
+                                }
+                            },
                         )
-                        if (session.signedIn) {
-                            BarIconButton(collapse = collapse, onClick = vm::toggleFollow) {
+                        if (signedIn) {
+                            BarIconButton(
+                                collapse = collapse,
+                                onClick = {
+                                    haptics.performHapticFeedback(if (state.following == true) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                    vm.toggleFollow()
+                                },
+                            ) {
                                 val following = state.following == true
                                 Icon(
                                     if (following) Icons.Filled.NotificationsActive else Icons.Outlined.NotificationsNone,
@@ -264,12 +392,33 @@ fun QuestionScreen(
                         BarIconButton(collapse = collapse, onClick = { shareText(context, question.title + "\n" + question.shareUrl) }) {
                             Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.action_share))
                         }
-                        MoreMenu(
-                            collapse = collapse,
-                            hasCredit = creditText != null,
-                            onOpenSite = { openInBrowser(context, question.shareUrl) },
-                            onCredit = { creditShown = true },
-                        )
+                        val showImages = LocalAppSettings.current.showImages
+                        val entries = buildList {
+                            add(MenuEntry(stringResource(R.string.action_open_site), Icons.Outlined.OpenInBrowser) { openInBrowser(context, question.shareUrl) })
+                            if (question.cover != null && showImages) {
+                                add(MenuEntry(stringResource(R.string.view_image), Icons.Outlined.Image) { viewerOpen = true })
+                            }
+                            if (creditText != null) {
+                                add(MenuEntry(stringResource(R.string.photo_credit_menu), Icons.Outlined.Info) { creditShown = true })
+                            }
+                            if (question.isOwner) {
+                                if (question.canEdit) add(MenuEntry(stringResource(R.string.edit_question), Icons.Filled.Edit) { pending = PendingAction.EditQuestion })
+                                if (!question.author.anonymous) {
+                                    add(MenuEntry(stringResource(R.string.detach_question), Icons.Outlined.PersonOff) { pending = PendingAction.DetachQuestion })
+                                }
+                                if (question.canDelete) {
+                                    add(MenuEntry(stringResource(R.string.delete_question), Icons.Outlined.Delete, destructive = true) { pending = PendingAction.DeleteQuestion })
+                                }
+                            } else {
+                                add(MenuEntry(stringResource(R.string.report_question), Icons.Outlined.Flag) { requireSignIn { pending = PendingAction.Report("ask", question.id) } })
+                                add(MenuEntry(stringResource(R.string.hide_question), Icons.Outlined.VisibilityOff) { vm.block("ask", question.id, null) })
+                                val authorId = question.author.userId
+                                if (authorId != null && authorId != me) {
+                                    add(MenuEntry(hideUserLabel, Icons.Outlined.Block) { pending = PendingAction.HideUser("ask", question.id, question.author) })
+                                }
+                            }
+                        }
+                        ActionMenuButton(entries = entries, description = stringResource(R.string.more_actions), collapse = collapse)
                     }
                 }
             }
@@ -284,28 +433,100 @@ fun QuestionScreen(
                 },
             )
         }
-        detachTarget?.let { answer ->
-            AlertDialog(
-                onDismissRequest = { detachTarget = null },
-                title = { Text(stringResource(R.string.detach_title)) },
-                text = { Text(stringResource(R.string.detach_body)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        detachTarget = null
-                        vm.detach(answer)
-                    }) { Text(stringResource(R.string.detach_confirm)) }
+        val cover = question?.cover
+        if (viewerOpen && cover != null) {
+            ImageViewerDialog(fullUrl = cover.fullUrl, previewUrl = cover.largeUrl, caption = creditText, onDismiss = { viewerOpen = false })
+        }
+        when (val action = pending) {
+            null -> Unit
+            is PendingAction.Report -> ReportDialog(
+                objType = action.objType,
+                onDismiss = { pending = null },
+                onSend = { reason ->
+                    pending = null
+                    vm.report(action.objType, action.id, reason)
                 },
-                dismissButton = { TextButton(onClick = { detachTarget = null }) { Text(stringResource(R.string.action_cancel)) } },
             )
+            is PendingAction.HideUser -> ConfirmDialog(
+                title = stringResource(R.string.hide_user_title, action.author.nickname),
+                body = stringResource(R.string.hide_user_body),
+                confirm = stringResource(R.string.hide_user_confirm),
+                onConfirm = {
+                    pending = null
+                    vm.block(action.objType, action.id, action.author.userId)
+                },
+                onDismiss = { pending = null },
+            )
+            is PendingAction.DeleteAnswer -> ConfirmDialog(
+                title = stringResource(R.string.delete_answer_title),
+                body = null,
+                confirm = stringResource(R.string.action_delete),
+                onConfirm = {
+                    pending = null
+                    vm.deleteAnswer(action.answer)
+                },
+                onDismiss = { pending = null },
+            )
+            is PendingAction.DetachAnswer -> ConfirmDialog(
+                title = stringResource(R.string.detach_title),
+                body = stringResource(R.string.detach_body),
+                confirm = stringResource(R.string.detach_confirm),
+                onConfirm = {
+                    pending = null
+                    vm.detach(action.answer)
+                },
+                onDismiss = { pending = null },
+            )
+            PendingAction.DeleteQuestion -> ConfirmDialog(
+                title = stringResource(R.string.delete_question_title),
+                body = null,
+                confirm = stringResource(R.string.action_delete),
+                onConfirm = {
+                    pending = null
+                    vm.deleteQuestion()
+                },
+                onDismiss = { pending = null },
+            )
+            PendingAction.DetachQuestion -> ConfirmDialog(
+                title = stringResource(R.string.detach_question_title),
+                body = stringResource(R.string.detach_question_body),
+                confirm = stringResource(R.string.detach_confirm),
+                onConfirm = {
+                    pending = null
+                    vm.detachQuestion()
+                },
+                onDismiss = { pending = null },
+            )
+            PendingAction.EditQuestion -> if (question != null) {
+                EditQuestionDialog(
+                    question = question,
+                    onDismiss = { pending = null },
+                    onSave = { title, body, link ->
+                        pending = null
+                        vm.editQuestion(title, body, link)
+                    },
+                )
+            }
         }
     }
 }
+
+/** Only the asker gives flowers: to someone else's answer, up to 14 days old, 5 per question (as on the site). */
+private fun canSendFlower(question: Question, answer: Answer, floweredCount: Int): Boolean {
+    if (!question.isOwner || answer.isOwner || answer.flowered || answer.byAsker || floweredCount >= MAX_FLOWERS) return false
+    val posted = answer.postedAt ?: return false
+    return Duration.between(posted, Instant.now()).toDays() <= FLOWER_DAYS
+}
+
+private const val MAX_FLOWERS = 5
+private const val FLOWER_DAYS = 14L
 
 @Composable
 private fun QuestionContent(
     question: Question,
     channel: Channel?,
     state: QuestionUiState,
+    answers: List<Answer>,
     signedIn: Boolean,
     listState: LazyListState,
     collapse: Float,
@@ -313,8 +534,9 @@ private fun QuestionContent(
     onOpenTopic: (String) -> Unit,
     onVote: (Answer, Int) -> Unit,
     onRetry: () -> Unit,
-    onEdit: (Answer) -> Unit,
-    onDetach: (Answer) -> Unit,
+    answerMenu: (Answer) -> List<MenuEntry>,
+    canFlower: (Answer) -> Boolean,
+    onFlower: (Answer) -> Unit,
 ) {
     LazyColumn(
         state = listState,
@@ -325,6 +547,8 @@ private fun QuestionContent(
             QuestionHero(
                 question = question,
                 channel = channel,
+                answerCount = maxOf(question.answerCount, state.answers.size),
+                pinCount = state.pinCount,
                 collapse = collapse,
                 onOpenTopic = onOpenTopic,
                 modifier = Modifier.onSizeChanged { onHeroHeight(it.height) },
@@ -351,13 +575,15 @@ private fun QuestionContent(
         if (answersError != null && state.answers.isEmpty()) {
             item(key = "answers-error") { ErrorCard(answersError, onRetry) }
         }
-        items(state.answers, key = { it.id }) { answer ->
+        items(answers, key = { it.id }) { answer ->
             AnswerCard(
                 answer = answer,
                 signedIn = signedIn,
+                menu = answerMenu(answer),
+                showFlowerButton = canFlower(answer),
+                flowering = answer.id in state.flowering,
                 onVote = { direction -> onVote(answer, direction) },
-                onEdit = { onEdit(answer) },
-                onDetach = { onDetach(answer) },
+                onFlower = { onFlower(answer) },
                 modifier = Modifier.animateItem(),
             )
         }
@@ -369,11 +595,16 @@ private fun QuestionContent(
     }
 }
 
-/** The cover as a background that fades into the page; the title sits on the fade. */
+/**
+ * The cover as a background that fades into the page; the title sits on the fade. The photo drifts slower than the
+ * page (parallax) but stays inside the header over a solid surface, so it never shows past the header's edge (#4).
+ */
 @Composable
 private fun QuestionHero(
     question: Question,
     channel: Channel?,
+    answerCount: Int,
+    pinCount: Int,
     collapse: Float,
     onOpenTopic: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -384,7 +615,12 @@ private fun QuestionHero(
     val surface = MaterialTheme.colorScheme.surface
     val cover = question.cover
     val withImage = cover != null && showImages
-    Box(modifier.fillMaxWidth()) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clipToBounds()
+            .background(surface),
+    ) {
         if (cover != null && showImages) {
             AsyncImage(
                 model = cover.largeUrl,
@@ -413,6 +649,7 @@ private fun QuestionHero(
                         0f to surface.copy(alpha = 0.1f),
                         0.35f to surface.copy(alpha = 0.6f),
                         0.6f to surface.copy(alpha = 0.9f),
+                        0.85f to surface,
                         1f to surface,
                     ),
                 ),
@@ -430,32 +667,32 @@ private fun QuestionHero(
                 maxLines = 5,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(question.author, 22.dp)
-                Spacer(Modifier.width(6.dp))
-                AuthorName(question.author, MaterialTheme.typography.labelLarge, Modifier.weight(1f, fill = false))
-                val rest = listOfNotNull(
-                    agoText(question.postedAt).takeIf { it.isNotBlank() },
-                    channel?.let { channelLabel(it) },
-                ).joinToString(" · ")
-                if (rest.isNotBlank()) {
-                    Text(
-                        " · $rest",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (question.topics.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            QuestionMetaRow(
+                question = question,
+                answerCount = answerCount,
+                pinCount = pinCount,
+                avatarSize = 22.dp,
+                clickableAuthor = true,
+            )
+            if (question.topics.isNotEmpty() || channel != null) {
                 Row(
                     Modifier
                         .padding(top = 4.dp)
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (channel != null) {
+                        Text(
+                            channelLabel(channel),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            maxLines = 1,
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                    }
                     question.topics.forEach { topic ->
                         Text(
                             "#$topic",
@@ -603,27 +840,30 @@ private fun PinAction(pinned: Boolean, count: Int, collapse: Float, onClick: () 
     }
 }
 
+/** A ⋮ button with its menu; in the top bar it fades with the header ([collapse]). */
 @Composable
-private fun MoreMenu(collapse: Float, hasCredit: Boolean, onOpenSite: () -> Unit, onCredit: () -> Unit) {
+private fun ActionMenuButton(entries: List<MenuEntry>, description: String, collapse: Float? = null) {
+    if (entries.isEmpty()) return
     var open by remember { mutableStateOf(false) }
     Box {
-        BarIconButton(collapse = collapse, onClick = { open = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_actions))
+        if (collapse != null) {
+            BarIconButton(collapse = collapse, onClick = { open = true }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = description)
+            }
+        } else {
+            IconButton(onClick = { open = true }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = description)
+            }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_open_site)) },
-                onClick = {
-                    open = false
-                    onOpenSite()
-                },
-            )
-            if (hasCredit) {
+            entries.forEach { entry ->
+                val color = if (entry.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.photo_credit_menu)) },
+                    text = { Text(entry.label, color = color) },
+                    leadingIcon = { Icon(entry.icon, contentDescription = null, tint = color) },
                     onClick = {
                         open = false
-                        onCredit()
+                        entry.onClick()
                     },
                 )
             }
@@ -635,9 +875,11 @@ private fun MoreMenu(collapse: Float, hasCredit: Boolean, onOpenSite: () -> Unit
 private fun AnswerCard(
     answer: Answer,
     signedIn: Boolean,
+    menu: List<MenuEntry>,
+    showFlowerButton: Boolean,
+    flowering: Boolean,
     onVote: (Int) -> Unit,
-    onEdit: () -> Unit,
-    onDetach: () -> Unit,
+    onFlower: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -667,9 +909,7 @@ private fun AnswerCard(
                         modifier = Modifier.padding(horizontal = 6.dp),
                     )
                 }
-                if (answer.isOwner && (answer.canEdit || !answer.author.anonymous)) {
-                    OwnerMenu(answer, onEdit, onDetach)
-                }
+                ActionMenuButton(entries = menu, description = stringResource(R.string.answer_actions))
             }
             LinkifiedText(
                 answer.text,
@@ -712,47 +952,32 @@ private fun AnswerCard(
                         tint = if (answer.userVote == -1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Spacer(Modifier.weight(1f))
+                if (showFlowerButton) {
+                    TextButton(onClick = onFlower, enabled = !flowering) {
+                        if (flowering) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Outlined.LocalFlorist, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.send_flower))
+                    }
+                }
             }
         }
     }
 }
 
-@Composable
-private fun OwnerMenu(answer: Answer, onEdit: () -> Unit, onDetach: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.answer_actions))
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            if (answer.canEdit) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.edit_answer)) },
-                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                    onClick = {
-                        open = false
-                        onEdit()
-                    },
-                )
-            }
-            if (!answer.author.anonymous) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.detach_answer)) },
-                    leadingIcon = { Icon(Icons.Outlined.PersonOff, contentDescription = null) },
-                    onClick = {
-                        open = false
-                        onDetach()
-                    },
-                )
-            }
-        }
-    }
-}
-
+/**
+ * Writing an answer. The options fit in one compact row (no sideways scrolling, #4); editing puts the cursor at
+ * the end of your text and opens the keyboard.
+ */
 @Composable
 private fun Composer(
     signedIn: Boolean,
     state: QuestionUiState,
+    anonymousMode: Boolean,
     onDraft: (String) -> Unit,
     onAnonymous: (Boolean) -> Unit,
     onFollowOnAnswer: (Boolean) -> Unit,
@@ -762,6 +987,7 @@ private fun Composer(
     onSend: () -> Unit,
     onSignIn: () -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(
             Modifier
@@ -776,6 +1002,19 @@ private fun Composer(
                 }
             } else {
                 val editing = state.editing
+                var field by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
+                val focusRequester = remember { FocusRequester() }
+                val keyboard = LocalSoftwareKeyboardController.current
+                LaunchedEffect(state.draftVersion) {
+                    // The app replaced the text (editing an answer, cancel, sent): cursor goes to the end.
+                    if (field.text != state.draft) field = TextFieldValue(state.draft, TextRange(state.draft.length))
+                }
+                LaunchedEffect(editing?.id) {
+                    if (editing != null) {
+                        focusRequester.requestFocus()
+                        keyboard?.show()
+                    }
+                }
                 if (editing != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -784,23 +1023,36 @@ private fun Composer(
                         TextButton(onClick = onCancelEdit) { Text(stringResource(R.string.action_cancel)) }
                     }
                 }
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (editing == null) {
+                        val anonymousOn = state.anonymous || anonymousMode
                         FilterChip(
-                            selected = state.anonymous,
-                            onClick = { onAnonymous(!state.anonymous) },
-                            label = { Text(stringResource(R.string.composer_anonymous)) },
-                            leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            selected = anonymousOn,
+                            enabled = !anonymousMode,
+                            onClick = {
+                                haptics.performHapticFeedback(if (state.anonymous) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                onAnonymous(!state.anonymous)
+                            },
+                            label = {
+                                Text(stringResource(if (anonymousMode) R.string.chip_anonymous_mode else R.string.chip_anonymous), maxLines = 1)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (anonymousOn) Icons.Outlined.PersonOff else Icons.Outlined.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
                         )
                     }
                     val link = state.draftLink
                     if (link == null) {
                         AssistChip(
                             onClick = onAddLink,
-                            label = { Text(stringResource(R.string.add_link)) },
+                            label = { Text(stringResource(R.string.chip_link), maxLines = 1) },
                             leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp)) },
                         )
                     } else {
@@ -812,7 +1064,7 @@ private fun Composer(
                                     link.title ?: Links.host(link.url),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 160.dp),
+                                    modifier = Modifier.widthIn(max = 120.dp),
                                 )
                             },
                             leadingIcon = {
@@ -830,24 +1082,44 @@ private fun Composer(
                     if (editing == null) {
                         FilterChip(
                             selected = state.followOnAnswer,
-                            onClick = { onFollowOnAnswer(!state.followOnAnswer) },
-                            label = { Text(stringResource(R.string.get_updates)) },
-                            leadingIcon = { Icon(Icons.Filled.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                            onClick = {
+                                haptics.performHapticFeedback(if (state.followOnAnswer) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
+                                onFollowOnAnswer(!state.followOnAnswer)
+                            },
+                            label = { Text(stringResource(R.string.chip_updates), maxLines = 1) },
+                            leadingIcon = {
+                                Icon(
+                                    if (state.followOnAnswer) Icons.Filled.NotificationsActive else Icons.Outlined.NotificationsNone,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
                         )
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
-                        value = state.draft,
-                        onValueChange = onDraft,
+                        value = field,
+                        onValueChange = { value ->
+                            field = value
+                            if (value.text != state.draft) onDraft(value.text)
+                        },
                         placeholder = { Text(stringResource(R.string.composer_hint)) },
                         maxLines = 6,
                         isError = state.problem != null || state.postError != null,
                         shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester),
                     )
                     Spacer(Modifier.width(8.dp))
-                    FilledIconButton(onClick = onSend, enabled = !state.posting && state.draft.isNotBlank()) {
+                    FilledIconButton(
+                        onClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            onSend()
+                        },
+                        enabled = !state.posting && state.draft.isNotBlank(),
+                    ) {
                         if (state.posting) {
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
@@ -872,6 +1144,99 @@ private fun Composer(
             }
         }
     }
+}
+
+/** Reporting a question or an answer: Stips wants a few words on what's wrong (5 to 500 characters). */
+@Composable
+private fun ReportDialog(objType: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
+    var text by rememberSaveable { mutableStateOf("") }
+    val trimmed = text.trim()
+    val valid = trimmed.length in REPORT_MIN..REPORT_MAX
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (objType == "ask") R.string.report_question else R.string.report_answer)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.report_body), style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(REPORT_MAX) },
+                    placeholder = { Text(stringResource(if (objType == "ask") R.string.report_hint_question else R.string.report_hint_answer)) },
+                    supportingText = { Text("${trimmed.length} / $REPORT_MAX") },
+                    minLines = 3,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSend(trimmed) }, enabled = valid) { Text(stringResource(R.string.report_send)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+private const val REPORT_MIN = 5
+private const val REPORT_MAX = 500
+
+@Composable
+private fun ConfirmDialog(title: String, body: String?, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = if (body != null) {
+            { Text(body) }
+        } else {
+            null
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirm) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+/** Editing your own question: title (10–120 characters), details (up to 2000) and the link; tags stay as they are. */
+@Composable
+private fun EditQuestionDialog(question: Question, onDismiss: () -> Unit, onSave: (String, String, String?) -> Unit) {
+    var title by rememberSaveable { mutableStateOf(question.title) }
+    var body by rememberSaveable { mutableStateOf(question.body) }
+    var link by rememberSaveable { mutableStateOf(question.link.orEmpty()) }
+    val titleOk = title.trim().length in 10..120 && !AnswerRules.hasRepeatedLetters(title)
+    val bodyOk = body.length <= 2000 && !AnswerRules.hasRepeatedLetters(body)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_question)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it.take(120) },
+                    label = { Text(stringResource(R.string.ask_title_label)) },
+                    supportingText = { Text("${title.trim().length} / 120") },
+                    isError = !titleOk,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = body,
+                    onValueChange = { body = it.take(2000) },
+                    label = { Text(stringResource(R.string.ask_body_label)) },
+                    minLines = 2,
+                    maxLines = 6,
+                    isError = !bodyOk,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = link,
+                    onValueChange = { link = it },
+                    label = { Text(stringResource(R.string.ask_link_label)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(title, body, link) }, enabled = titleOk && bodyOk) { Text(stringResource(R.string.action_save_changes)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 /** The site's "add link" sub-menu: one field; the title is fetched afterwards. */

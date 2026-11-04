@@ -63,15 +63,40 @@
 | D-32 | Motion: a new screen slides in over the current one, which drifts back by a quarter; Back reverses it; tabs fade through; during the predictive back gesture the screen follows the finger | Replaces Navigation's default shrink-and-vanish, which the owner disliked | Owner (problem), agent (motion) |
 | D-33 | Stips question, profile and messages links open in the app: from other apps (when allowed under "Open by default"), from phone notifications, and from links inside answers | One way in, wherever the link comes from | Agent |
 | D-34 | Answers can be edited only while Stips allows it (`meta.permissions.edit`, which expires after a while). Detaching an answer from your account (`item.set_anonymous`) asks for confirmation first | Same rules as the site | Owner (ask), agent |
+| D-35 | Issues are the backlog (playbook §8). Round 3 fixes #1–#4; the commit closes them | The owner's instruction for this round | Owner |
+| D-36 | **API calls use HTTP/1.1, images get their own client (#3).** With HTTP/2 every request to Stips, images included, shared one connection, so one stalled connection made the whole site unreachable until the network changed. Idle connections are also dropped after a network error and on every network change | The only evidence (a PCAPdroid capture) showed one long-lived connection carrying everything; this removes that single point of failure at no cost for small JSON calls | Agent |
+| D-37 | **Never sign out on errors (#3).** Only `user.login` answering `{"logged": false}` (measured) signs the user out. Other failures keep the session. A server session older than 10 minutes is checked with `user.get_app_user` (the one call that fails when signed out; the others return empty data) | v0.2 signed people out whenever re-login hit an error, and missed silently expired sessions | Agent |
+| D-38 | **Back off when Stips limits us (#3).** HTTP 429/403 pause the background checks (Live, badges, phone notifications) for 1, 2, 4, 8 then 15 minutes, or Stips' `Retry-After`; the first success lifts it. Errors say what happened ("Stips is limiting this phone") instead of "can't reach" | Stips sits behind Cloudflare; a block by IP (cured by a new IP: VPN or airplane mode) fits the report | Agent |
+| D-39 | **Network log (#3):** the last 600 requests and session/network events in memory, shareable from Settings → Diagnostics. Method names, status codes, timings, Cloudflare ray ids and error types only: never parameters, cookies, tokens or text | The owner asked for a way to send evidence; the capture couldn't show HTTP-level detail | Owner (ask), agent |
+| D-40 | Live's rate is adjustable from 2 to 30 seconds (default 30), in Settings and by long-pressing the Live chip; the cost is shown live (2 s ≈ 17 MB an hour). Failed checks slow it down; it pauses during a back-off | The owner's ask; honest cost; stays polite to Stips | Owner (ask), agent |
+| D-41 | **Asking questions** follows the site's three steps and limits (title 10–120, details ≤2000, 1–5 tags, the daily cap). Photos come from **Stips' own gallery** (`photos.tag_gallery`). The site's Unsplash search uses Stips' private API key, which the app doesn't borrow | Same rules as the site; no third-party keys | Agent |
+| D-42 | **Moderation like Stips' own app:** report questions, answers and pen-pal posts (`reports.send`, 5–500 characters); "block content" hides an item or everything by a user **on the phone** and tells Stips (`ask/BlockContent`); Settings has "Remove all content blocks" | The site's app keeps blocks locally too (`bc-item-…`/`bc-user-…`); same behavior | Owner (ask), agent |
+| D-43 | **Anonymous mode**: a global switch (30 minutes to "until I turn it off") makes every answer and question anonymous; a question you answered anonymously defaults to anonymous next time (from a local list, and from Stips marking your own anonymous answers) | The owner's ask | Owner |
+| D-44 | **Pen pals (חברים לעט)** get a bottom tab, like the site. Replies are private messages. The site's rules apply: 5 flowers and a cooldown to post, 255 characters, ages 13–21 only | The owner's ask; the site's rules | Owner (ask), agent |
+| D-45 | Also from the site scan: the asker can **send flowers**, anyone can **write on a thanks wall**, Home's search also finds **people** (`users/Search`), and you can **edit, delete or detach your own question** | "Scan the site for features" (#4) | Agent |
 
 ## Next steps
 
 1. Owner: send the permission request to Stips (SPEC-06 §4).
 2. Owner: change the Stips password that was shared for research (D-22).
-3. Owner: test the v0.2 features that change the account: photo upload, editing and detaching an answer, pins, Get updates, deleting a thanks message, phone notifications.
-4. Next round candidates: asking a question, writing on a thanks wall, searching users, home-screen widget (SPEC-06 §1).
+3. Owner: when Stips stops loading again (#3), open Settings → Diagnostics → Network log and report it on GitHub.
+4. Owner: test the v0.3 account features: asking a question, pen-pal posts, reports, flowers, thanks messages, deleting your own question.
+5. Next round candidates: report and block from chats (`usermsgs`, `messages.block_user`), a home-screen widget, choosing an Unsplash cover with our own Unsplash key.
 
 ## Implementation notes
+
+### Third build (v0.3, issues #1–#4)
+
+| Spec says / the site does | v0.3 does | Why / next step |
+|---|---|---|
+| #3: find out why Stips becomes unreachable | Removed the likely causes (D-36–D-38) and added the network log (D-39) | Not reproduced: the only capture showed no failed connection. The next failure's log will say what Stips answered |
+| Question photos: Stips gallery or Unsplash search | Stips gallery only | Unsplash needs an API key; Stips' is private (D-41). Could add our own key later |
+| Asking: drafts, editing tags, YouTube preview | No drafts; editing your question changes title, details and link (tags stay) | Small follow-ups |
+| Report users from chats (`usermsgs`, reasons 2/4/8/16/1024), block messages (`messages.block_user`) | Not yet | Next round |
+| Blocking also personalizes on Stips (unverified) | Hiding is local, Stips is told | Same as the site's app |
+| Pen pals: "one active post per user", expiry | Unknown; the app follows the server | Unverified on the site |
+| Send flower: the site counts `owner_flower_count` | Counts flowered answers in the list (max 5) | The field wasn't seen in responses |
+| Notifications: Stips marks items viewed when listed | "New" = Stips' flag or newer than the last item the app showed (per account) | Keeps new items marked after the phone check read them |
 
 ### Second build (v0.2)
 
@@ -122,3 +147,7 @@
 | Credibility (נקודות אמינות) | A 0–100 score Stips gives each user; the site draws it as a gauge in four color bands |
 | Thanks wall (קיר התודות) | Short thank-you messages other users leave on a profile; the owner can delete them |
 | Live | Home's opt-in mode where new questions appear without pulling to refresh |
+| Pen pals (חברים לעט) | A board of short posts by people looking for someone to talk to; replies are private messages |
+| Block content (חסימת תוכן) | Hiding an item, or everything by one user, on this phone; Stips is told so it can show less |
+| Anonymous mode | A timed switch that makes everything you post anonymous |
+| Back-off | A pause of the app's automatic checks after Stips says "too many requests" |

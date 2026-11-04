@@ -51,6 +51,7 @@ import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
+import io.github.eyalshimshi.betterstips.ui.home.LiveControls
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -65,10 +66,16 @@ import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.TheaterComedy
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import io.github.eyalshimshi.betterstips.ui.components.AnonymousModeDialog
+import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
 import java.util.Locale
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit, onOpenNetLog: () -> Unit) {
     val container = LocalAppContainer.current
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val session by container.session.session.collectAsStateWithLifecycle()
@@ -82,6 +89,12 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
     val toggleNotifications = rememberPhoneNotificationsToggle(snackbar)
     val notificationsOn = settings.backgroundNotifications && Notifier.canPost(context)
     var safeBusy by remember { mutableStateOf(false) }
+    var anonymousDialog by remember { mutableStateOf(false) }
+    var clearBlocks by remember { mutableStateOf(false) }
+    val blockVersion by container.blocks.version.collectAsStateWithLifecycle()
+    val blockCount = remember(blockVersion) { container.blocks.count }
+    val anonymousOn = rememberAnonymousModeOn(settings.anonymousUntil)
+    val blocksClearedText = stringResource(R.string.blocks_cleared)
     fun toggleSafeMode() {
         safeBusy = true
         scope.launch {
@@ -98,6 +111,32 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
     }
     val external: @Composable () -> Unit = {
         Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.opens_in_browser))
+    }
+
+    if (anonymousDialog) {
+        AnonymousModeDialog(
+            until = settings.anonymousUntil,
+            onSet = { value ->
+                store.update { it.copy(anonymousUntil = value) }
+                anonymousDialog = false
+            },
+            onDismiss = { anonymousDialog = false },
+        )
+    }
+    if (clearBlocks) {
+        AlertDialog(
+            onDismissRequest = { clearBlocks = false },
+            title = { Text(stringResource(R.string.blocks_clear_title)) },
+            text = { Text(stringResource(R.string.blocks_clear_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    clearBlocks = false
+                    container.blocks.clear()
+                    scope.launch { snackbar.showSnackbar(blocksClearedText) }
+                }) { Text(stringResource(R.string.blocks_clear_confirm)) }
+            },
+            dismissButton = { TextButton(onClick = { clearBlocks = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
     }
 
     Scaffold(
@@ -149,6 +188,31 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
                     }
                 }
             }
+            item(key = "privacy") {
+                Column {
+                    GroupLabel(stringResource(R.string.settings_privacy))
+                    GroupRow(
+                        title = stringResource(R.string.anon_mode_title),
+                        summary = stringResource(if (anonymousOn) R.string.settings_anon_on else R.string.settings_anon_off),
+                        index = 0,
+                        count = 2,
+                        onClick = { anonymousDialog = true },
+                        icon = Icons.Outlined.TheaterComedy,
+                    )
+                    GroupRow(
+                        title = stringResource(R.string.settings_blocks),
+                        summary = if (blockCount == 0) {
+                            stringResource(R.string.settings_blocks_none)
+                        } else {
+                            LocalContext.current.resources.getQuantityString(R.plurals.settings_blocks_count, blockCount, blockCount)
+                        },
+                        index = 1,
+                        count = 2,
+                        onClick = if (blockCount == 0) null else ({ clearBlocks = true }),
+                        icon = Icons.Outlined.VisibilityOff,
+                    )
+                }
+            }
             item(key = "updates") {
                 Column {
                     GroupLabel(stringResource(R.string.settings_updates))
@@ -162,14 +226,20 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
                         onClick = { toggleNotifications(!notificationsOn) },
                         trailing = { Switch(checked = notificationsOn, onCheckedChange = null) },
                     )
-                    GroupRow(
-                        title = stringResource(R.string.settings_live_new),
-                        summary = stringResource(R.string.settings_live_new_summary),
-                        index = 1,
-                        count = 2,
-                        onClick = { store.update { it.copy(autoRefreshNew = !it.autoRefreshNew) } },
-                        trailing = { Switch(checked = settings.autoRefreshNew, onCheckedChange = null) },
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 2.dp)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp))
+                            .fillMaxWidth(),
+                    ) {
+                        LiveControls(
+                            settings = settings,
+                            onChange = { store.update(it) },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
                 }
             }
             item(key = "colors") {
@@ -283,6 +353,14 @@ fun SettingsScreen(onBack: () -> Unit, onOpenMyProfile: () -> Unit) {
             }
             item(key = "performance") {
                 Column {
+                    GroupLabel(stringResource(R.string.settings_diagnostics))
+                    GroupRow(
+                        stringResource(R.string.netlog_title),
+                        0,
+                        1,
+                        onOpenNetLog,
+                        summary = stringResource(R.string.netlog_summary),
+                    )
                     GroupLabel(stringResource(R.string.settings_performance))
                     if (timings.isEmpty()) {
                         GroupRow(stringResource(R.string.settings_performance_empty), 0, 1, null)
