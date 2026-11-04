@@ -52,6 +52,25 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # As in build.yml: sdkmanager's downloads sometimes break (android-emulator-runner#496), so install first, with retries.
+      - name: Install the emulator and the system image
+        env:
+          API: ${{ inputs.api }}
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$sdkmanager" ] || sdkmanager="$(command -v sdkmanager)"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          for attempt in 1 2 3 4; do
+            if "$sdkmanager" --install platform-tools "platforms;android-$API" emulator "system-images;android-$API;google_apis;x86_64" > sdk-install.log 2>&1; then
+              echo "Installed on attempt $attempt."
+              exit 0
+            fi
+            echo "Attempt $attempt failed:"
+            tail -n 5 sdk-install.log
+            sleep 20
+          done
+          echo "::warning::Couldn't install the emulator ahead; the emulator runner will try by itself."
+
       - name: Open the app
         uses: reactivecircus/android-emulator-runner@v2
         env:

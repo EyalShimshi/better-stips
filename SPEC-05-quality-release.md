@@ -30,7 +30,7 @@ Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §
 `.github/workflows/build.yml`, on every push to `main` and on demand. A pre-release appears only when everything passes:
 
 1. **Build and test** (one runner): checkout, JDK 17, Gradle 9.5.0 (`gradle/actions/setup-gradle@v6`, `cache-provider: basic`); restore the signing key from `SIGNING_KEYSTORE_BASE64` (warns in the summary if missing); `gradle assembleRelease` (errors into a box on the run's Summary page); name the APK and record its certificate digest; `tools/check_apk.py`; `gradle testDebugUnitTest` (failures into the Summary box).
-2. **Open on an emulator** (a second runner with KVM, `reactivecircus/android-emulator-runner@v2`, API 35 `google_apis` x86_64): downloads the four newest releases and runs `tools/launch_test.sh` (§1). Screenshots and logs are kept as the run's `launch-test` artifact for 14 days.
+2. **Open on an emulator** (a second runner with KVM, `reactivecircus/android-emulator-runner@v2`, API 35 `google_apis` x86_64): installs the emulator and the image first with retries (sdkmanager's downloads sometimes break, android-emulator-runner#496), downloads the four newest releases and runs `tools/launch_test.sh` (§1). If the emulator never starts, it tries once more; a failing app is never retried. Screenshots and logs are kept as the run's `launch-test` artifact for 14 days.
 3. **Publish the pre-release** `build-<run>` with `stipsplus-<run>.apk`. The notes are `RELEASE-NOTES.md` (the round's summary) followed by the launch test's results.
 4. **Report** (always): `status.md` on the `ci-status` branch with each job's result, the signing key and digest, the APK size, and the error lines.
 

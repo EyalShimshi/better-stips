@@ -140,7 +140,7 @@ jobs:
     name: Open on an emulator
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -170,8 +170,29 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # sdkmanager sometimes gets a broken download ("Error on ZipFile unknown archive", an intermittent problem also
+      # reported as android-emulator-runner#496; build 10 hit it and no emulator started). Installing everything first,
+      # with retries, leaves the emulator runner nothing to download.
+      - name: Install the emulator and the Android 15 image
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$sdkmanager" ] || sdkmanager="$(command -v sdkmanager)"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          for attempt in 1 2 3 4; do
+            if "$sdkmanager" --install platform-tools "platforms;android-35" emulator "system-images;android-35;google_apis;x86_64" > sdk-install.log 2>&1; then
+              echo "Installed on attempt $attempt."
+              exit 0
+            fi
+            echo "Attempt $attempt failed:"
+            tail -n 5 sdk-install.log
+            sleep 20
+          done
+          echo "::warning::Couldn't install the emulator ahead; the emulator runner will try by itself."
+
       # API 35 (Android 15) boots in about 2 minutes here; the Android 17 image didn't boot within 10 (launch-test.yml).
       - name: Open the app
+        id: launch1
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         env:
           SHORTCUTS: "yes"
@@ -181,6 +202,27 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: bash tools/launch_test.sh
+
+      # A second try only when the emulator never started (the script writes its summary once it's running). An app
+      # that crashes is never retried.
+      - name: Open the app (second try, the emulator didn't start)
+        id: launch2
+        if: steps.launch1.outcome == 'failure' && hashFiles('launch-test/summary.md') == ''
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SHORTCUTS: "yes"
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash tools/launch_test.sh
+
+      - name: Fail unless the app opened
+        if: steps.launch1.outcome == 'failure' && steps.launch2.outcome != 'success'
+        run: |
+          echo "::error::The launch test failed; its summary (above, and in the launch-test artifact) says why."
+          exit 1
 
       - name: Keep the screenshots and logs
         if: always()
