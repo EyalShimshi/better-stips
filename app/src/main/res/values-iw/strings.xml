@@ -304,14 +304,16 @@
 
     <!-- v0.3: notifications job, network errors, Live rate, network log (#1–#4) -->
     <string name="notifications_job_refused">אנדרואיד לא אישר את הבדיקה ברקע, אז ההתראות בטלפון נשארות כבויות.</string>
-    <string name="error_rate_limited">סטיפס מקבל יותר מדי בקשות מהטלפון הזה ועצר אותו לזמן קצר. כדאי לנסות שוב בעוד דקה.</string>
+    <string name="error_rate_limited">סטיפס עצר את הטלפון הזה בגלל יותר מדי בקשות. האפליקציה תנסה שוב פעם בדקה; זה בדרך כלל עובר תוך כמה דקות.</string>
+    <string name="error_throttled">מאטים לרגע כדי שסטיפס לא יעצור את הטלפון. אפשר לנסות שוב בעוד כמה שניות.</string>
+    <string name="limit_banner">סטיפס עצר את הטלפון בגלל יותר מדי בקשות. ננסה שוב בעוד %1$s.</string>
     <string name="error_blocked">מערכת ההגנה של סטיפס חסמה את הבקשה (HTTP 403). זה בדרך כלל עובר תוך כמה דקות; גם מעבר לרשת אחרת עוזר.</string>
     <string name="error_server_down">יש כרגע תקלה בסטיפס (%1$s). כדאי לנסות שוב בעוד דקה.</string>
     <string name="error_http">סטיפס החזיר שגיאה (%1$s).</string>
     <string name="live_what">שאלות חדשות מופיעות בבית מעצמן כל עוד הוא פתוח.</string>
     <string name="live_every">בדיקה כל %1$d שניות</string>
     <string name="live_cost">בערך %1$s MB לשעה כשהבית על המסך.</string>
-    <string name="live_fast_warning">בדיקות מהירות צורכות יותר נתונים וסוללה, וסטיפס עלול להגביל את האפליקציה לזמן קצר. לייב יאט אז מעצמו.</string>
+    <string name="live_fast_warning">בדיקות מהירות צורכות יותר נתונים וסוללה. סטיפס עוצר טלפון ששולח יותר מדי בקשות, ולכן לייב מדלג על תורו כשאתה פעיל באפליקציה.</string>
     <string name="live_sheet_title">שאלות חדשות בלייב</string>
     <string name="live_with_rate">לייב · %1$d שנ׳</string>
     <string name="live_options">אפשרויות לייב</string>

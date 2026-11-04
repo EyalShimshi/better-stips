@@ -127,6 +127,8 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 - `user.login` with a token Stips no longer accepts returns `{"status":"ok","data":{"logged":false}}`.
 - Stips is served through **Cloudflare** (`Server: cloudflare`, `CF-RAY`) from one ASP.NET origin (one `ASPSESSIONID…` cookie name across requests). A Cloudflare limit shows as HTTP 429 or 403.
 
+**Request limit:** after about 100 requests in 5 minutes from one address, Stips refuses every call with `IP_RATE_LIMIT` (measured in v0.4, §2.10).
+
 **Image sizes (measured):** question photos `s` (75×75), `w400`, `z` (about 500 px, the largest); Unsplash covers accept any `w=` (1080 used for full view); profile photos `t` (50×50), `a` (200×200, square crop), `l` (the whole upload, about 300×530).
 ### 2.4 Question (`objType: "ask"`)
 
@@ -201,7 +203,16 @@ The snapshot, with every channel's full gradient, ships as `app/src/main/assets/
 
 Browsing 100 questions with thumbnails costs roughly 0.5–1 MB; opening questions with large covers adds about 50 KB each.
 
-Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day.
+Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (10 s at the fastest) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB a minute while the app is open. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day.
+
+### 2.10 Request limit (`IP_RATE_LIMIT`, #5)
+
+- **What it looks like:** HTTP 200 with the envelope's `error_code: "IP_RATE_LIMIT"` (130 bytes), from Stips' server (`cf-cache-status: DYNAMIC`, no `cf-mitigated`), not from Cloudflare. Once it starts, every call gets it, whatever the method.
+- **When (Stips+ 0.3, IPv6, HTTP/1.1):** 103 requests answered, the 104th refused, 3 m 38 s after the app started (11:00:33–11:04:11). Before it: 51 `objectlist` (about 40 of them Live at 2 s), 13 `omniobj`, 10 `smartdata.get`, 9 `profile.actions_chart` (three per profile visit), 7 `messages.count`, 5 `profile.page_data` and a few others. Stips+ 0.2 (IPv4, HTTP/2, PCAPdroid, #3) was cut off the same way within 3 m 21 s.
+- **The official app** is the site's Angular build with `mobileApp: true` in a WebView: same `https://stips.co.il/api`, same parameters (GET, or a form POST over 200 characters), no special headers. A PCAPdroid capture 4.5 minutes after the refusal (11:08:42–11:10:59, IPv4) showed about 102 API requests in 2 m 17 s: 51 feed refreshes (180–430 ms, about 8.7 KB each) and about 50 smaller calls. About 60 more were images and static files: `cdn.stips.co.il` shares the connection (same Cloudflare addresses) and Cloudflare answered them from its cache in under 80 ms, so Stips' server never saw them. PCAPdroid's connection list (CSV) confirms one connection to Stips for everything (45 KB up, 925 KB down). None were periodic, none were refused. The site's code knows only `API_ERROR_BANNED` and `API_ERROR_EOF`, so a refusal would show as "no connection".
+- **Only a 5-minute window fits both.** Busiest stretches of the official app (not refused) against Stips+ 0.3's stretch just before its refusal: 53 vs 32 in a minute, 95 vs 59 in two, 102 vs 71 in three, 102 vs 103 in five. So the limit is about 100 requests per 5 minutes per address, the same for both apps. If the window slides, the official app stopped a request or two short of it; if it's aligned to the clock, its requests split 62 / 40 across 11:10 (Stips+ 0.3's all fell in 11:00–11:05, and 0.2's in 22:25–22:30). Either way Stips+ 0.3 got there first because about half its requests were its own (Live every 2 s, badges, three graphs per profile), not the user's taps.
+- **The site's profile graph** loads only the selected action (`ask`, `ans` or `flowers`) and reloads when the selection changes.
+- **Open:** whether the window slides or follows the clock, whether Stips is stricter with non-browser clients (nothing suggests it: the counts match), and how long a refusal lasts. The network log records the counts before a refusal and its length.
 
 ## 3. Data model (in the app)
 

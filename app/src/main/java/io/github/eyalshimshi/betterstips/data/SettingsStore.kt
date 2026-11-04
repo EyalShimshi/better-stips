@@ -26,7 +26,11 @@ data class AppSettings(
     fun anonymousModeOn(now: Long = System.currentTimeMillis()): Boolean = anonymousUntil > now
 
     companion object {
-        const val LIVE_MIN_SECONDS = 2
+        /**
+         * Not faster: Stips pauses a phone after about 100 requests in 5 minutes, and Live at 2 s alone sent 30 a
+         * minute (#5). At 10 s it takes half of the request budget's 12 a minute, leaving the rest for taps.
+         */
+        const val LIVE_MIN_SECONDS = 10
         const val LIVE_MAX_SECONDS = 30
 
         /** Anonymous mode with no end time. */

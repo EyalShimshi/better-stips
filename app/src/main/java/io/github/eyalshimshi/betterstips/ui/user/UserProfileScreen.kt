@@ -321,7 +321,7 @@ fun UserProfileScreen(
                                 ActivitySection(
                                     action = state.chartAction,
                                     points = state.charts[state.chartAction],
-                                    loading = state.loading,
+                                    loading = state.loading || state.chartAction in state.chartsLoading,
                                     onSelect = vm::selectChart,
                                 )
                             }

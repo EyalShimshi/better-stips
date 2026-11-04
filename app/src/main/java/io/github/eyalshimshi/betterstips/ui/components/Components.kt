@@ -336,6 +336,7 @@ fun LinkifiedText(
 fun errorMessage(error: ApiException): String = when {
     error.isNetwork -> stringResource(R.string.error_offline)
     error.code == ApiException.RATE_LIMITED -> stringResource(R.string.error_rate_limited)
+    error.code == ApiException.THROTTLED -> stringResource(R.string.error_throttled)
     error.code == ApiException.BLOCKED -> stringResource(R.string.error_blocked)
     error.code == ApiException.SERVER -> stringResource(R.string.error_server_down, error.serverMessage.orEmpty())
     error.code == ApiException.HTTP -> stringResource(R.string.error_http, error.serverMessage.orEmpty())

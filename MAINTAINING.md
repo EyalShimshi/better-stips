@@ -68,15 +68,19 @@ $p = [uri]::EscapeDataString('{"userid":275580,"action":"ans"}')
 The app keeps a network log: Settings → Diagnostics → Network log (Copy, Share, or Report on GitHub, which copies it for pasting). Each line is one request or event:
 
 ```
-10:01:02.345  http     objectlist -> 200 | http/1.1 reused #1a2b 104.26.13.211 | 312 ms | 9 KB | ray=… cache=DYNAMIC
-10:01:05.120  http     messages.count FAILED SocketTimeoutException: timeout | http/1.1 new #3c4d 104.26.13.211 | 20011 ms
-10:01:05.200  backoff  HTTP 429: background checks pause for 60 s (strike 1)
+10:01:02.345  http     objectlist -> 200 | h2 reused #1a2b 104.26.13.211 | 312 ms | 9 KB | ray=… cache=DYNAMIC
+10:01:05.120  http     messages.count FAILED SocketTimeoutException: timeout | h2 new #3c4d 104.26.13.211 | 20011 ms
+10:01:06.410  api      profile.actions_chart: IP_RATE_LIMIT …
+10:01:06.410  limit    before this refusal: 31 requests in the last minute, 97 in 5 minutes, 102 in 10 minutes (102 since 3:38 ago)
+10:01:06.411  limit    Stips said IP_RATE_LIMIT: no requests for up to 60 s, one try a minute (refusal 1)
 10:01:09.000  session  signing in again with the saved token failed: RATE_LIMITED; keeping the session
 10:01:30.000  network  now on cellular
 ```
 
 How to read it:
-- **`-> 429` or `-> 403`** (often with `mitigated=…`): Stips' Cloudflare is limiting this phone's address. The app backs off by itself; a new address (VPN, airplane mode) helps at once. If it keeps happening, look at what ran just before (Live at 2 s? many images?).
+- **`IP_RATE_LIMIT` and `limit` lines:** Stips' own request limit (#5, SPEC-04 §2.10). The first `limit` line says how many requests went out in the last 1, 5 and 10 minutes; "Stips answers again, m:ss after it started refusing" says how long it lasted. During a pause the app sends nothing but one try a minute. If it happens under the budget (D-46), raise `RateGuard.REFILL_MS` or lower `CAPACITY` so that `CAPACITY` + 5 minutes / `REFILL_MS` stays under the 5-minute count the log shows.
+- **`-> 429` or `-> 403`** (often with `mitigated=…`): Cloudflare is limiting this phone's address; the app pauses the same way.
+- **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6.
 - **`FAILED … Timeout` or `ConnectException` on new connections:** the network (or Cloudflare dropping our address) — compare with `network` lines.
 - **`FAILED` on `reused` connections only, then fine on `new` ones:** a stale connection; the app drops idle connections after any failure and on network changes.
 - **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out.

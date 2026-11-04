@@ -17,8 +17,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Groups
@@ -27,22 +33,26 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.HourglassTop
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -55,6 +65,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,7 +82,7 @@ import androidx.navigation.navArgument
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.crash.CrashReporter
-import io.github.eyalshimshi.betterstips.data.api.Backoff
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.MyList
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
@@ -101,6 +112,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 object Routes {
     const val HOME = "home"
@@ -173,7 +185,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                if (!Backoff.active) fetchCounts(container)?.let { counts = it }
+                if (RateGuard.allowBackground()) fetchCounts(container)?.let { counts = it }
                 delay(COUNTS_INTERVAL_MS)
             }
         }
@@ -206,12 +218,15 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     ) {
         Scaffold(
             bottomBar = {
-                AnimatedVisibility(
-                    visible = showBar,
-                    enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
-                    exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
-                ) {
-                    BottomBar(navController, route, counts)
+                Column {
+                    RateLimitBanner()
+                    AnimatedVisibility(
+                        visible = showBar,
+                        enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
+                        exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
+                    ) {
+                        BottomBar(navController, route, counts)
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
@@ -248,6 +263,35 @@ private fun navigateToTab(navController: NavHostController, route: String) {
         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/** While Stips has paused this phone for too many requests (#5): what happened and when the app tries again. */
+@Composable
+private fun RateLimitBanner() {
+    val until by RateGuard.pausedUntilFlow.collectAsStateWithLifecycle()
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(until) {
+        now = System.currentTimeMillis()
+        while (until > now) {
+            delay(1_000L)
+            now = System.currentTimeMillis()
+        }
+    }
+    if (until <= now) return
+    val seconds = ((until - now) / 1000L).coerceAtLeast(1L)
+    val left = String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60)
+    Surface(color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.HourglassTop, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.limit_banner, left), style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 

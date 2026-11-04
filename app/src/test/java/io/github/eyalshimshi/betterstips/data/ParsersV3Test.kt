@@ -158,5 +158,6 @@ class ParsersV3Test {
         assertTrue(ApiException(ApiException.GENERAL, "יש להתחבר כדי לענות").looksSignedOut)
         assertFalse(ApiException(ApiException.GENERAL, "התשובה קצרה מדי").looksSignedOut)
         assertTrue(ApiException(ApiException.NOT_SIGNED_IN).looksSignedOut)
+        assertFalse("a refusal never signs out", ApiException(ApiException.RATE_LIMITED, "המשתמש אינו מחובר למערכת").looksSignedOut)
     }
 }

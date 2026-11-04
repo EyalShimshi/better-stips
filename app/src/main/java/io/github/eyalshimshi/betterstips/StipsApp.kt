@@ -29,7 +29,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
-import okhttp3.Protocol
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -51,13 +50,13 @@ class AppContainer(private val app: Application) {
     private val userAgent = UserAgentInterceptor("StipsPlus/$versionName (Android ${Build.VERSION.RELEASE}; unofficial; +$REPO_URL)")
 
     /**
-     * API calls use HTTP/1.1: with HTTP/2 every request shared one connection, so a single stalled connection made
-     * all of Stips unreachable until the network changed (#3). Small JSON calls lose nothing by it.
+     * API calls share one HTTP/2 connection, as the official app's do. v0.3 used HTTP/1.1 because #3 looked like a
+     * stalled connection; it was Stips' request limit (#5), and HTTP/1.1 only added a TLS handshake per extra
+     * connection (about 20 in four minutes). A dead connection still fails within the timeouts and is dropped.
      */
     val httpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .addInterceptor(userAgent)
-        .protocols(listOf(Protocol.HTTP_1_1))
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)

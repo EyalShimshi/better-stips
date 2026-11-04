@@ -3,6 +3,7 @@ package io.github.eyalshimshi.betterstips.data.api
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
 import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -40,13 +41,32 @@ class StipsApi(private val client: OkHttpClient) {
             Request.Builder().url(url).get()
         }
         val request = builder.tag(ApiTag::class.java, ApiTag(name)).build()
+        pace(name)
+        val sentAt = System.currentTimeMillis()
         val text = execute(request)
         try {
-            Parsers.envelope(text)
+            val data = Parsers.envelope(text)
+            RateGuard.onSuccess(sentAt)
+            data
         } catch (e: ApiException) {
+            if (e.code.contains(RATE_LIMIT_CODE)) {
+                // Stips' own per-address limit, sent as an ordinary answer (#5).
+                NetLog.event("api", "$name: ${e.code} ${e.serverMessage.orEmpty().take(150)}")
+                RateGuard.onLimited("Stips said ${e.code}", null)
+                throw ApiException(ApiException.RATE_LIMITED, e.serverMessage)
+            }
             val start = if (e.code == ApiException.BAD_RESPONSE) " (body starts: " + text.take(40).replace(Regex("\\s+"), " ") + ")" else ""
             NetLog.event("api", "$name: ${e.code}$start")
             throw e
+        }
+    }
+
+    /** Waits for request budget (or refuses during a pause), so the app stays under Stips' limit. */
+    private suspend fun pace(name: String) {
+        val wait = RateGuard.acquire()
+        if (wait > 0) {
+            NetLog.event("limit", "$name waits ${wait / 1000.0} s to stay under Stips' limit")
+            delay(wait)
         }
     }
 
@@ -56,7 +76,11 @@ class StipsApi(private val client: OkHttpClient) {
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", fileName, bytes.toRequestBody(mediaType.toMediaType()))
             .build()
-        execute(Request.Builder().url(url).post(body).tag(ApiTag::class.java, ApiTag("upload")).build())
+        pace("upload")
+        val sentAt = System.currentTimeMillis()
+        val text = execute(Request.Builder().url(url).post(body).tag(ApiTag::class.java, ApiTag("upload")).build())
+        RateGuard.onSuccess(sentAt)
+        text
     }
 
     /** Runs a request on the calling (IO) thread and returns the body, or throws an [ApiException] that says why not. */
@@ -66,7 +90,7 @@ class StipsApi(private val client: OkHttpClient) {
                 if (!response.isSuccessful) {
                     val error = ApiException.forHttp(response.code)
                     if (error.code == ApiException.RATE_LIMITED || error.code == ApiException.BLOCKED) {
-                        Backoff.onLimited(response.code, response.header("Retry-After")?.trim()?.toLongOrNull())
+                        RateGuard.onLimited("HTTP ${response.code}", response.header("Retry-After")?.trim()?.toLongOrNull())
                     }
                     throw error
                 }
@@ -78,12 +102,14 @@ class StipsApi(private val client: OkHttpClient) {
             client.connectionPool.evictAll()
             throw ApiException(ApiException.NETWORK, NetLogListener.describe(e))
         }
-        Backoff.onSuccess()
         return text
     }
 
     companion object {
         const val BASE_URL = "https://stips.co.il/api"
+
+        /** Stips' error code when one address sends too much (`IP_RATE_LIMIT`, measured in #5). */
+        private const val RATE_LIMIT_CODE = "RATE_LIMIT"
 
         /** The server reads "+" as a space, so the website sends this marker instead (verified with topic "C++"). */
         const val PLUS_MARKER = "~MODU_PLUS_SIGN~"

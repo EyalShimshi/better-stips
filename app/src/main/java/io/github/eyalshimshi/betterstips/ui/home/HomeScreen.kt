@@ -93,7 +93,7 @@ import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.AppSettings
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
-import io.github.eyalshimshi.betterstips.data.api.Backoff
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
@@ -177,8 +177,8 @@ fun HomeScreen(
     var liveSheet by rememberSaveable { mutableStateOf(false) }
     var anonymousDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Live: while Home is on screen, new questions slide in on top at the chosen rate (2–30 s). Failures slow it
-    // down, and it pauses while Stips asks us to slow down (#3, #4).
+    // Live: while Home is on screen, new questions slide in on top at the chosen rate (10–30 s). Failures slow it
+    // down, and it skips its turn when the request budget is low or Stips paused the phone (#3, #4, #5).
     LaunchedEffect(settings.autoRefreshNew, settings.liveIntervalSeconds, query) {
         if (!settings.autoRefreshNew) return@LaunchedEffect
         val seconds = settings.liveIntervalSeconds
@@ -186,7 +186,8 @@ fun HomeScreen(
             var misses = 0
             while (true) {
                 delay(AppSettings.liveDelayMs(seconds, misses))
-                if (Backoff.active) continue
+                // Live gives way to what the user does, and stops during a pause (#5).
+                if (!RateGuard.allowBackground()) continue
                 val atTop = listState.firstVisibleItemIndex <= 3
                 val added = feedVm.pollNew()
                 misses = if (added < 0) misses + 1 else 0

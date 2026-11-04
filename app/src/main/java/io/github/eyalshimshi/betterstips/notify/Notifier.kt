@@ -21,7 +21,7 @@ import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.MainActivity
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.StipsApp
-import io.github.eyalshimshi.betterstips.data.api.Backoff
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
@@ -84,8 +84,8 @@ object Notifier {
     suspend fun check(context: Context, container: AppContainer) {
         if (!container.settings.settings.value.backgroundNotifications) return
         if (!container.session.session.value.signedIn || !canPost(context)) return
-        if (Backoff.active) {
-            NetLog.event("notifications", "check skipped: Stips asked us to slow down")
+        if (!RateGuard.allowBackground()) {
+            NetLog.event("notifications", "check skipped: staying under Stips' request limit")
             return
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -47,6 +47,8 @@ data class ProfileUiState(
     val section: ProfileSection = ProfileSection.Thanks,
     val chartAction: ChartAction = ChartAction.Answers,
     val charts: Map<ChartAction, List<ChartPoint>> = emptyMap(),
+    /** Graphs being fetched; each loads only when shown (#5: fewer requests). */
+    val chartsLoading: Set<ChartAction> = emptySet(),
     val flowers: Paged<Answer> = Paged(),
     val thanks: Paged<ThanksMessage> = Paged(),
     val busy: Boolean = false,
@@ -66,40 +68,62 @@ class UserProfileViewModel(
     // Bumped on refresh, so a page that arrives late can't mix into the fresh list.
     private var generation = 0
 
+    // Bumped when the thanks wall alone starts over (after writing on it), without dropping graphs on their way.
+    private var thanksGeneration = 0
+
     init {
         load()
     }
 
+    /**
+     * The profile and its page; the thanks wall and the flowered answers load as their lists come into view, and
+     * each graph only when it's shown. A profile costs 3 requests instead of 8 (#5).
+     */
     fun load() {
         generation++
-        _state.update { it.copy(loading = true, error = null, flowers = Paged(), thanks = Paged()) }
+        _state.update {
+            it.copy(loading = true, error = null, flowers = Paged(), thanks = Paged(), charts = emptyMap(), chartsLoading = emptySet())
+        }
         viewModelScope.launch {
             val profile = async { attempt { repository.userProfile(userId) } }
             val page = async { attempt { repository.profilePage(userId) } }
-            val charts = ChartAction.entries.map { action -> action to async { attempt { repository.chart(userId, action) } } }
             val p = profile.await()
             val pg = page.await()
-            val loadedCharts = charts.mapNotNull { (action, deferred) -> deferred.await().getOrNull()?.let { action to it } }.toMap()
             _state.update { s ->
                 s.copy(
                     profile = p.getOrNull() ?: s.profile,
                     page = pg.getOrNull() ?: s.page,
                     error = (p.exceptionOrNull() ?: pg.exceptionOrNull())?.asApiException(),
                     loading = false,
-                    charts = s.charts + loadedCharts,
                 )
             }
+            if (_state.value.section == ProfileSection.Activity) ensureChart(_state.value.chartAction)
         }
-        loadMoreThanks()
-        loadMoreFlowers()
     }
 
     fun selectSection(section: ProfileSection) {
         _state.update { it.copy(section = section) }
+        if (section == ProfileSection.Activity) ensureChart(_state.value.chartAction)
     }
 
     fun selectChart(action: ChartAction) {
         _state.update { it.copy(chartAction = action) }
+        if (_state.value.section == ProfileSection.Activity) ensureChart(action)
+    }
+
+    private fun ensureChart(action: ChartAction) {
+        val s = _state.value
+        if (s.charts.containsKey(action) || action in s.chartsLoading) return
+        val gen = generation
+        _state.update { it.copy(chartsLoading = it.chartsLoading + action) }
+        viewModelScope.launch {
+            val result = attempt { repository.chart(userId, action) }
+            if (gen != generation) return@launch
+            _state.update { st ->
+                val points = result.getOrNull()
+                st.copy(chartsLoading = st.chartsLoading - action, charts = if (points != null) st.charts + (action to points) else st.charts)
+            }
+        }
     }
 
     fun loadMoreFlowers() {
@@ -119,11 +143,12 @@ class UserProfileViewModel(
         val current = _state.value.thanks
         if (current.loading || current.end) return
         val gen = generation
+        val thanksGen = thanksGeneration
         val next = current.page + 1
         _state.update { it.copy(thanks = it.thanks.copy(loading = true, failed = false)) }
         viewModelScope.launch {
             val result = attempt { repository.thanksWall(userId, next) }
-            if (gen != generation) return@launch
+            if (gen != generation || thanksGen != thanksGeneration) return@launch
             _state.update { s -> s.copy(thanks = s.thanks.appended(result, next) { it.id }) }
         }
     }
@@ -151,7 +176,7 @@ class UserProfileViewModel(
             _state.update { it.copy(sendingThanks = true) }
             try {
                 repository.writeThanks(userId, message)
-                generation++
+                thanksGeneration++
                 _state.update { it.copy(sendingThanks = false, thanks = Paged(), message = ProfileMessage.ThanksSent) }
                 loadMoreThanks()
             } catch (e: CancellationException) {

@@ -47,10 +47,35 @@ class StipsRepository(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Question>?): Boolean = size > 300
     }
 
+    /** When each cached question came from Stips (not from the disk cache). Guarded by [questionCache]. */
+    private val cachedAt = HashMap<Long, Long>()
+
     fun cachedQuestion(id: Long): Question? = synchronized(questionCache) { questionCache[id] }
 
-    private fun remember(list: List<Question>) = synchronized(questionCache) {
-        list.forEach { questionCache[it.id] = it }
+    /**
+     * The question as a list showed it, if that was under [maxAgeMs] ago. List items carry the same fields as a
+     * full fetch (link, pin state, permissions; checked), so opening it costs one request less (#5).
+     */
+    fun recentQuestion(id: Long, maxAgeMs: Long): Question? = synchronized(questionCache) {
+        val at = cachedAt[id] ?: return@synchronized null
+        if (System.currentTimeMillis() - at > maxAgeMs) null else questionCache[id]
+    }
+
+    /** Keeps the cached copy in step after the user changes it (a pin). */
+    fun updateCachedQuestion(id: Long, change: (Question) -> Question) {
+        synchronized(questionCache) {
+            val current = questionCache[id] ?: return
+            questionCache[id] = change(current)
+        }
+    }
+
+    private fun remember(list: List<Question>, fresh: Boolean = true) = synchronized(questionCache) {
+        val now = System.currentTimeMillis()
+        list.forEach {
+            questionCache[it.id] = it
+            if (fresh) cachedAt[it.id] = now
+        }
+        if (cachedAt.size > 600) cachedAt.keys.retainAll(questionCache.keys)
     }
 
     private fun safeFilter(): Boolean = session.session.value.let { if (it.signedIn) it.safeFilter else true }
@@ -89,7 +114,7 @@ class StipsRepository(
     suspend fun cachedFirstPage(query: FeedQuery): List<Question> = withContext(Dispatchers.IO) {
         val text = runCatching { feedCache.read(query.cacheKey) }.getOrNull() ?: return@withContext emptyList()
         val list = runCatching { Parsers.questions(Json.parseToJsonElement(text)) }.getOrDefault(emptyList())
-        remember(list)
+        remember(list, fresh = false)
         list
     }
 

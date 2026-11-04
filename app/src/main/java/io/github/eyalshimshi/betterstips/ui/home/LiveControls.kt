@@ -31,7 +31,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Live's switch and its refresh rate (2–30 s), with what it costs in data. The same controls appear in Settings
+ * Live's switch and its refresh rate (10–30 s), with what it costs in data. The same controls appear in Settings
  * and when you long-press the Live chip on Home (#4).
  */
 @Composable

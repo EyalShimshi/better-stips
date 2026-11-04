@@ -48,10 +48,10 @@
 | What | When | Cost |
 |---|---|---|
 | Unread chats and notifications | Once a minute, only while the app is open and you're signed in | Under 1 KB each |
-| **Live** new questions | Every 2–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 17 MB at 2 s |
+| **Live** new questions | Every 10–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 3.3 MB at 10 s |
 | **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Updates) | Under 1 MB a day |
 
-If Stips answers "too many requests", these checks pause by themselves for a few minutes.
+**Stips' request limit:** Stips stops answering an address that sends about 100 requests in 5 minutes (the official app is under the same limit). Stips+ keeps well under it: 30 requests at once, then 12 a minute, and the checks above wait while you're busy. If Stips stops answering anyway, a banner counts down, nothing is sent except one try a minute, and everything resumes as soon as Stips answers.
 
 **Network log:** the app keeps its last few hundred requests in memory (which call, the answer code, timing, errors; never passwords, cookies or what you wrote) so you can attach them to a bug report from Settings → Diagnostics. Nothing is sent unless you share it.
 

@@ -90,7 +90,9 @@ class QuestionViewModel(
         viewModelScope.launch {
             val started = System.nanoTime()
             _state.update { it.copy(loading = true, error = null, answersError = null) }
-            val question = async { attempt { repository.question(questionId) } }
+            // A copy from a list shown in the last 3 minutes saves a request (#5).
+            val recent = repository.recentQuestion(questionId, RECENT_MS)
+            val question = async { if (recent != null) Result.success(recent) else attempt { repository.question(questionId) } }
             val answers = async { attempt { repository.answers(questionId) } }
             val following = async { if (session.session.value.signedIn) attempt { repository.isFollowing(questionId) } else null }
             val q = question.await()
@@ -124,6 +126,7 @@ class QuestionViewModel(
         viewModelScope.launch {
             try {
                 repository.setPinned(questionId, pin)
+                repository.updateCachedQuestion(questionId) { it.copy(userPinned = pin, pinCount = _state.value.pinCount) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -364,6 +367,10 @@ class QuestionViewModel(
 
     private fun updateAnswer(id: Long, change: (Answer) -> Answer) {
         _state.update { s -> s.copy(answers = s.answers.map { if (it.id == id) change(it) else it }) }
+    }
+
+    private companion object {
+        const val RECENT_MS = 3 * 60_000L
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
