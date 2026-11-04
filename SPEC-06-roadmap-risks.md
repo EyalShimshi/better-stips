@@ -20,7 +20,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | ID | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
 | R-01 | Stips objects: their terms forbid copying/distributing content and trademarks without written permission, and automated copying | Medium | High | Private until permission (D-02); requests only on user action; no mirroring or export; "Open on Stips" everywhere; take down on request |
-| R-02 | Stips changes or blocks the API | Medium | High | Tolerant parser, fixtures and probes (MAINTAINING.md). An honest User-Agent: if Stips blocks it, we stop and talk to them — no evasion |
+| R-02 | Stips changes or blocks the API | Medium | High | Tolerant parser, fixtures and probes (MAINTAINING.md). An honest User-Agent; requests carry the site's Referer like the site's own (D-49), which the permission request discloses. If Stips blocks Stips+ itself, we stop and talk to them — no evasion |
 | R-03 | Stips penalizes accounts that use a third-party client | Low | High | Ask in the permission request; the owner tests with their own account first |
 | R-04 | The name "Stips+" uses Stips' trademark | Medium | Medium | Fine while private; decide the public name with Stips' answer (Q-02) |
 | R-05 | Account calls behave differently from the website's code | High | Medium | Tolerant parsing, clear error messages, spikes on the device, fix in the next round |
@@ -28,7 +28,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-07 | The signing key is lost | Low | High | CI secret + a backup file on the owner's computer |
 | R-08 | Users are mostly minors; their content is personal | Medium | Medium | Nothing stored beyond caches and the user's own saved list; hidden profile fields are never shown; no analytics |
 | R-09 | Unsafe content or harassment | Medium | Medium | Report and block content in the app since v0.3 (`reports.send`, `ask/BlockContent`); chats next |
-| R-10 | Cloudflare limits the phone's address (fast Live, bursts) and Stips seems "down" (#3) | Medium | Medium | Back-off on 429/403, Live slows down after failures, costs shown next to the fast rates, the network log to see what happened |
+| R-10 | Stips limits the phone's address (`IP_RATE_LIMIT` after about 100 calls without the site's Referer) and seems "down" (#3, #5) | Low since v0.5 | Medium | The site's Referer (D-49), a budget at the official app's pace (D-46), a pause with one try a minute and a banner, the network log, and the probe workflow to re-measure (D-50) |
 
 ## 4. The permission request
 
@@ -43,6 +43,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 > כמה דברים חשובים לי לומר מראש:
 > - האפליקציה פונה ישירות מהטלפון של המשתמש לאתר שלכם, כמו דפדפן, ורק כשהמשתמש מבקש. אין שרת שלנו, אין העתקה או שמירה של תוכן, ואין סריקה אוטומטית.
 > - האפליקציה מזדהה בגלוי כ-Stips+ בכל בקשה, ויש בה קישור "פתיחה בסטיפס" לכל שאלה.
+> - כדי שמגבלת הקצב שלכם (IP_RATE_LIMIT) לא תעצור שימוש רגיל, כל בקשה נשלחת עם ה-Referer של האתר (https://stips.co.il/), כמו הבקשות של האתר ושל האפליקציה הרשמית, וקצב הפניות מוגבל לקצב של האפליקציה הרשמית בערך. אם תעדיפו שנפעל אחרת, נשנה.
 > - ההתחברות היא עם חשבון סטיפס רגיל. הסיסמה נשלחת רק אליכם, והאפליקציה לא שומרת אותה.
 > - אין בה פרסומות, אנליטיקה או מעקב, והיא לא מציגה מידע שלא מוצג באתר.
 >
@@ -52,7 +53,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 > אייל שמשי
 > eyalshimshi1@gmail.com
 
-*(English summary: an independent, free Android client; direct, user-initiated requests like a browser; honest identification; no ads, tracking, copying or crawling; private for now; asking for written permission and any conditions before publishing.)*
+*(English summary: an independent, free Android client; direct, user-initiated requests like a browser; honest identification; the site's Referer on every request so the rate limit treats it like the site, at about the official app's pace, and we'll change that if Stips prefers; no ads, tracking, copying or crawling; private for now; asking for written permission and any conditions before publishing.)*
 
 ## 5. Open questions
 

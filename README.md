@@ -6,7 +6,7 @@
 
 ## Features (v0.3)
 
-- **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 2 to 30 seconds (long-press the Live chip to set it). Search finds topics and people.
+- **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it). Search finds topics and people.
 - **Ask a question** in three steps, like the site: the question (anonymous with your own nickname, and a link if you like), its tags (suggested by Stips), and a cover photo from Stips' gallery.
 - **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, and a header that folds into a small title bar as you scroll.
 - **Answer** (anonymously too, with one link), **edit**, **delete** or **detach** your answers; **vote**, **pin**, **get updates**. If you answered a question anonymously, your next answer there starts anonymous. As the asker, **send flowers** to good answers.
@@ -48,10 +48,10 @@
 | What | When | Cost |
 |---|---|---|
 | Unread chats and notifications | Once a minute, only while the app is open and you're signed in | Under 1 KB each |
-| **Live** new questions | Every 10–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 3.3 MB at 10 s |
+| **Live** new questions | Every 5–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 6.7 MB at 5 s |
 | **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Updates) | Under 1 MB a day |
 
-**Stips' request limit:** Stips stops answering an address that sends about 100 requests in 5 minutes (the official app is under the same limit). Stips+ keeps well under it: 30 requests at once, then 12 a minute, and the checks above wait while you're busy. If Stips stops answering anyway, a banner counts down, nothing is sent except one try a minute, and everything resumes as soon as Stips answers.
+**Stips' request limit:** Stips stops answering an address after about 100 requests that don't come from its own site, for 20 minutes or more. Requests from the site and the official app carry the site's Referer and aren't limited that way, even from an address Stips is refusing; Stips+ sends the same Referer, and still identifies itself honestly. It also keeps to about the official app's pace: 40 requests at once, then 30 a minute, and the checks above wait while you're busy. If Stips stops answering anyway, a banner counts down, nothing is sent except one try a minute, and everything resumes as soon as Stips answers.
 
 **Network log:** the app keeps its last few hundred requests in memory (which call, the answer code, timing, errors; never passwords, cookies or what you wrote) so you can attach them to a bug report from Settings → Diagnostics. Nothing is sent unless you share it.
 

@@ -290,8 +290,8 @@
 
     <!-- v0.3: notifications job, network errors, Live rate, network log (#1–#4) -->
     <string name="notifications_job_refused">Android didn\'t allow the background check, so phone notifications stay off.</string>
-    <string name="error_rate_limited">Stips paused this phone for sending too many requests. The app tries again once a minute; it\'s usually over in a few minutes.</string>
-    <string name="error_throttled">Slowing down for a moment so Stips doesn\'t pause this phone. Try again in a few seconds.</string>
+    <string name="error_rate_limited">Stips paused this phone for sending too many requests. The app tries again once a minute.</string>
+    <string name="error_throttled">That\'s a lot of requests in a row. Try again in a few seconds.</string>
     <string name="limit_banner">Stips paused this phone for too many requests. Trying again in %1$s.</string>
     <string name="error_blocked">Stips\' protection blocked this request (HTTP 403). It usually passes within minutes; switching networks also helps.</string>
     <string name="error_server_down">Stips is having trouble right now (%1$s). Try again in a minute.</string>
@@ -299,7 +299,7 @@
     <string name="live_what">New questions appear on Home by themselves while it\'s open.</string>
     <string name="live_every">Check every %1$d seconds</string>
     <string name="live_cost">About %1$s MB an hour while Home is on screen.</string>
-    <string name="live_fast_warning">Fast checks use more data and battery. Stips pauses a phone that sends too many requests, so Live skips its turn while you\'re busy in the app.</string>
+    <string name="live_fast_warning">Fast checks use more data and battery, and load Stips more. Live skips its turn while you\'re busy in the app.</string>
     <string name="live_sheet_title">Live new questions</string>
     <string name="live_with_rate">Live · %1$ds</string>
     <string name="live_options">Live options</string>

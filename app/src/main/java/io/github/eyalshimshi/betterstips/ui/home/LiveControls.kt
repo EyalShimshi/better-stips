@@ -31,7 +31,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Live's switch and its refresh rate (10–30 s), with what it costs in data. The same controls appear in Settings
+ * Live's switch and its refresh rate (5–30 s), with what it costs in data. The same controls appear in Settings
  * and when you long-press the Live chip on Home (#4).
  */
 @Composable
@@ -93,7 +93,7 @@ fun LiveControls(settings: AppSettings, onChange: ((AppSettings) -> AppSettings)
     }
 }
 
-/** Below this, Live is fast enough that Stips may start limiting the phone. */
+/** Below this, Live costs noticeably more data and battery, and loads Stips more. */
 private const val FAST_SECONDS = 10
 
 /** Long-press on the Live chip: the same controls in a sheet. */

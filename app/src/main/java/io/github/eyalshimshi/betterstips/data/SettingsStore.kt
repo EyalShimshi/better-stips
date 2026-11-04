@@ -27,10 +27,10 @@ data class AppSettings(
 
     companion object {
         /**
-         * Not faster: Stips pauses a phone after about 100 requests in 5 minutes, and Live at 2 s alone sent 30 a
-         * minute (#5). At 10 s it takes half of the request budget's 12 a minute, leaving the rest for taps.
+         * The owner's pick (#5 follow-up): Live at 2 s alone sent 30 calls a minute in #5. At 5 s it takes 12 of the
+         * request budget's 30 a minute, leaving the rest for taps; the official app never checks by itself.
          */
-        const val LIVE_MIN_SECONDS = 10
+        const val LIVE_MIN_SECONDS = 5
         const val LIVE_MAX_SECONDS = 30
 
         /** Anonymous mode with no end time. */

@@ -78,15 +78,25 @@ The app keeps a network log: Settings → Diagnostics → Network log (Copy, Sha
 ```
 
 How to read it:
-- **`IP_RATE_LIMIT` and `limit` lines:** Stips' own request limit (#5, SPEC-04 §2.10). The first `limit` line says how many requests went out in the last 1, 5 and 10 minutes; "Stips answers again, m:ss after it started refusing" says how long it lasted. During a pause the app sends nothing but one try a minute. If it happens under the budget (D-46), raise `RateGuard.REFILL_MS` or lower `CAPACITY` so that `CAPACITY` + 5 minutes / `REFILL_MS` stays under the 5-minute count the log shows.
+- **`IP_RATE_LIMIT` and `limit` lines:** Stips refused this address (#5, SPEC-04 §2.10). Stips+ sends the site's Referer (D-49), which Stips' limit lets through, so first run the probe workflow's `app` variant (below): if it's refused too, Stips changed its rule. The first `limit` line says how many requests went out in the last 1, 5 and 10 minutes; "Stips answers again, m:ss after it started refusing" says how long it lasted (over 20 minutes when measured without the Referer). During a pause the app sends nothing but one try a minute.
 - **`-> 429` or `-> 403`** (often with `mitigated=…`): Cloudflare is limiting this phone's address; the app pauses the same way.
-- **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6.
+- **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6. The official app is the website in a WebView, so its calls carry the site's Referer.
 - **`FAILED … Timeout` or `ConnectException` on new connections:** the network (or Cloudflare dropping our address) — compare with `network` lines.
 - **`FAILED` on `reused` connections only, then fine on `new` ones:** a stale connection; the app drops idle connections after any failure and on network changes.
 - **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out.
 - **`api … BAD_RESPONSE (body starts: <!DOCTYPE …)`:** Stips sent a web page instead of JSON (a challenge page or an error page).
 
 The log never contains request parameters, cookies, tokens or text the user wrote.
+
+### Re-measuring Stips' limit
+
+Actions → **Probe Stips' rate limit** → Run workflow ([probe.yml](.github/workflows/probe.yml), [tools/probe_rate_limit.py](tools/probe_rate_limit.py)). It takes a JSON list of variants; each runs on its own runner, so its own address, with anonymous requests only (the first New page, as a refresh sends):
+
+- `["app"]` (the default): Stips+'s own pattern (its User-Agent and the site's Referer, at the budget's fastest pace for 5 minutes, about 190 requests). Its `RESULT` line should say "never refused"; the job fails if Stips refuses.
+- `["limit"]`: without the Referer, one request a second until Stips refuses (about the 102nd), then one try a minute for up to 30 minutes to time the refusal. It triggers the limit on the runner's address on purpose, so run it rarely.
+- `["site"]`: a real Chrome page on stips.co.il calling the API as the site does, for reference.
+
+Test from CI, not from a corporate network: a proxy there may isolate web pages or share one address with many people.
 
 ## Phone notifications
 

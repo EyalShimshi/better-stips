@@ -10,6 +10,7 @@ import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -43,6 +44,13 @@ class ApiAndDataTest {
         ).toMap()
         assertEquals("PUT", fields["rest_action"])
         assertEquals("""{"objType":"ans"}""", fields["omniobj"])
+    }
+
+    @Test
+    fun requestsCarryTheSitesReferer() {
+        val request = StipsApi.siteRequest(StipsApi.BASE_URL + "?name=objectlist").build()
+        assertEquals("https://stips.co.il/", request.header("Referer"))
+        assertNull("the honest User-Agent comes from the client's interceptor", request.header("User-Agent"))
     }
 
     @Test

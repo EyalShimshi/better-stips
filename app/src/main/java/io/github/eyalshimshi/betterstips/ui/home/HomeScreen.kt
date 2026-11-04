@@ -177,7 +177,7 @@ fun HomeScreen(
     var liveSheet by rememberSaveable { mutableStateOf(false) }
     var anonymousDialog by rememberSaveable { mutableStateOf(false) }
 
-    // Live: while Home is on screen, new questions slide in on top at the chosen rate (10–30 s). Failures slow it
+    // Live: while Home is on screen, new questions slide in on top at the chosen rate (5–30 s). Failures slow it
     // down, and it skips its turn when the request budget is low or Stips paused the phone (#3, #4, #5).
     LaunchedEffect(settings.autoRefreshNew, settings.liveIntervalSeconds, query) {
         if (!settings.autoRefreshNew) return@LaunchedEffect

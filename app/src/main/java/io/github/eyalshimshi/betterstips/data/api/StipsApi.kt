@@ -18,7 +18,8 @@ import java.net.URLEncoder
 
 /**
  * Stips' single JSON endpoint (SPEC-04 §2). Reads go by GET; writes, sign-in and long payloads go by
- * form POST, so passwords and answers never appear in URLs.
+ * form POST, so passwords and answers never appear in URLs. Every request carries the site's Referer, as the
+ * website's and the official app's own calls do (D-49).
  */
 class StipsApi(private val client: OkHttpClient) {
 
@@ -33,12 +34,12 @@ class StipsApi(private val client: OkHttpClient) {
         val jsonLength = fields.filter { it.first == "api_params" || it.first == "omniobj" }.sumOf { it.second.length }
         val post = forcePost || restAction == "PUT" || restAction == "POST" || jsonLength > 200
         val builder = if (post) {
-            Request.Builder().url(BASE_URL).post(formEncode(fields).toRequestBody(FORM))
+            siteRequest(BASE_URL).post(formEncode(fields).toRequestBody(FORM))
         } else {
             val url = BASE_URL.toHttpUrl().newBuilder().apply {
                 fields.forEach { (key, value) -> addQueryParameter(key, value) }
             }.build()
-            Request.Builder().url(url).get()
+            siteRequest(url.toString()).get()
         }
         val request = builder.tag(ApiTag::class.java, ApiTag(name)).build()
         pace(name)
@@ -78,7 +79,7 @@ class StipsApi(private val client: OkHttpClient) {
             .build()
         pace("upload")
         val sentAt = System.currentTimeMillis()
-        val text = execute(Request.Builder().url(url).post(body).tag(ApiTag::class.java, ApiTag("upload")).build())
+        val text = execute(siteRequest(url).post(body).tag(ApiTag::class.java, ApiTag("upload")).build())
         RateGuard.onSuccess(sentAt)
         text
     }
@@ -107,6 +108,17 @@ class StipsApi(private val client: OkHttpClient) {
 
     companion object {
         const val BASE_URL = "https://stips.co.il/api"
+
+        /**
+         * Stips refuses an address after about 100 API calls without its site's Referer (in 6 minutes or more), but
+         * not calls that carry it, as every call from its website and official app does: test clients passed 200
+         * with it and none without it (SPEC-04 §2.10). The owner chose to send it (D-49); the User-Agent still says
+         * Stips+.
+         */
+        const val SITE_REFERER = "https://stips.co.il/"
+
+        /** A request to Stips, with the site's Referer. */
+        fun siteRequest(url: String): Request.Builder = Request.Builder().url(url).header("Referer", SITE_REFERER)
 
         /** Stips' error code when one address sends too much (`IP_RATE_LIMIT`, measured in #5). */
         private const val RATE_LIMIT_CODE = "RATE_LIMIT"

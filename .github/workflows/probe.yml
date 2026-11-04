@@ -1,0 +1,34 @@
+name: Probe Stips' rate limit
+
+# Manual (Actions > Probe Stips' rate limit > Run workflow). Re-measures how Stips' IP_RATE_LIMIT treats Stips+
+# (MAINTAINING.md, SPEC-04 §2.10). Anonymous requests only; each variant runs on its own runner, so its own address.
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'JSON list of variants: "app" (Stips+ as shipped; should never be refused), "limit" (no Referer: triggers the limit on purpose and times it), "site" (a real browser page, for reference)'
+        default: '["app"]'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJSON(inputs.variants) }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Playwright
+        if: matrix.variant == 'site'
+        run: |
+          python3 -m pip install --quiet playwright
+          python3 -m playwright install chromium
+      - name: Probe
+        env:
+          VARIANT: ${{ matrix.variant }}
+        run: python3 tools/probe_rate_limit.py "$VARIANT"

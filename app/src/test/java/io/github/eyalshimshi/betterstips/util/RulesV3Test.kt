@@ -29,21 +29,27 @@ class RulesV3Test {
     }
 
     @Test
-    fun requestBudgetKeepsUsUnderStipsLimit() {
+    fun requestBudgetMatchesTheOfficialAppsPace() {
         val t0 = 1_000_000L
         RateGuard.reset(t0)
-        repeat(30) { assertEquals("30 at once", 0L, RateGuard.acquire(t0)) }
+        repeat(40) { assertEquals("40 at once", 0L, RateGuard.acquire(t0)) }
         assertFalse("automatic checks give way when the budget is low", RateGuard.allowBackground(t0))
-        assertEquals("then the user's requests wait for budget", 5_000L, RateGuard.acquire(t0))
+        assertEquals("then the user's requests wait for budget", 2_000L, RateGuard.acquire(t0))
+        assertEquals(4_000L, RateGuard.acquire(t0))
+        assertEquals(6_000L, RateGuard.acquire(t0))
+        assertEquals(8_000L, RateGuard.acquire(t0))
         assertEquals(10_000L, RateGuard.acquire(t0))
-        assertEquals(15_000L, RateGuard.acquire(t0))
         try {
             RateGuard.acquire(t0)
             fail("too many waiting: refused at once")
         } catch (e: ApiException) {
             assertEquals(ApiException.THROTTLED, e.code)
         }
-        assertTrue("12 a minute come back", RateGuard.allowBackground(t0 + 150_000L))
+        assertTrue("30 a minute come back", RateGuard.allowBackground(t0 + 60_000L))
+        assertTrue(
+            "at most 190 in any five minutes: under the 200 that test clients sent without a refusal",
+            RateGuard.CAPACITY + 5 * 60_000.0 / RateGuard.REFILL_MS <= 200.0,
+        )
         RateGuard.reset()
     }
 
@@ -90,13 +96,13 @@ class RulesV3Test {
     @Test
     fun liveRateAndCost() {
         assertEquals(30_000L, AppSettings.liveDelayMs(30, 0))
-        assertEquals(10_000L, AppSettings.liveDelayMs(10, 0))
-        assertEquals("faster than 10 s isn't allowed (#5)", 10_000L, AppSettings.liveDelayMs(2, 0))
-        assertEquals("failures slow it down", 40_000L, AppSettings.liveDelayMs(10, 2))
+        assertEquals(5_000L, AppSettings.liveDelayMs(5, 0))
+        assertEquals("faster than 5 s isn't allowed", 5_000L, AppSettings.liveDelayMs(2, 0))
+        assertEquals("failures slow it down", 20_000L, AppSettings.liveDelayMs(5, 2))
         assertEquals("but never past a minute", 60_000L, AppSettings.liveDelayMs(30, 3))
         assertEquals(1.11, AppSettings.liveMegabytesPerHour(30), 0.01)
-        assertEquals(3.34, AppSettings.liveMegabytesPerHour(10), 0.01)
-        assertEquals(AppSettings.liveMegabytesPerHour(10), AppSettings.liveMegabytesPerHour(2), 0.0)
+        assertEquals(6.68, AppSettings.liveMegabytesPerHour(5), 0.01)
+        assertEquals(AppSettings.liveMegabytesPerHour(5), AppSettings.liveMegabytesPerHour(2), 0.0)
         assertTrue(AppSettings.liveMegabytesPerHour(15) > AppSettings.liveMegabytesPerHour(20))
         val defaults = AppSettings()
         assertEquals(30, defaults.liveIntervalSeconds)

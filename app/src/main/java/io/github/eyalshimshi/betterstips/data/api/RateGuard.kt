@@ -6,26 +6,27 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Keeps the app under Stips' per-address limit (#5). Stips answers `IP_RATE_LIMIT` and stops serving an address
- * that sent about 100 requests in 5 minutes: Stips+ 0.3 was refused at its 104th, after 3 m 38 s; the official app,
- * recorded at 102 in 2 m 17 s, wasn't; no shorter window fits both (SPEC-04 §2.10). Two parts:
+ * Paces the app and handles Stips' per-address limit (#5). Stips answers `IP_RATE_LIMIT` ("ip … reached rate
+ * limit") to every call from an address that sent about 100 calls without its site's Referer, at any pace from 150 s
+ * to 6 minutes. Calls with the Referer aren't limited that way (test clients passed 200 in under 5 minutes; the
+ * official app made 245 in 4½), and Stips+ sends it (D-49, SPEC-04 §2.10). So this is a safety net and a courtesy:
  *
- * - **A request budget**: 30 at once, then one more every 5 seconds (12 a minute, at most 90 in any five
- *   minutes). Automatic checks (Live, badges, phone notifications) run only while at least half of it is left,
- *   so they give way to what the user does; the user's requests wait a moment when it's empty.
- * - **A pause** when Stips limits us anyway (`IP_RATE_LIMIT`, HTTP 429/403): nothing is sent, except one try a
+ * - **A request budget** close to the official app's pace: 40 at once, then one more every 2 seconds (30 a minute,
+ *   at most 190 in any five minutes). Automatic checks (Live, badges, phone notifications) run only while at least
+ *   half of it is left, so they give way to what the user does; the user's requests wait a moment when it's empty.
+ * - **A pause** if Stips limits us anyway (`IP_RATE_LIMIT`, HTTP 429/403): nothing is sent, except one try a
  *   minute to see whether it's over. The first normal answer to a request sent after the refusal ends it.
  *
  * Both write to the network log what the next report needs: how many requests went out before a refusal, and
  * how long the refusal lasted.
  */
 object RateGuard {
-    const val CAPACITY = 30.0
-    const val REFILL_MS = 5_000L
-    const val BACKGROUND_FLOOR = 15.0
+    const val CAPACITY = 40.0
+    const val REFILL_MS = 2_000L
+    const val BACKGROUND_FLOOR = 20.0
 
-    /** How many of the user's requests may queue for budget (about 15 s); beyond that they're refused at once. */
-    const val MAX_DEBT = 3.0
+    /** How many of the user's requests may queue for budget (about 10 s); beyond that they're refused at once. */
+    const val MAX_DEBT = 5.0
     const val PROBE_MS = 60_000L
 
     /**
