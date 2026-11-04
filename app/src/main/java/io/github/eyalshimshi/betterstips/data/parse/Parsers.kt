@@ -9,6 +9,7 @@ import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.ChartPoint
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
+import io.github.eyalshimshi.betterstips.data.model.ChatThread
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.Cover
 import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
@@ -338,6 +339,10 @@ object Parsers {
             )
         }
     }
+
+    /** `messages.from_user` with `userBlocked`, which the site reads on the first page: you blocked this person. */
+    fun chatThread(data: JsonElement?): ChatThread =
+        ChatThread(messages(data), data.asObject()?.bool("userBlocked") ?: false)
 
     /** Creating an object returns `{newid: …}`. */
     fun newId(data: JsonElement?): Long? = data.asObject()?.long("newid")

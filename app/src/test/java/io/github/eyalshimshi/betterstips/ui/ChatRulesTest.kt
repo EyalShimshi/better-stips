@@ -22,6 +22,16 @@ class ChatRulesTest {
     }
 
     @Test
+    fun theJumpButtonCountsTheirMessagesAfterTheLastOneSeen() {
+        val me = 1L
+        val thread = listOf(message(10, 2), message(11, 1), message(12, 2), message(13, 2), message(14, 1))
+        assertEquals("nothing before the first page is shown", 0, ChatRules.unseen(thread, 0L, me))
+        assertEquals(2, ChatRules.unseen(thread, 11L, me))
+        assertEquals("my own messages don't count", 0, ChatRules.unseen(thread, 13L, me))
+        assertEquals(0, ChatRules.unseen(thread, 14L, me))
+    }
+
+    @Test
     fun messagesFromOnePersonSitTogether() {
         assertFalse("the first message", ChatRules.continuesRun(message(1, 1), null))
         assertTrue(ChatRules.continuesRun(message(2, 1), message(1, 1)))

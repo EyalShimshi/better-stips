@@ -202,6 +202,9 @@ data class ChatMessage(
     val toUserId: Long?,
 )
 
+/** A page of `messages.from_user`. [blocked]: you blocked messages from this person (`userBlocked`, first page). */
+data class ChatThread(val messages: List<ChatMessage>, val blocked: Boolean)
+
 data class SavedQuestion(val id: Long, val title: String, val coverUrl: String?, val savedAt: Long)
 
 enum class FeedSort { New, Hot }

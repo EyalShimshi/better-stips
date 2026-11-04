@@ -17,7 +17,7 @@
 1. **Spec before code.** Write a short document set with a decision log, then ship. Don't polish the spec forever.
 2. **The owner decides; the agent proposes.** Ask decisions as multiple-choice questions with a recommended answer. Settle trivia yourself and say what you chose.
 3. **Something installable, early.** Build a thin first version over the full pipeline: push → build → release → install on the phone.
-4. **The computer stays clean; CI is the compiler.** Nothing gets installed on the owner's computer. The agent uses the shell for git and quick checks. Every push builds in CI, runs the tests and publishes an installable build, with any errors summarized in a box on the run's page.
+4. **The computer stays clean; CI is the compiler.** Nothing gets installed on the owner's computer. The agent uses the shell for git and quick checks. Every push builds in CI, runs the tests, opens the app on an emulator, and publishes an installable build only if it opens, with any errors summarized in a box on the run's page.
 5. **Write code that compiles the first time:**
    - stable APIs;
    - dependency versions copied from a known-good sample;
@@ -30,7 +30,8 @@
 9. **Make quality visible:**
    - in-app timings for the core experience;
    - a crash catcher that turns a crash into a pre-filled GitHub issue;
-   - unit tests in CI.
+   - unit tests in CI;
+   - every release opened on an emulator in CI before it's published.
 10. **Data that changes lives in data files:** versioned, validated by tests, and updatable without a new release.
 11. **Every change updates the docs in the same round:** README, maintainer notes, spec notes.
 12. **Be honest about costs.** State data, battery and privacy costs where the user decides. Experimental features are off by default.
@@ -115,8 +116,9 @@ Build the path from code to a phone first. Everything after it depends on it.
    1. Set up the toolchain.
    2. Build the release artifact.
    3. On failure, write the error lines to the run's summary page, in a box that's easy to copy.
-   4. Publish a pre-release with the artifact, named `<app>-<run number>.apk`.
-   5. Run the unit tests, and write any failures to the summary as well.
+   4. Run the unit tests, and write any failures to the summary as well.
+   5. **Open the release artifact on an emulator** (fresh, over the previous release, from each entry point) and fail on a crash.
+   6. Only then, publish a pre-release with the artifact, named `<app>-<run number>.apk`, with the round's summary as its notes.
 3. **Versions:**
    - the build number (`versionCode`) is the CI run number, so each build installs over the previous one;
    - the version name is `<major>.<minor>.<run number>`;
@@ -131,7 +133,7 @@ Build the path from code to a phone first. Everything after it depends on it.
    - **Expect these prompts:** "unknown sources", Play Protect's *Install anyway*, and Android Auto's developer setting for sideloaded apps.
 6. **The build loop, with no development tools on the computer:**
    1. The agent runs the quick local checks ([Appendix D](#appendix-d-quick-local-checks)), commits, and pushes (or the owner pushes from their editor).
-   2. CI compiles, tests and publishes the build.
+   2. CI compiles and tests the build, opens it on an emulator, and publishes it if it opens.
    3. The agent reads the result itself where it can (a signed-in browser, the CLI or the API); otherwise the owner pastes the summary box.
    4. A red build is fixed and pushed again before any new work.
 
@@ -189,6 +191,7 @@ Build the path from code to a phone first. Everything after it depends on it.
 ## 6. Phase 5: Quality built in
 
 - **Unit tests** for every pure function and every data file: schema and content validation, time math, parsing, buffers. CI runs them on every push.
+- **A launch test before every release:** CI installs the release build on an emulator and opens it fresh, over the previous release, and from every entry point (shortcuts, links), and publishes only if it doesn't crash. Unit tests don't run the shrunk release build, the libraries' start-up code or the manifest; a launch test does. Read the screen's text (the accessibility tree) to check where each entry point landed.
 - **Crash catcher:**
   - an uncaught-exception handler saves the report on the device (version, device, stack trace);
   - the next launch offers *Copy details* / *Report on GitHub* (a pre-filled issue, size-limited) / *Close*;
@@ -279,6 +282,7 @@ Commit messages say why, not just what. One round is one commit, or a few.
 | CI caches aren't secrets | A signing key in a cache is readable by fork pull requests once the repo is public |
 | Store policies constrain permissions | Exact-alarm permissions are restricted for store builds |
 | Test environments can lie | An office proxy cut radio streams after 32 KB; the real check happened on the phone |
+| Green CI isn't a working app | Stips+ builds 7–9 compiled and passed every unit test, then crashed on every launch: R8 had removed a constructor that a library calls by name. Install and open the release build on an emulator before publishing it |
 
 ## Appendix A: Round summary
 
@@ -357,14 +361,6 @@ jobs:
       - name: Name the APK
         run: cp app/build/outputs/apk/release/app-release.apk "app-${{ github.run_number }}.apk"
 
-      - name: Publish a pre-release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: Build ${{ github.run_number }}
-          prerelease: true
-          files: app-${{ github.run_number }}.apk
-
       - name: Run unit tests
         id: tests
         run: |
@@ -380,6 +376,15 @@ jobs:
             grep -E -B 2 -A 8 'FAILED$' test.log | head -n 120 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # In a real project, publish from a later job that first opens the APK on an emulator (see below).
+      - name: Publish a pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          prerelease: true
+          files: app-${{ github.run_number }}.apk
 ```
 
 In `app/build.gradle.kts`, take the build number from CI:
@@ -390,6 +395,8 @@ val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 versionCode = buildNumber
 versionName = "0.1.$buildNumber"
 ```
+
+**Open the build before publishing it.** Split the workflow into jobs: *build and test* uploads the APK as an artifact; *launch* downloads it on a second runner, enables KVM, and runs a script on an emulator (`reactivecircus/android-emulator-runner@v2`, `api-level: 35`, `arch: x86_64`) that installs the APK, opens it with `adb shell am start`, waits about 25 seconds, and fails if the crash log (`adb logcat -b crash`) names the app or its process is gone; *release* (`needs: [build, launch]`) publishes the pre-release. Stips+'s [build.yml](.github/workflows/build.yml) and [tools/launch_test.sh](tools/launch_test.sh) are a complete example, including opening over the previous release and from each launcher shortcut.
 
 ## Appendix C: Kickoff prompt
 

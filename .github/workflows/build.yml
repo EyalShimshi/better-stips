@@ -12,10 +12,18 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# A pre-release is published only when the APK builds, passes the unit tests and the APK check, and opens on an
+# emulator. Build 9 compiled and passed its tests, then crashed on every launch (#7).
 jobs:
   build:
+    name: Build and test
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      version: ${{ steps.apk.outputs.version }}
+      bytes: ${{ steps.apk.outputs.bytes }}
+      cert: ${{ steps.apk.outputs.cert }}
+      signing: ${{ steps.key.outputs.source }}
     steps:
       - uses: actions/checkout@v7
 
@@ -84,13 +92,13 @@ jobs:
             echo "cert=${cert:-unknown}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Publish a pre-release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: Stips+ ${{ steps.apk.outputs.version }}
-          prerelease: true
-          files: stipsplus-${{ github.run_number }}.apk
+      # R8 can remove a constructor that a library only calls by name: the build and the unit tests pass, and the app
+      # crashes on the phone (#7). This reads the APK's code and checks those constructors.
+      - name: Check the APK
+        id: check
+        run: |
+          set -o pipefail
+          python3 tools/check_apk.py "stipsplus-${{ github.run_number }}.apk" 2>&1 | tee apk-check.txt
 
       - name: Run unit tests
         id: tests
@@ -109,24 +117,166 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # The agent can't read Actions in a private repo, so each run also writes its outcome to the
-      # ci-status branch, which git can fetch. It never contains secrets: only error lines.
-      - name: Report to the ci-status branch
+      - name: Keep the APK for the next jobs
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk
+          path: stipsplus-${{ github.run_number }}.apk
+          retention-days: 7
+
+      - name: Keep the logs for the report
         if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs
+          path: |
+            build.log
+            test.log
+            apk-check.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  launch:
+    name: Open on an emulator
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: apk
+
+      # The newest earlier releases: the build is also opened over the data of the newest one that still opens.
+      - name: Get earlier releases
         env:
-          BUILD_OUTCOME: ${{ steps.build.outcome }}
-          TESTS_OUTCOME: ${{ steps.tests.outcome }}
-          SIGNING_SOURCE: ${{ steps.key.outputs.source }}
-          APK_CERT: ${{ steps.apk.outputs.cert }}
-          APK_BYTES: ${{ steps.apk.outputs.bytes }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          mv "stipsplus-$RUN_NUMBER.apk" app.apk
+          old=""
+          for tag in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=4" --jq '.[].tag_name'); do
+            if gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'stipsplus-*.apk' -O "$tag.apk"; then
+              old="$old $tag.apk"
+            fi
+          done
+          echo "OLD_APKS=${old# }" >> "$GITHUB_ENV"
+          ls -l ./*.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # API 35 (Android 15) boots in about 2 minutes here; the Android 17 image didn't boot within 10 (launch-test.yml).
+      - name: Open the app
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SHORTCUTS: "yes"
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash tools/launch_test.sh
+
+      - name: Keep the screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launch-test
+          path: launch-test/
+          retention-days: 14
+
+      - name: Keep the summary for the release notes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launch-summary
+          path: launch-test/summary.md
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release:
+    name: Publish the pre-release
+    needs: [build, launch]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: apk
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: launch-summary
+
+      # The notes are the round's summary (RELEASE-NOTES.md) and what was checked, so the owner reads both on the phone.
+      - name: Write the release notes
+        env:
+          APK_BYTES: ${{ needs.build.outputs.bytes }}
+          APK_CERT: ${{ needs.build.outputs.cert }}
+        run: |
+          {
+            cat RELEASE-NOTES.md
+            echo
+            echo "---"
+            echo
+            echo "**Checked before publishing:** the unit tests, the APK check (constructors that libraries call by name, #7) and this launch test."
+            echo
+            cat summary.md
+            echo
+            echo "<sub>Commit ${GITHUB_SHA:0:7} · $(( ${APK_BYTES:-0} / 1024 )) KB · signing certificate SHA-256 ${APK_CERT:0:16}…</sub>"
+          } > release-notes.md
+
+      - name: Publish a pre-release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Stips+ ${{ needs.build.outputs.version }}
+          prerelease: true
+          body_path: release-notes.md
+          files: stipsplus-${{ github.run_number }}.apk
+
+  # The outcome on the ci-status branch, which git can fetch. It never contains secrets: only error lines.
+  report:
+    name: Report to the ci-status branch
+    needs: [build, launch, release]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: build-logs
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: launch-summary
+
+      - name: Write and push status.md
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          LAUNCH_RESULT: ${{ needs.launch.result }}
+          RELEASE_RESULT: ${{ needs.release.result }}
+          SIGNING_SOURCE: ${{ needs.build.outputs.signing }}
+          APK_CERT: ${{ needs.build.outputs.cert }}
+          APK_BYTES: ${{ needs.build.outputs.bytes }}
           GH_TOKEN: ${{ github.token }}
         run: |
           report="$RUNNER_TEMP/status.md"
           {
             echo "run: ${{ github.run_number }}"
             echo "sha: ${{ github.sha }}"
-            echo "build: ${BUILD_OUTCOME:-skipped}"
-            echo "tests: ${TESTS_OUTCOME:-skipped}"
+            echo "build-and-tests: ${BUILD_RESULT:-skipped}"
+            echo "launch-test: ${LAUNCH_RESULT:-skipped}"
+            echo "release: ${RELEASE_RESULT:-skipped}"
             echo "signing: ${SIGNING_SOURCE:-unknown}"
             echo "cert-sha256: ${APK_CERT:-unknown}"
             echo "apk-bytes: ${APK_BYTES:-unknown}"
@@ -135,9 +285,15 @@ jobs:
             [ -f build.log ] && grep -E '^e: ' build.log | head -n 150 || true
             [ -f build.log ] && grep -E -A 15 '^\* What went wrong' build.log | head -n 80 || true
             echo
+            echo "## APK check"
+            [ -f apk-check.txt ] && cat apk-check.txt || true
+            echo
             echo "## Test failures"
             [ -f test.log ] && grep -E -B 2 -A 12 'FAILED$' test.log | head -n 150 || true
             [ -f test.log ] && grep -E '^e: ' test.log | head -n 60 || true
+            echo
+            echo "## Launch test"
+            [ -f summary.md ] && cat summary.md || true
           } > "$report"
           dir="$RUNNER_TEMP/ci-status"
           rm -rf "$dir" && mkdir -p "$dir" && cd "$dir"
@@ -146,5 +302,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cp "$report" status.md
           git add status.md
-          git commit -q -m "Run ${{ github.run_number }}: build ${BUILD_OUTCOME:-skipped}, tests ${TESTS_OUTCOME:-skipped}"
+          git commit -q -m "Run ${{ github.run_number }}: build ${BUILD_RESULT:-skipped}, launch ${LAUNCH_RESULT:-skipped}, release ${RELEASE_RESULT:-skipped}"
           git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-status

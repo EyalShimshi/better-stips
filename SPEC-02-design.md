@@ -140,13 +140,13 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
 ```
 ┌──────────────────────────────────────┐
-│ ←  ◉ Yael                            │  photo with the green online dot; tap → profile
-│      Online now                      │  only while they're online
-│         ╭──────────────╮             │  at the very start (no more history):
-│         │   ◉ (72 dp)  │             │  photo, name, status, credibility ·
-│         │     Yael     │             │  answers · flowers, time on Stips,
-│         │ Credibility… │             │  "View profile"
-│         ╰──────────────╯             │
+│ ←  ◉ Yael                         ⋮  │  photo with the green online dot; tap → profile
+│      Online now                      │  only while they're online; ⋮ → Report Yael,
+│         ╭──────────────╮             │  Block / Unblock messages (v0.8)
+│         │   ◉ (72 dp)  │             │  at the very start (no more history):
+│         │     Yael     │             │  photo, name, status, credibility ·
+│         │ Credibility… │             │  answers · flowers, time on Stips,
+│         ╰──────────────╯             │  "View profile"
 │    This is where your conversation…  │
 │  ┌──────────────┐                    │  theirs: start side, surfaceContainerHigh
 │  │ hi, saw your…│                    │  same sender: 2 dp apart, otherwise 10 dp
@@ -155,12 +155,15 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 │                   ┌───────────────┐  │  mine: end side, primaryContainer
 │                   │ thanks!       │  │  long-press copies
 │                   └───────────────┘  │
-├──────────────────────────────────────┤
-│ [ Message…                 ] (➤)     │
-└──────────────────────────────────────┘
+│                               (↓)²   │  scrolled up: jump to the newest; the badge
+├──────────────────────────────────────┤  counts their messages since (v0.8)
+│ [ Message…                 ] (➤)     │  blocked: "You blocked messages from Yael."
+└──────────────────────────────────────┘  + Unblock, in place of the composer
 ```
 
-Earlier messages load by themselves as the top comes into view; there's no "Load earlier" button (#6). Every visit starts with all times folded. The chat asks for new messages every 3 s while it's on screen.
+Earlier messages load by themselves as the top comes into view; there's no "Load earlier" button (#6). Every visit starts with all times folded. The chat asks for new messages every 3 s while it's on screen, and not while their messages are blocked.
+
+**Report** is a dialog with the site's five reasons as radio buttons (spam or ads; sexual messages or offers; insults; suspicious questions about personal details; something else), then an optional details field. **Block** asks first; unblocking doesn't.
 
 ### 5.5 Profile (everyone's, social-style)
 
@@ -269,7 +272,7 @@ Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and 
 | Notifications | Opt-in phone notifications (channel "Stips updates"), checked every ~15 minutes |
 | Photo picker | Choosing a profile photo (no storage permission) |
 | Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
-| Shortcuts | Later (SPEC-06) |
+| Launcher shortcuts | *Hot* and *Chats* (v0.8, D-57): touch and hold the icon; Material glyphs in deep Stips green on the light circle of the shortcut icon guidelines |
 
 ## 7. Localization
 

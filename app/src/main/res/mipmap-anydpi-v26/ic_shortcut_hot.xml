@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The "Hot" launcher shortcut: Material's "whatshot" flame on the light circle that shortcut icons use.
+     Shortcut icons can't be tinted, so the colors are fixed. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/shortcut_background" />
+    <foreground android:drawable="@drawable/ic_shortcut_hot_foreground" />
+</adaptive-icon>

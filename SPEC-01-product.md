@@ -39,7 +39,8 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | v0.5 | Send the site's Referer, as the official app's calls do (D-49); budget at the official app's pace; Live from 5 s |
 | v0.6 | The "Hot right now" home-screen widget (F-42) |
 | v0.7 | Issue #6: live chats: online dots, a top bar with the other person, new messages every 3 s, compact bubbles with times on tap, history that loads by itself down to a summary card (F-12, F-43) |
-| Later | Chat moderation (report and block users), per-app language, launcher shortcuts |
+| v0.8 | Issue #7: the launch crash since v0.6 fixed, and every release opened on an emulator before it's published; report and block in chats, a ↓ button for new messages (F-12), launcher shortcuts (F-44) |
+| Later | Per-app language, pinned shortcuts for single questions and chats |
 | Public | Only after Stips' written permission (D-02) |
 
 ## 6. Functional requirements
@@ -57,7 +58,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-09 | Native sign-in | P0 | Email + password; errors in plain words; the password is never stored; the session survives app restarts; sign out clears everything |
 | F-10 | Post an answer | P0 | Signed in: a composer under the question; "Answer anonymously" switch; send shows progress in the button; the new answer appears; the site's spam rule (no letter 3× in a row) is checked first |
 | F-11 | Vote on answers | P1 | Up/down when signed in; the score updates at once; tapping the same vote again clears it |
-| F-12 | Chats | P1 | Signed in: conversations (name, photo with the online dot, last message, time, unread count); a thread with compact bubbles (tap shows the time, long-press copies); send a message; earlier messages load by themselves while scrolling up, down to a summary of the other person at the start (#6) |
+| F-12 | Chats | P1 | Signed in: conversations (name, photo with the online dot, last message, time, unread count); a thread with compact bubbles (tap shows the time, long-press copies); send a message; earlier messages load by themselves while scrolling up, down to a summary of the other person at the start (#6); ⋮ → report them or block their messages, with *Unblock* in place of the composer while blocked; a ↓ button with a count of new messages while reading older ones (v0.8) |
 | F-13 | Profile | P1 | Signed in: photo, nickname, points; My questions, My answers. Signed out: an invitation to sign in. Always: Saved, Settings |
 | F-14 | Settings | P0 | Colors (dynamic color, accent, theme, pure black), interface (images, animations), performance, about |
 | F-15 | About and disclaimer | P0 | Version, license, source link, report link, "An independent app, not affiliated with Stips" |
@@ -89,6 +90,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-41 | More from the site (#4) | P2 | Send flowers (the asker), write on thanks walls, find people from Home's search, edit/delete/detach your own question, thanks wall first on profiles |
 | F-42 | Home-screen widget | P2 | "Hot right now" lists up to 10 hot questions (rank, title, answers and pins) in the wallpaper's colors (Android 12+) or the app's accent, with the system's corner radius. Tapping a question opens it in the app, the title opens the app, ⟳ refreshes. It shows the list the app last loaded, and by itself asks Stips at most every 30 minutes (Android wakes it hourly), within the request budget. Settings → Updates → Home-screen widget asks the launcher to place it |
 | F-43 | Live chats (#6) | P1 | The chat's top bar shows the other person's photo, name and online status, and opens their profile. An open chat checks for new messages every 3 s; the unread badges every 10 s while the app is open; the chats list updates when they change. Every visit starts with all bubble times folded. An opened notification stops being highlighted at once |
+| F-44 | Launcher shortcuts | P2 | Touching and holding the app icon offers *Hot* (the full hot list) and *Chats*; each opens its screen, also from a cold start and when pinned to the home screen |
 
 ## 7. Non-functional requirements
 
@@ -105,7 +107,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 
 ## 8. Backlog (beyond v0.2)
 
-- Launcher shortcuts (Hot, Chats).
+- Pinned shortcuts for a single question or chat ("Add to home screen").
 - Follow topics as shelves on Home.
 - Draft answers saved while typing.
 

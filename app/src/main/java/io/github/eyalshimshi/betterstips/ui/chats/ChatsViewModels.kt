@@ -97,7 +97,14 @@ data class ConversationUiState(
     val page: ProfilePage? = null,
     /** Bubbles showing their time. A new visit starts with all of them folded (#6). */
     val expanded: Set<Long> = emptySet(),
+    /** You blocked messages from them: Stips' `userBlocked` on the first page, or the menu. The composer gives way. */
+    val blocked: Boolean = false,
+    val blockBusy: Boolean = false,
+    /** A one-time message for the snackbar. */
+    val notice: ChatNotice? = null,
 )
+
+enum class ChatNotice { Reported, Failed }
 
 class ConversationViewModel(
     private val repository: StipsRepository,
@@ -119,8 +126,15 @@ class ConversationViewModel(
             _state.update { it.copy(loading = true, error = null) }
             launch { loadProfile() }
             try {
-                val list = repository.thread(userId, beforeId = null)
-                _state.update { it.copy(messages = list, loading = false, canLoadEarlier = list.isNotEmpty()) }
+                val first = repository.thread(userId, beforeId = null)
+                _state.update {
+                    it.copy(
+                        messages = first.messages,
+                        blocked = first.blocked,
+                        loading = false,
+                        canLoadEarlier = first.messages.isNotEmpty(),
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -143,7 +157,8 @@ class ConversationViewModel(
 
     /** Messages newer than the last one shown. Returns false when the check failed, so the caller can slow down. */
     suspend fun pollNew(): Boolean {
-        if (_state.value.loading) return true
+        // Nothing comes from someone you blocked.
+        if (_state.value.loading || _state.value.blocked) return true
         val last = _state.value.messages.lastOrNull()?.id ?: 0L
         return try {
             val fresh = repository.newMessages(userId, afterId = last)
@@ -164,7 +179,7 @@ class ConversationViewModel(
         viewModelScope.launch {
             _state.update { it.copy(loadingEarlier = true, earlierFailed = false) }
             try {
-                val older = repository.thread(userId, beforeId = oldest)
+                val older = repository.thread(userId, beforeId = oldest).messages
                 _state.update { s ->
                     val merged = ChatRules.merge(s.messages, older)
                     s.copy(messages = merged, loadingEarlier = false, canLoadEarlier = merged.size > s.messages.size)
@@ -195,6 +210,41 @@ class ConversationViewModel(
 
     fun toggleTime(messageId: Long) {
         _state.update { s -> s.copy(expanded = if (messageId in s.expanded) s.expanded - messageId else s.expanded + messageId) }
+    }
+
+    /** Reports them to Stips' team (`reports.send`, `usermsgs`) with one of the site's reason ids and optional details. */
+    fun report(reasonId: Int, details: String) {
+        viewModelScope.launch {
+            val notice = try {
+                repository.reportUser(userId, reasonId, details.trim())
+                ChatNotice.Reported
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ChatNotice.Failed
+            }
+            _state.update { it.copy(notice = notice) }
+        }
+    }
+
+    /** Blocks or unblocks messages from them (`messages.block_user`), as the site's chat menu does. */
+    fun setBlocked(blocked: Boolean) {
+        if (_state.value.blockBusy) return
+        viewModelScope.launch {
+            _state.update { it.copy(blockBusy = true) }
+            try {
+                repository.setMessagesBlocked(userId, blocked)
+                _state.update { it.copy(blocked = blocked, blockBusy = false) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(blockBusy = false, notice = ChatNotice.Failed) }
+            }
+        }
+    }
+
+    fun consumeNotice() {
+        _state.update { it.copy(notice = null) }
     }
 
     fun setDraft(text: String) {
@@ -236,4 +286,11 @@ object ChatRules {
     /** Whether [message] follows one from the same sender, so the two sit close together. */
     fun continuesRun(message: ChatMessage, previous: ChatMessage?): Boolean =
         previous != null && previous.fromUserId == message.fromUserId
+
+    /**
+     * Their messages after [seenUpTo], the newest one the reader has seen at the bottom: the count on the jump button.
+     * Nothing counts before the first page has been shown ([seenUpTo] 0).
+     */
+    fun unseen(messages: List<ChatMessage>, seenUpTo: Long, myId: Long?): Int =
+        if (seenUpTo <= 0L) 0 else messages.count { it.id > seenUpTo && it.fromUserId != myId }
 }

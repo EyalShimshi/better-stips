@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -75,6 +76,27 @@ class UtilTest {
         assertNull(Links.deepLink("https://example.com/ask/7"))
         assertNull(Links.deepLink(null))
         assertEquals("example.com", Links.host("https://www.example.com/a/b?c"))
+    }
+
+    @Test
+    fun launcherShortcutsOpenHotAndChats() {
+        assertEquals(DeepLink.Hot, Shortcuts.link(Shortcuts.ACTION_HOT))
+        assertEquals(DeepLink.Messages, Shortcuts.link(Shortcuts.ACTION_CHATS))
+        assertNull(Shortcuts.link("android.intent.action.MAIN"))
+        assertNull(Shortcuts.link(null))
+        // The launcher reads res/xml/shortcuts.xml and MainActivity reads Shortcuts: they must agree.
+        val xml = listOf(File("src/main/res/xml/shortcuts.xml"), File("app/src/main/res/xml/shortcuts.xml"))
+            .first { it.exists() }
+            .readText(Charsets.UTF_8)
+        fun count(needle: String) = Regex(Regex.escape(needle)).findAll(xml).count()
+        for (action in listOf(Shortcuts.ACTION_HOT, Shortcuts.ACTION_CHATS)) {
+            assertEquals(action, 1, count("android:action=\"$action\""))
+        }
+        for (id in listOf(Shortcuts.ID_HOT, Shortcuts.ID_CHATS)) {
+            assertEquals(id, 1, count("android:shortcutId=\"$id\""))
+        }
+        assertEquals(2, count("android:targetClass=\"io.github.eyalshimshi.betterstips.MainActivity\""))
+        assertEquals(2, count("android:targetPackage=\"io.github.eyalshimshi.betterstips\""))
     }
 
     @Test

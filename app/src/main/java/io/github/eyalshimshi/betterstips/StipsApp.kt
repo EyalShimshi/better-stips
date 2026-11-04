@@ -182,9 +182,15 @@ class StipsApp : Application() {
     lateinit var container: AppContainer
         private set
 
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(base)
+        // Before the libraries' start-up providers run (WorkManager's crashed v0.6-v0.7 there, #7), so a crash at
+        // that point still leaves a report.
+        io.github.eyalshimshi.betterstips.crash.CrashReporter.install(this)
+    }
+
     override fun onCreate() {
         super.onCreate()
-        io.github.eyalshimshi.betterstips.crash.CrashReporter.install(this)
         container = AppContainer(this)
         container.start()
         val wanted = container.settings.settings.value.backgroundNotifications

@@ -104,9 +104,9 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 
 | Purpose | `name` | Parameters | Returns / notes |
 |---|---|---|---|
-| Report | `reports.send` | `{"itemid","itemtype":"ask"/"ans"/"penfriendsitem","reason","reason_id":0}` | The user's words, 5–500 characters. Users are reported from chats with `itemtype:"usermsgs"`, `itemid` = their id and `reason_id` 2, 4, 8, 16 or 1024 (not in the app yet) |
+| Report | `reports.send` | `{"itemid","itemtype":"ask"/"ans"/"penfriendsitem","reason","reason_id":0}` | The user's words, 5–500 characters. Users are reported from chats (v0.8) with `itemtype:"usermsgs"`, `itemid` = their id, `reason_id` 2 (spam or ads), 4 (sexual offers), 8 (cursing, insults), 16 (suspicious questions about personal details) or 1024 (other), and optional details in `reason`; the site shows the details box after a reason is picked |
 | Block content | `smartdata.get` | `{"namespace":"ask","unit":"BlockContent","id","objType","blockUser"?:true}` | Answer ignored. Hiding is done by the client; the site's app keeps `bc-item-{type}-{id}` / `bc-user-{id}` flags locally, and "remove all" just clears them |
-| Block messages | `messages.block_user` | `{"userid","action":"add"/"remove"}` | `messages.from_user` returns `userBlocked` |
+| Block messages | `messages.block_user` | `{"userid","action":"add"/"remove"}` | Answer ignored by the site. The first page of `messages.from_user` returns `userBlocked` (true: you blocked them); the site then hides the chat and offers to unblock |
 | Delete your item | `omniobj` DELETE | `{"objType","data":{"id"}}` | When `meta.permissions.delete` or `deleteWithoutMsg` |
 | Edit your question | `omniobj` POST | `{"objType":"ask","data":{"id","q","text_content","tagslist":[…],"q_link"}}` | When `meta.permissions.edit` |
 | Detach your question | `item.set_anonymous` | `{"objType":"ask","id"}` | As for answers |

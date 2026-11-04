@@ -175,6 +175,18 @@ class ParsersTest {
     }
 
     @Test
+    fun chatThread_readsWhetherYouBlockedThem() {
+        val blocked = Parsers.chatThread(
+            Parsers.envelope("""{"status":"ok","data":{"messages":[{"id":7,"msg":"hi","fromuserid":5,"touserid":6}],"userBlocked":true}}"""),
+        )
+        assertTrue(blocked.blocked)
+        assertEquals(listOf(7L), blocked.messages.map { it.id })
+        assertTrue(Parsers.chatThread(Parsers.envelope("""{"status":"ok","data":{"messages":[],"userBlocked":1}}""")).blocked)
+        assertFalse(Parsers.chatThread(Parsers.envelope("""{"status":"ok","data":{"messages":[]}}""")).blocked)
+        assertFalse(Parsers.chatThread(Parsers.envelope("""{"status":"ok","data":{"messages":[],"userBlocked":false}}""")).blocked)
+    }
+
+    @Test
     fun parseColors_readsCssHexColors() {
         val colors = Parsers.parseColors("linear-gradient(to left top, #00b165, #00bfc2,#26c1f8)")
         assertEquals(listOf(0xFF00B165.toInt(), 0xFF00BFC2.toInt(), 0xFF26C1F8.toInt()), colors)

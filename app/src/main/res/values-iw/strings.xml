@@ -488,4 +488,33 @@
     <string name="settings_widget">ווידג\'ט למסך הבית</string>
     <string name="settings_widget_summary">הוספת \"חם עכשיו\" למסך הבית</string>
     <string name="settings_widget_by_hand">אי אפשר להוסיף אותו מכאן במסך הבית שלך. אפשר ללחוץ לחיצה ארוכה על מקום ריק במסך הבית, לבחור \"ווידג\'טים\" ולחפש את Stips+.</string>
+
+    <!-- v0.8: שיחות (דיווח, חסימה, מעבר להודעה האחרונה) וקיצורי דרך -->
+    <string name="chat_report">דיווח על %1$s</string>
+    <string name="chat_report_title">לדווח על %1$s?</string>
+    <string name="chat_report_body">צוות סטיפס יבדוק את השיחה. מה קרה?</string>
+    <string name="chat_report_reason_spam">ספאם או פרסומות</string>
+    <string name="chat_report_reason_sexual">הודעות או הצעות בעלות אופי מיני</string>
+    <string name="chat_report_reason_abuse">קללות או שפה פוגענית</string>
+    <string name="chat_report_reason_details">בירור פרטים אישיים באופן חשוד</string>
+    <string name="chat_report_reason_other">סיבה אחרת</string>
+    <string name="chat_report_hint">פירוט נוסף (לא חובה)</string>
+    <string name="chat_block">חסימת הודעות</string>
+    <string name="chat_unblock">ביטול חסימת ההודעות</string>
+    <string name="chat_unblock_action">ביטול החסימה</string>
+    <string name="chat_block_title">לחסום את ההודעות של %1$s?</string>
+    <string name="chat_block_body">הודעות מהמשתמש הזה לא יגיעו אליך. אפשר לבטל את החסימה כאן בכל עת.</string>
+    <string name="chat_block_confirm">חסימה</string>
+    <string name="chat_blocked_bar">ההודעות של %1$s חסומות.</string>
+    <string name="chat_jump_newest">מעבר להודעה האחרונה</string>
+    <plurals name="chat_new_messages">
+        <item quantity="one">הודעה חדשה אחת. מעבר אליה</item>
+        <item quantity="two">שתי הודעות חדשות. מעבר לאחרונה</item>
+        <item quantity="many">%d הודעות חדשות. מעבר לאחרונה</item>
+        <item quantity="other">%d הודעות חדשות. מעבר לאחרונה</item>
+    </plurals>
+    <string name="shortcut_hot_short">חם עכשיו</string>
+    <string name="shortcut_hot_long">שאלות חמות עכשיו</string>
+    <string name="shortcut_chats_short">שיחות</string>
+    <string name="shortcut_chats_long">השיחות שלי</string>
 </resources>

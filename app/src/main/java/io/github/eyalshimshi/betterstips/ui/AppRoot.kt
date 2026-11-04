@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -108,6 +109,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
 import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.Links
+import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -197,6 +199,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     LaunchedEffect(route) {
         val left = previousRoute[0]
         previousRoute[0] = route
+        reportShortcutUsed(context, route)
         if (signedIn && (left == Routes.NOTIFICATIONS || left == Routes.CONVERSATION)) {
             fetchCounts(container)?.let { counts = it }
         }
@@ -257,6 +260,21 @@ private fun openLink(navController: NavHostController, link: DeepLink) {
         is DeepLink.Question -> navController.navigate(Routes.question(link.id))
         is DeepLink.Profile -> navController.navigate(Routes.user(link.id))
         DeepLink.Messages -> navigateToTab(navController, Routes.CHATS)
+        DeepLink.Hot -> navController.navigate(Routes.HOT) { launchSingleTop = true }
+    }
+}
+
+/** Tells the launcher a shortcut's screen was opened (from the shortcut or inside the app), for its suggestions. */
+private fun reportShortcutUsed(context: Context, route: String?) {
+    val id = when (route) {
+        Routes.HOT -> Shortcuts.ID_HOT
+        Routes.CHATS -> Shortcuts.ID_CHATS
+        else -> return
+    }
+    try {
+        ShortcutManagerCompat.reportShortcutUsed(context, id)
+    } catch (e: RuntimeException) {
+        // Only a hint for the launcher.
     }
 }
 

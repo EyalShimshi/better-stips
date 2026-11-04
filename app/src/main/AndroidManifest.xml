@@ -42,6 +42,10 @@
                 <data android:pathPrefix="/profile/" />
                 <data android:path="/messages" />
             </intent-filter>
+            <!-- Launcher shortcuts: Hot and Chats (D-57). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <service

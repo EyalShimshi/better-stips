@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcuts (touch and hold the app icon, D-57). MainActivity maps each intent action to a screen
+     (util/Shortcuts); a unit test checks that the two agree. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_shortcut_hot"
+        android:shortcutId="hot"
+        android:shortcutLongLabel="@string/shortcut_hot_long"
+        android:shortcutShortLabel="@string/shortcut_hot_short">
+        <intent
+            android:action="io.github.eyalshimshi.betterstips.action.HOT"
+            android:targetClass="io.github.eyalshimshi.betterstips.MainActivity"
+            android:targetPackage="io.github.eyalshimshi.betterstips" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_shortcut_chats"
+        android:shortcutId="chats"
+        android:shortcutLongLabel="@string/shortcut_chats_long"
+        android:shortcutShortLabel="@string/shortcut_chats_short">
+        <intent
+            android:action="io.github.eyalshimshi.betterstips.action.CHATS"
+            android:targetClass="io.github.eyalshimshi.betterstips.MainActivity"
+            android:targetPackage="io.github.eyalshimshi.betterstips" />
+    </shortcut>
+</shortcuts>

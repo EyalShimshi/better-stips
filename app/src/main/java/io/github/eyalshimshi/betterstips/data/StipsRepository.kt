@@ -11,6 +11,7 @@ import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.ChartAction
 import io.github.eyalshimshi.betterstips.data.model.ChartPoint
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
+import io.github.eyalshimshi.betterstips.data.model.ChatThread
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
@@ -411,13 +412,15 @@ class StipsRepository(
     }
 
     /** The thread with one person. [beforeId] loads older messages. */
-    suspend fun thread(userId: Long, beforeId: Long?): List<ChatMessage> = withSession {
+    /** A page of the thread, oldest first. The first page also says whether you blocked this person (`userBlocked`). */
+    suspend fun thread(userId: Long, beforeId: Long?): ChatThread = withSession {
         val params = buildJsonObject {
             put("userid", userId)
             put("msgid", beforeId ?: 0L)
             if (beforeId == null) put("first_load", true) else put("history", true)
         }
-        Parsers.messages(api.call("messages.from_user", params)).sortedBy { it.id }
+        val page = Parsers.chatThread(api.call("messages.from_user", params))
+        page.copy(messages = page.messages.sortedBy { it.id })
     }
 
     /**

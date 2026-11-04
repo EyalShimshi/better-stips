@@ -1,0 +1,73 @@
+name: Launch test
+
+# Opens a released APK on an emulator by hand, the way the Build workflow does before every release (#7): to try
+# another Android version, or to look at an older release. Screenshots and logs are kept as the run's artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release to open, e.g. build-10"
+        required: true
+      api:
+        description: "Emulator API level: 35 (Android 15), 36 (Android 16) or 37.0 (Android 17; slow to boot)"
+        required: true
+        default: "35"
+      upgrade_from:
+        description: "An earlier release to open first and update from (optional), e.g. build-6"
+        required: false
+        default: ""
+      shortcuts:
+        description: "Also open the launcher shortcuts (v0.8 and later)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    name: Open ${{ inputs.tag }} on API ${{ inputs.api }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Get the APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          OLD_TAG: ${{ inputs.upgrade_from }}
+          API: ${{ inputs.api }}
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p 'stipsplus-*.apk' -O app.apk
+          if [ -n "$OLD_TAG" ]; then
+            gh release download "$OLD_TAG" -R "$GITHUB_REPOSITORY" -p 'stipsplus-*.apk' -O "$OLD_TAG.apk"
+            echo "OLD_APKS=$OLD_TAG.apk" >> "$GITHUB_ENV"
+          fi
+          echo "Opening $TAG${OLD_TAG:+ (updated from $OLD_TAG)} on API $API" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Open the app
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SHORTCUTS: ${{ inputs.shortcuts && 'yes' || 'no' }}
+        with:
+          api-level: ${{ inputs.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 1200
+          script: bash tools/launch_test.sh
+
+      - name: Keep the screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launch-test-${{ inputs.tag }}-api-${{ inputs.api }}
+          path: launch-test/
+          retention-days: 14

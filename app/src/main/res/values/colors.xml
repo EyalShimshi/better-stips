@@ -2,4 +2,6 @@
 <resources>
     <color name="window_background">#FFF5FBF6</color>
     <color name="ic_launcher_background">#FF09C286</color>
+    <!-- Launcher shortcut icons: the light circle of the shortcut icon guidelines. -->
+    <color name="shortcut_background">#FFF5F5F5</color>
 </resources>

@@ -19,6 +19,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.StipsTheme
 import io.github.eyalshimshi.betterstips.ui.theme.isDarkTheme
 import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.Links
+import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
@@ -31,7 +32,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as StipsApp).container
         container.warmUp()
         // After a rotation or a restore, the back stack already holds the linked screen.
-        if (savedInstanceState == null) pendingLink.value = Links.deepLink(intent?.dataString)
+        if (savedInstanceState == null) pendingLink.value = linkFrom(intent)
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
             val link by pendingLink.collectAsStateWithLifecycle()
@@ -56,7 +57,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val link = Links.deepLink(intent.dataString)
+        val link = linkFrom(intent)
         if (link != null) pendingLink.value = link
     }
+
+    /** A Stips link (from another app or a phone notification), or a launcher shortcut. */
+    private fun linkFrom(intent: Intent?): DeepLink? = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action)
 }

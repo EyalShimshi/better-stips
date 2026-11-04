@@ -470,4 +470,31 @@
     <string name="settings_widget">Home-screen widget</string>
     <string name="settings_widget_summary">Add “Hot right now” to your home screen</string>
     <string name="settings_widget_by_hand">Your launcher can\'t add it from here. Touch and hold an empty spot on your home screen, tap Widgets, and find Stips+.</string>
+
+    <!-- v0.8: chats (report, block, jump to the newest message) and launcher shortcuts -->
+    <string name="chat_report">Report %1$s</string>
+    <string name="chat_report_title">Report %1$s?</string>
+    <string name="chat_report_body">Stips\' team will check your chat with them. What happened?</string>
+    <string name="chat_report_reason_spam">Spam or ads</string>
+    <string name="chat_report_reason_sexual">Sexual messages or offers</string>
+    <string name="chat_report_reason_abuse">Insults or offensive language</string>
+    <string name="chat_report_reason_details">Suspicious questions about personal details</string>
+    <string name="chat_report_reason_other">Something else</string>
+    <string name="chat_report_hint">More details (optional)</string>
+    <string name="chat_block">Block messages</string>
+    <string name="chat_unblock">Unblock messages</string>
+    <string name="chat_unblock_action">Unblock</string>
+    <string name="chat_block_title">Block messages from %1$s?</string>
+    <string name="chat_block_body">Messages from this user won\'t reach you. You can unblock them here anytime.</string>
+    <string name="chat_block_confirm">Block</string>
+    <string name="chat_blocked_bar">You blocked messages from %1$s.</string>
+    <string name="chat_jump_newest">Jump to the newest message</string>
+    <plurals name="chat_new_messages">
+        <item quantity="one">%d new message. Jump to it</item>
+        <item quantity="other">%d new messages. Jump to the newest</item>
+    </plurals>
+    <string name="shortcut_hot_short">Hot</string>
+    <string name="shortcut_hot_long">Hot right now</string>
+    <string name="shortcut_chats_short">Chats</string>
+    <string name="shortcut_chats_long">Your chats</string>
 </resources>

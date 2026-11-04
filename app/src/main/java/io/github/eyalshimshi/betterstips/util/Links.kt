@@ -36,11 +36,29 @@ object Links {
     }
 }
 
-/** A place in the app that a link (or a phone notification) opens. */
+/** A place in the app that a link, a phone notification or a launcher shortcut opens. */
 sealed interface DeepLink {
     data class Question(val id: Long) : DeepLink
 
     data class Profile(val id: Long) : DeepLink
 
     data object Messages : DeepLink
+
+    /** The full Hot list (the launcher shortcut). */
+    data object Hot : DeepLink
+}
+
+/** Launcher shortcuts (`res/xml/shortcuts.xml`): each opens MainActivity with its own action. */
+object Shortcuts {
+    const val ACTION_HOT = "io.github.eyalshimshi.betterstips.action.HOT"
+    const val ACTION_CHATS = "io.github.eyalshimshi.betterstips.action.CHATS"
+    const val ID_HOT = "hot"
+    const val ID_CHATS = "chats"
+
+    /** Where a shortcut's intent action leads, or null for any other intent. */
+    fun link(action: String?): DeepLink? = when (action) {
+        ACTION_HOT -> DeepLink.Hot
+        ACTION_CHATS -> DeepLink.Messages
+        else -> null
+    }
 }

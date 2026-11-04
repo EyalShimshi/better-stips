@@ -41,10 +41,12 @@ Versions come from Google's CI-tested [compose-samples](https://github.com/andro
 | kotlinx-serialization-json | `JsonElement` API only, no compiler plugin | 1.11.0 |
 | OkHttp | HTTP/2, gzip, cookies | 4.12.0 |
 | Coil (Compose) | Images, memory + disk cache | 2.7.0 |
-| Glance (app widget, Material 3 colors) | The home-screen widget | 1.2.0 |
+| Glance (app widget, Material 3 colors) | The home-screen widget. It brings WorkManager 2.7.1 and Room 2.2.5, which start with every process | 1.2.0 |
 | JUnit | Unit tests | 4.13.2 |
 
 Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were checked in their published source jars before writing code (playbook §4).
+
+**Shrinking (R8):** release builds are shrunk but not obfuscated (`-dontobfuscate`, readable stack traces). AGP 9's R8 no longer keeps a class's default constructor for library rules written as `-keep class X`; WorkManager and Room write theirs that way, so `proguard-rules.pro` keeps those constructors and `gradle.properties` sets `android.r8.strictFullModeForKeepRules=false` (#7, D-55). CI's `tools/check_apk.py` fails the build if a class that a library creates by name (Room databases, WorkManager input mergers and workers, start-up initializers, Glance action callbacks) lost its constructor.
 
 ## 3. Packages (one module, `app`)
 
@@ -63,7 +65,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
-| `….util` | Time parsing and relative formatting, answer validation, links and deep links, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
+| `….util` | Time parsing and relative formatting, answer validation, links and deep links, launcher shortcut actions, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
@@ -71,7 +73,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 - **Single activity**, Compose only, edge-to-edge, `enableOnBackInvokedCallback` for predictive back.
 - **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}`, `user/{id}`, `notifications`, `hot`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`. Custom enter/exit and predictive-back transitions (SPEC-02 §4).
 - **App-wide state through composition locals:** `LocalOpenProfile` (any name or avatar opens a profile) and `LocalUnreadCounts` (badges), provided by `AppRoot`, which polls `messages.count` every 10 s while the app is started and signed in (D-25, D-53).
-- **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages) that `AppRoot` navigates to once.
+- **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages, or the Hot list) that `AppRoot` navigates to once. Stips links come in as the intent's data; launcher shortcuts (`res/xml/shortcuts.xml`, D-57) as its action, mapped by `Shortcuts.link`. Opening Hot or Chats reports the matching shortcut as used (`ShortcutManagerCompat.reportShortcutUsed`).
 - **ViewModels** expose `StateFlow<UiState>`; screens collect with `collectAsStateWithLifecycle`. Factories come from `AppContainer` (no DI framework).
 - **Theme** reads `SettingsStore`: dynamic color → else a generated scheme from the accent; dark/light/system; pure black. A `ChannelTheme` wrapper re-themes a subtree with a channel's scheme.
 
@@ -92,7 +94,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `SavedStore` | Saved questions (id, title, cover, time) in prefs as JSON |
 | `SettingsStore` | SharedPreferences exposed as `StateFlow` |
 | `Timings` | Records load durations (feed page, question) for the "Loaded in" line and Settings → Performance |
-| Crash catcher | Default uncaught-exception handler writes `crash.txt` (version, device, stack trace), then defers to the system handler. The next launch shows the dialog |
+| Crash catcher | Default uncaught-exception handler writes `crash.txt` (version, device, stack trace), then defers to the system handler. Installed in `StipsApp.attachBaseContext`, before the libraries' start-up providers run (#7). The next launch shows the dialog |
 
 ## 6. Data layer
 
@@ -112,6 +114,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 - Intent filter for `https://stips.co.il/ask/…`, `/profile/…` and `/messages` (no `autoVerify`; users enable it under *Open by default*).
 - `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on) and `RECEIVE_BOOT_COMPLETED` (keeps the persisted job). The photo picker (`PickVisualMedia`) needs no storage permission.
 - System splash (Android 12+) from the window background; adaptive + themed (monochrome) launcher icon of our own (no Stips logo).
+- Static launcher shortcuts *Hot* and *Chats* (`res/xml/shortcuts.xml`, D-57), with adaptive icons.
 
 ## 8. Permissions
 

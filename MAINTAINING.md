@@ -5,11 +5,20 @@
 ## Release flow
 
 1. Push to `main` (the agent does it, or you push from your editor).
-2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles, signs and publishes a pre-release `build-<run>` with `stipsplus-<run>.apk`, then runs the unit tests. A build takes about 8–12 minutes of your monthly Actions minutes (GitHub Free includes 2,000 a month for private repos).
-3. Errors appear in a box on the run's **Summary** page, and in `status.md` on the `ci-status` branch.
-4. A red build is fixed before any new work.
+2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles and signs the APK, checks it ([tools/check_apk.py](tools/check_apk.py)), runs the unit tests, then opens it on an Android 15 emulator ([tools/launch_test.sh](tools/launch_test.sh)): over the newest earlier release that opens, as a fresh install, a second time, and from each launcher shortcut. Only then does it publish a pre-release `build-<run>` with `stipsplus-<run>.apk`. The release notes are [RELEASE-NOTES.md](RELEASE-NOTES.md) (update it every round) followed by the launch test's results.
+3. A build takes about 15 minutes of your monthly Actions minutes (GitHub Free includes 2,000 a month for private repos): about 5 to build and test, 10 on the emulator.
+4. Errors appear in a box on the run's **Summary** page, and in `status.md` on the `ci-status` branch. A failed launch test lists each step's verdict and the crash's stack trace; screenshots, logcats and the screen's text are in the run's `launch-test` artifact.
+5. A red build is fixed before any new work. No pre-release is published for it.
 
 **Versions:** `versionCode` is the CI run number. `versionName` is `<major>.<minor>.<run>`; raise `versionMajorMinor` in [app/build.gradle.kts](app/build.gradle.kts) every round.
+
+### Opening a release on another Android version
+
+Actions → **Launch test** → Run workflow ([launch-test.yml](.github/workflows/launch-test.yml)): a release tag (for example `build-10`), an emulator API level (`35` Android 15, `36` Android 16, `37.0` Android 17), and optionally an earlier release to update from. The Android 17 image took over 10 minutes to boot on GitHub's runners, so that workflow waits up to 20.
+
+### Shrinking rules (#7)
+
+Release builds are shrunk by R8. Libraries that create classes by name need their constructors kept. Since AGP 9, R8 reads library rules written as `-keep class X` strictly and drops the constructor. That crashed builds 7–9 at launch (WorkManager's database, through the widget's Glance). [gradle.properties](gradle.properties) restores AGP 8's reading (`android.r8.strictFullModeForKeepRules=false`), [app/proguard-rules.pro](app/proguard-rules.pro) keeps the known constructors, and `check_apk.py` fails the build if one goes missing. When adding a library that creates classes by name, add its base class to `check_apk.py`.
 
 ## Reading CI results without the website
 
@@ -20,7 +29,7 @@ git fetch origin ci-status
 git --no-pager show origin/ci-status:status.md
 ```
 
-`status.md` holds the run number, commit, build and test outcomes, which key signed the APK (with its certificate digest), the APK size, and the error lines. It never contains secrets.
+`status.md` holds the run number, commit, the result of each job (`build-and-tests`, `launch-test`, `release`), which key signed the APK (with its certificate digest), the APK size, and the error lines (build errors, the APK check, test failures, the launch test). It never contains secrets.
 
 ## The signing key
 

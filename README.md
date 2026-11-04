@@ -4,10 +4,11 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.7)
+## Features (v0.8)
 
 - **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it). Search finds topics and people.
 - **Home-screen widget:** "Hot right now" shows the hottest questions on your home screen, in your wallpaper's colors. Tap a question to open it, or ⟳ to refresh. Add it from your launcher's widgets, or from Settings → Updates.
+- **Launcher shortcuts:** touch and hold the app icon for **Hot** and **Chats**.
 - **Ask a question** in three steps, like the site: the question (anonymous with your own nickname, and a link if you like), its tags (suggested by Stips), and a cover photo from Stips' gallery.
 - **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, and a header that folds into a small title bar as you scroll.
 - **Answer** (anonymously too, with one link), **edit**, **delete** or **detach** your answers; **vote**, **pin**, **get updates**. If you answered a question anonymously, your next answer there starts anonymous. As the asker, **send flowers** to good answers.
@@ -15,14 +16,14 @@
 - **Report and hide:** report a question, answer or pen-pal post to Stips' moderators; hide an item or everything from one user (Settings → Hidden content brings it all back).
 - **Pen pals (חברים לעט):** read the board, post your own message, and tap a post to start a private chat.
 - **Profiles** for everyone: photo (tap to view it big), questions · answers · flowers, bio, badges, age, how long they've been on Stips, the **credibility** gauge, the **thanks wall** first (write on others', delete on yours), and activity graphs.
-- **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began.
+- **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began; a ↓ button counts new messages and jumps back down. ⋮ reports someone to Stips' team or blocks their messages.
 - **Notifications:** Stips' list with new ones highlighted until you open them, a badge on the bell and on Chats, and optional **phone notifications**.
 - **Settings:** safe mode, the Stips account pages, anonymous mode, hidden content, Live's rate, and **Diagnostics → Network log** for bug reports.
 - **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, haptic feedback, and transitions that follow your finger on predictive back.
 
 ## Install
 
-1. On the phone, open the repository's **Releases** page (signed in to GitHub) and tap the newest `stipsplus-<number>.apk`.
+1. On the phone, open the repository's **Releases** page (signed in to GitHub) and tap the newest `stipsplus-<number>.apk`. Each release's notes say what changed and how it was checked: every APK is opened on an Android emulator before it's published. Builds 7–9 crash on launch (#7); don't install them.
 2. Allow your browser to install unknown apps when Android asks.
 3. If Play Protect warns, choose **Install anyway**. Every build is signed with the same key, so new builds install over old ones.
 
@@ -63,7 +64,7 @@
 
 ## Building
 
-There's nothing to install locally: GitHub Actions builds every push to `main` (JDK 17, Gradle 9.5.0, Android Gradle Plugin 9.3.1) and publishes a pre-release with the APK. See [MAINTAINING.md](MAINTAINING.md). To build on your own machine, install Gradle 9.5 and the Android SDK, then run `gradle assembleRelease`.
+There's nothing to install locally: GitHub Actions builds every push to `main` (JDK 17, Gradle 9.5.0, Android Gradle Plugin 9.3.1), runs the unit tests, checks the APK, opens it on an Android emulator, and only then publishes a pre-release with the APK. See [MAINTAINING.md](MAINTAINING.md). To build on your own machine, install Gradle 9.5 and the Android SDK, then run `gradle assembleRelease`.
 
 ## How it's made
 
@@ -79,4 +80,4 @@ There's nothing to install locally: GitHub Actions builds every push to `main` (
 
 ## בעברית
 
-**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ווידג'ט "חם עכשיו" למסך הבית, שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות חיות (מי מחובר/ת, והודעות חדשות תוך שניות). בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.
+**Stips+** היא אפליקציית אנדרואיד מהירה וטבעית לסטיפס: חמות ושאלות חדשות (גם בלייב), ווידג'ט "חם עכשיו" למסך הבית, שאילת שאלות, חברים לעט, ערוצים ונושאים, שאלות ותשובות, התחברות, מענה (גם באנונימיות ועם קישור), מצב אנונימי, עריכת תשובות, נעיצות, פרחים, דיווח וחסימת תוכן, קבלת עדכונים, פרופילים עם נקודות אמינות וקיר תודות, התראות ושיחות פרטיות חיות (מי מחובר/ת, והודעות חדשות תוך שניות, עם דיווח וחסימה), וקיצורי דרך ל"חם עכשיו" ולשיחות מסמל האפליקציה. בלי פרסומות ובלי מעקב. הסיסמה נשלחת רק לסטיפס, והאפליקציה שומרת רק את אסימון ההתחברות. אפליקציה עצמאית, ללא קשר לסטיפס. כרגע היא פרטית, עד שנקבל אישור מסטיפס לפרסם אותה.
