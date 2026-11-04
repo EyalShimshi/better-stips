@@ -62,10 +62,10 @@ class ApiAndDataTest {
             HotWidgetFeed.QUERY,
         )
         assertEquals(HotWindow.Now, HotWidgetFeed.QUERY.window)
-        val savedAt = 1_000_000L
-        assertFalse(HotWidgetFeed.isStale(savedAt, savedAt + 29 * 60_000L))
-        assertTrue(HotWidgetFeed.isStale(savedAt, savedAt + 30 * 60_000L))
-        assertTrue("never saved", HotWidgetFeed.isStale(0L, savedAt))
+        val now = 1_800_000_000_000L
+        assertFalse(HotWidgetFeed.isStale(savedAt = now - 29 * 60_000L, now = now))
+        assertTrue(HotWidgetFeed.isStale(savedAt = now - 30 * 60_000L, now = now))
+        assertTrue("never saved", HotWidgetFeed.isStale(savedAt = 0L, now = now))
     }
 
     @Test
