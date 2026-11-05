@@ -37,26 +37,37 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 
 **Q-01:** Will Stips allow an independent client? The owner sends this to `contact@stips.co.il` (the address in Stips' Google Play listing). The terms name the operator as "נדב דפני - אינטרנט ותוכנה בע\"מ"; the Play listing names Futurebit Media Ltd.
 
-> **נושא:** בקשת אישור – אפליקציית אנדרואיד עצמאית לסטיפס
+Rewritten before the launch (v0.10): the highlights so far, and a link to the open code. It still discloses the Referer (R-02).
+
+> **נושא:** Stips+ – אפליקציית אנדרואיד לסטיפס, רגע לפני ההשקה
 >
 > שלום לצוות סטיפס,
 >
-> שמי אייל שמשי, ואני משתמש בסטיפס. אני בונה אפליקציית אנדרואיד חינמית בשם Stips+, שמציגה את התוכן של סטיפס בממשק אנדרואיד טבעי: גלילה חלקה, מצב כהה, טקסט גדול ותמיכה מלאה בעברית. ההשראה היא Better Rail, אפליקציה עצמאית לרכבת ישראל.
+> שמי אייל שמשי, ואני משתמש פעיל בסטיפס. מתוך אהבה לאתר ולקהילה בניתי את Stips+, אפליקציית אנדרואיד עצמאית וחינמית שמביאה את סטיפס לטלפון בממשק טבעי, מהיר ונוח. האפליקציה כבר בליטושים האחרונים לקראת השקה, ואני ממש מתרגש לשתף אתכם!
 >
-> כמה דברים חשובים לי לומר מראש:
-> - האפליקציה פונה ישירות מהטלפון של המשתמש לאתר שלכם, כמו דפדפן, ורק כשהמשתמש מבקש. אין שרת שלנו, אין העתקה או שמירה של תוכן, ואין סריקה אוטומטית.
-> - האפליקציה מזדהה בגלוי כ-Stips+ בכל בקשה, ויש בה קישור "פתיחה בסטיפס" לכל שאלה.
-> - כדי שמגבלת הקצב שלכם (IP_RATE_LIMIT) לא תעצור שימוש רגיל, כל בקשה נשלחת עם ה-Referer של האתר (https://stips.co.il/), כמו הבקשות של האתר ושל האפליקציה הרשמית, וקצב הפניות מוגבל לקצב של האפליקציה הרשמית בערך. אם תעדיפו שנפעל אחרת, נשנה.
-> - ההתחברות היא עם חשבון סטיפס רגיל. הסיסמה נשלחת רק אליכם, והאפליקציה לא שומרת אותה.
-> - אין בה פרסומות, אנליטיקה או מעקב, והיא לא מציגה מידע שלא מוצג באתר.
+> כמה דברים שאני גאה בהם במיוחד:
+> - **דף בית חי:** השאלות הכי חמות בכרטיסים גדולים, ומתחתן השאלות החדשות, עם מצב Live שבו הן קופצות לפיד בזמן אמת בלי לרענן.
+> - **תשובה בהחלקה:** החלקה על תשובה מוסיפה לבד את ה-^^ לפי המוסכמה של סטיפס, ואם בינתיים נכנסו עוד תשובות, הספירה מתוקנת אוטומטית.
+> - **ציטוטים כמו בוואטסאפ:** תשובה שמפנה ב-^^ לתשובה קודמת מציגה ציטוט שלה, ולחיצה עליו קופצת אליה.
+> - **התראות שפותחות בדיוק במקום:** התראה על תשובות חדשות פותחת ישר בתשובה החדשה הראשונה, והתראה על פרח פותחת בתשובה שקיבלה אותו.
+> - **פרופילים בסגנון רשת חברתית:** נקודות אמינות, פרחים, גרפים של פעילות לאורך זמן וקיר התודות, ותג "נאמן סטיפס" ליד התשובות של הנאמנים.
+> - **ווידג'טים למסך הבית** לשאלות החמות ולשיחות שלא נקראו, מצב כהה ועברית מלאה מימין לשמאל.
 >
-> כרגע האפליקציה פרטית ומשמשת אותי בלבד. לפני שאפרסם אותה (בקוד פתוח, ואולי ב-Google Play), אני מבקש את אישורכם בכתב, כפי שנדרש בתנאי השימוש. אשמח לשמוע אם יש לכם תנאים: שם אחר, הגבלת קצב פניות, ייחוס, שיתוף פרסומות או כל דבר אחר. אשמח גם להראות לכם אותה.
+> חשוב לי שהאפליקציה תהיה טובה גם לסטיפס, לא רק למשתמשים, ולכן:
+> - **התוכן נשאר אצלכם.** האפליקציה פונה ישירות מהטלפון של המשתמש לסטיפס, כמו דפדפן, ורק בעקבות מה שהמשתמש עושה או מפעיל בה. אין שרת ביניים, ואין איסוף, העתקה או סריקה של תוכן.
+> - **שקיפות מלאה.** האפליקציה מזדהה בגלוי בכל בקשה (StipsPlus, unofficial, עם קישור לפרויקט), בכל שאלה יש קישור "פתיחה בסטיפס", והקוד פתוח לעיון: https://github.com/EyalShimshi/better-stips
+> - **בקצב של האפליקציה הרשמית.** כדי ששימוש רגיל לא ייחסם במגבלת הקצב שלכם (IP_RATE_LIMIT), כל בקשה נשלחת עם ה-Referer של האתר (https://stips.co.il/), כמו הבקשות של האתר ושל האפליקציה הרשמית, והקצב מוגבל בערך לזה של האפליקציה הרשמית. אם תעדיפו שאעשה את זה אחרת, אשנה.
+> - **פרטיות ובלי פרסומות.** ההתחברות היא עם חשבון סטיפס רגיל: הסיסמה נשלחת רק אליכם, והאפליקציה לא שומרת אותה. אין בה פרסומות, אנליטיקה או מעקב.
 >
-> תודה,
+> עד עכשיו לא הפצתי את האפליקציה לציבור, ואני משתמש בה בעצמי. לפני שאשיק אותה רשמית, ואולי גם אעלה אותה ל-Google Play, אשמח לקבל את אישורכם בכתב, כפי שנדרש בתנאי השימוש. אם יש לכם בקשות או תנאים, כמו שם אחר, קצב פניות, ייחוס או כל דבר אחר, אשמח להתאים. אשמח גם לשלוח לכם גרסה לנסות, או להראות לכם אותה.
+>
+> המטרה שלי פשוטה: שיהיה עוד יותר כיף להשתמש בסטיפס.
+>
+> תודה רבה, ומחכה לשמוע מכם!
 > אייל שמשי
 > eyalshimshi1@gmail.com
 
-*(English summary: an independent, free Android client; direct, user-initiated requests like a browser; honest identification; the site's Referer on every request so the rate limit treats it like the site, at about the official app's pace, and we'll change that if Stips prefers; no ads, tracking, copying or crawling; private for now; asking for written permission and any conditions before publishing.)*
+*(English summary: an active user built a free, independent Android client out of love for the site, now in final polish before launch. Highlights: a live Home, swipe-to-reply with Stips' carets (corrected if answers land in between), WhatsApp-style reply quotes, notifications that open at the right answer, social profiles with the thanks wall and moderator badges, widgets and dark mode. Good faith: direct requests like a browser, only from what the user does or turns on; no middle server, collecting, copying or crawling; an honest User-Agent, "Open on Stips" and open code; the site's Referer on every request at about the official app's pace, changed if Stips prefers; the password goes only to Stips; no ads or tracking. Not distributed yet; asks for written permission and any conditions before launch, and offers a test build or a demo.)*
 
 ## 5. Open questions
 
