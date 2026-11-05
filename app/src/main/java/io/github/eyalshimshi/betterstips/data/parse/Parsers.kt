@@ -13,6 +13,7 @@ import io.github.eyalshimshi.betterstips.data.model.ChatThread
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.Cover
 import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
+import io.github.eyalshimshi.betterstips.data.model.HomeSection
 import io.github.eyalshimshi.betterstips.data.model.LoginResult
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.PenPalAllowance
@@ -78,6 +79,7 @@ object Parsers {
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
             isOwner = permissions?.bool("itemOwner") ?: false,
             canReport = permissions?.bool("report") ?: false,
+            raw = item.toString(),
         )
     }
 
@@ -94,12 +96,17 @@ object Parsers {
 
     fun author(profile: JsonObject?, fallbackName: String?, anonymousFlag: Boolean?): Author {
         val anonymous = profile?.bool("anonflg") ?: anonymousFlag ?: false
+        // Present on special accounts only (measured: Net Knights); Stips may send it as an empty array otherwise.
+        val special = profile?.obj("specialConfig")
         return Author(
             nickname = profile?.str("nickname")?.takeIf { it.isNotBlank() } ?: fallbackName?.takeIf { it.isNotBlank() } ?: "",
             userId = if (anonymous) null else profile?.long("userid"),
             photoStamp = if (anonymous) null else profile?.str("photostamp")?.takeIf { it.isNotBlank() },
             anonymous = anonymous,
             online = profile?.bool("online") ?: false,
+            branding = if (anonymous) null else special?.str("itemSpecialRankBranding")?.trim()?.takeIf { it.isNotEmpty() },
+            highlightName = !anonymous && special?.bool("itemNicknameSpecialRankColor") == true,
+            platform = profile?.bool("isPlatfromAdmin") == true || profile?.bool("isPlatformAdmin") == true,
         )
     }
 
@@ -132,6 +139,7 @@ object Parsers {
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
             canReport = permissions?.bool("report") ?: false,
             byAsker = extra?.bool("parentItemCreatorResponse") ?: false,
+            raw = item.toString(),
         )
     }
 
@@ -187,13 +195,21 @@ object Parsers {
         val d = item.obj("data") ?: return null
         val id = d.long("id") ?: return null
         val extra = item.obj("extra")
+        val itemProfile = extra?.obj("item_profile")
+        val special = itemProfile?.obj("specialConfig")
         return UserProfile(
             userId = id,
             nickname = d.str("nickname").orEmpty(),
             points = d.int("points") ?: 0,
             female = d.int("gender") == 2,
-            photoStamp = (extra?.str("photostamp") ?: extra?.obj("item_profile")?.str("photostamp"))?.takeIf { it.isNotBlank() },
-            online = extra?.obj("item_profile")?.bool("online") ?: false,
+            photoStamp = (extra?.str("photostamp") ?: itemProfile?.str("photostamp"))?.takeIf { it.isNotBlank() },
+            online = itemProfile?.bool("online") ?: false,
+            branding = special?.str("itemSpecialRankBranding")?.trim()?.takeIf { it.isNotEmpty() },
+            highlightName = special?.bool("itemNicknameSpecialRankColor") == true,
+            platform = itemProfile?.bool("isPlatfromAdmin") == true || itemProfile?.bool("isPlatformAdmin") == true,
+            // A CSS gradient such as "linear-gradient(135deg, #f64f59, #b45ae0, #109cbb)" (measured).
+            background = parseColors(special?.str("profileBackground")),
+            raw = item.toString(),
         )
     }
 
@@ -203,16 +219,44 @@ object Parsers {
         val page = d.obj("user_profile_page")
         val bio = page?.obj("data")?.str("text_status")?.trim()?.takeIf { it.isNotEmpty() }
             ?: d.str("profile_quote")?.trim()?.takeIf { it.isNotEmpty() }
+        val badges = d.arr("badges")?.mapNotNull { it.asObject() }.orEmpty()
         return ProfilePage(
             questions = d.int("questions") ?: 0,
             answers = d.int("answers") ?: 0,
             flowers = d.int("flowers") ?: 0,
             activeSince = d.str("hebrew_active_since")?.trim()?.takeIf { it.isNotEmpty() },
             age = d.int("age")?.takeIf { it in 1..120 },
-            badges = d.arr("badges")?.mapNotNull { it.asObject()?.str("name")?.takeIf { name -> name.isNotBlank() } }.orEmpty(),
+            badges = badges.mapNotNull { it.str("name")?.takeIf { name -> name.isNotBlank() } },
             bio = bio,
             bioEditable = page?.obj("meta")?.obj("permissions")?.bool("edit") ?: false,
+            customBadges = badges.filter { it.str("name") == "custom_rank" }
+                .mapNotNull { it.str("label")?.trim()?.takeIf { label -> label.isNotEmpty() } },
+            hideAge = d.bool("hideAge") == true,
+            hideStats = d.bool("hideStats") == true,
+            raw = d.toString(),
         )
+    }
+
+    /**
+     * `feed.get`: the website's home feed, sections of today's questions by topic (#8). Like the site, a section that
+     * repeats an earlier topic adds its new questions to it.
+     */
+    fun homeSections(data: JsonElement?): List<HomeSection> {
+        val results = data.asObject()?.arr("results") ?: return emptyList()
+        val sections = LinkedHashMap<String, MutableList<Question>>()
+        val topics = HashMap<String, String>()
+        results.forEach { element ->
+            val e = element.asObject() ?: return@forEach
+            // As on the site: a topic section shows its name and links to it; an item list shows its title.
+            val topic = if (e.str("elementType") == "topic") e.str("name")?.trim()?.takeIf { it.isNotEmpty() } else null
+            val title = (topic ?: e.str("title") ?: e.str("name"))?.trim()?.takeIf { it.isNotEmpty() } ?: return@forEach
+            val questions = e.arr("items")?.mapNotNull { question(it) }.orEmpty()
+            if (questions.isEmpty()) return@forEach
+            val list = sections.getOrPut(title) { mutableListOf() }
+            if (topic != null) topics.putIfAbsent(title, topic)
+            questions.forEach { q -> if (list.none { it.id == q.id }) list.add(q) }
+        }
+        return sections.map { (title, questions) -> HomeSection(title, questions, topics[title]) }
     }
 
     /** `profile.actions_chart`: weekly counts, returned newest first; sorted oldest first here. */

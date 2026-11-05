@@ -95,7 +95,6 @@ class SignInViewModel(private val session: SessionStore) : ViewModel() {
 fun SignInScreen(onDone: () -> Unit) {
     val vm = appViewModel { SignInViewModel(it.session) }
     val state by vm.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     LaunchedEffect(state.done) { if (state.done) onDone() }
     Scaffold(
         topBar = {
@@ -114,72 +113,85 @@ fun SignInScreen(onDone: () -> Unit) {
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedTextField(
-                value = state.email,
-                onValueChange = vm::setEmail,
-                label = { Text(stringResource(R.string.email)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = vm::setPassword,
-                label = { Text(stringResource(R.string.password)) },
-                singleLine = true,
-                visualTransformation = if (state.showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { vm.signIn() }),
-                trailingIcon = {
-                    IconButton(onClick = vm::togglePassword) {
-                        Icon(
-                            if (state.showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = stringResource(if (state.showPassword) R.string.hide_password else R.string.show_password),
-                        )
-                    }
-                },
-                isError = state.error != null,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            val error = state.error
-            if (error != null) {
-                Text(
-                    if (error.code == ApiException.GENERAL && error.serverMessage.isNullOrBlank()) {
-                        stringResource(R.string.sign_in_failed)
-                    } else {
-                        errorMessage(error)
-                    },
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            Button(
-                onClick = vm::signIn,
-                enabled = !state.busy && state.email.isNotBlank() && state.password.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (state.busy) {
-                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.action_sign_in))
-                }
-            }
-            Text(
-                stringResource(R.string.sign_in_privacy),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TextButton(onClick = { openInBrowser(context, "$SITE_URL/signup") }) {
-                Text(stringResource(R.string.sign_in_create_account))
-            }
-            TextButton(onClick = { openInBrowser(context, "$SITE_URL/reset-password") }) {
-                Text(stringResource(R.string.sign_in_forgot))
-            }
-            Text(
-                stringResource(R.string.disclaimer),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            SignInFields(vm, state)
+            SignInLinks()
         }
     }
+}
+
+/** Email, password, any error, and the sign-in button; shared with the welcome screen (#8). */
+@Composable
+fun SignInFields(vm: SignInViewModel, state: SignInUiState) {
+    OutlinedTextField(
+        value = state.email,
+        onValueChange = vm::setEmail,
+        label = { Text(stringResource(R.string.email)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = state.password,
+        onValueChange = vm::setPassword,
+        label = { Text(stringResource(R.string.password)) },
+        singleLine = true,
+        visualTransformation = if (state.showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { vm.signIn() }),
+        trailingIcon = {
+            IconButton(onClick = vm::togglePassword) {
+                Icon(
+                    if (state.showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                    contentDescription = stringResource(if (state.showPassword) R.string.hide_password else R.string.show_password),
+                )
+            }
+        },
+        isError = state.error != null,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    val error = state.error
+    if (error != null) {
+        Text(
+            if (error.code == ApiException.GENERAL && error.serverMessage.isNullOrBlank()) {
+                stringResource(R.string.sign_in_failed)
+            } else {
+                errorMessage(error)
+            },
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+    Button(
+        onClick = vm::signIn,
+        enabled = !state.busy && state.email.isNotBlank() && state.password.isNotEmpty(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (state.busy) {
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        } else {
+            Text(stringResource(R.string.action_sign_in))
+        }
+    }
+}
+
+/** Where the password goes, creating an account, a forgotten password, and the disclaimer. */
+@Composable
+fun SignInLinks() {
+    val context = LocalContext.current
+    Text(
+        stringResource(R.string.sign_in_privacy),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    TextButton(onClick = { openInBrowser(context, "$SITE_URL/signup") }) {
+        Text(stringResource(R.string.sign_in_create_account))
+    }
+    TextButton(onClick = { openInBrowser(context, "$SITE_URL/reset-password") }) {
+        Text(stringResource(R.string.sign_in_forgot))
+    }
+    Text(
+        stringResource(R.string.disclaimer),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

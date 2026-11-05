@@ -23,6 +23,7 @@ import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.api.UserAgentInterceptor
 import io.github.eyalshimshi.betterstips.diag.NetLog
+import io.github.eyalshimshi.betterstips.widget.ChatsWidgetFeed
 import io.github.eyalshimshi.betterstips.widget.HotWidgetFeed
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,9 @@ class AppContainer(private val app: Application) {
     /** The "Hot right now" widget's list (D-51). */
     val hotWidget = HotWidgetFeed(app, repository, appScope)
 
+    /** The chats widget's list (#8). */
+    val chatsWidget = ChatsWidgetFeed(app, repository, session, appScope)
+
     val imageLoader: ImageLoader = ImageLoader.Builder(app)
         .okHttpClient(imageClient)
         .memoryCache { MemoryCache.Builder(app).maxSizePercent(0.2).build() }
@@ -100,6 +104,7 @@ class AppContainer(private val app: Application) {
     fun start() {
         watchNetwork()
         repository.onFirstPage = { query, list -> if (query == HotWidgetFeed.QUERY) hotWidget.publish(list) }
+        chatsWidget.start()
     }
 
     private val warmedUp = AtomicBoolean(false)

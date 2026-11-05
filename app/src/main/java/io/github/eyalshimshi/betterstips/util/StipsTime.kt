@@ -41,4 +41,16 @@ object StipsTime {
             else -> Ago.OnDate(then.atZone(zone).toLocalDate())
         }
     }
+
+    /** Minutes and seconds, for times under an hour (#8). */
+    data class MinutesSeconds(val minutes: Int, val seconds: Int)
+
+    /**
+     * How long ago, to the second, when that's under an hour; null otherwise. A time a little in the future (clocks
+     * never agree exactly) counts as zero.
+     */
+    fun underAnHour(then: Instant, now: Instant): MinutesSeconds? {
+        val seconds = Duration.between(then, now).seconds.coerceAtLeast(0)
+        return if (seconds < 3_600) MinutesSeconds((seconds / 60).toInt(), (seconds % 60).toInt()) else null
+    }
 }

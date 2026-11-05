@@ -16,6 +16,7 @@ import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
 import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
+import io.github.eyalshimshi.betterstips.data.model.HomeSection
 import io.github.eyalshimshi.betterstips.data.model.PenPalAllowance
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
@@ -26,6 +27,7 @@ import io.github.eyalshimshi.betterstips.data.model.ThanksMessage
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
+import io.github.eyalshimshi.betterstips.util.StipsTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -34,6 +36,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import java.time.ZonedDateTime
 
 /** Everything the screens ask of Stips. Requests happen only when the user acts (D-13). */
 class StipsRepository(
@@ -122,6 +125,25 @@ class StipsRepository(
         val list = runCatching { Parsers.questions(Json.parseToJsonElement(text)) }.getOrDefault(emptyList())
         remember(list, fresh = false)
         list
+    }
+
+    /**
+     * A page of the website's home feed (`feed.get`, #8): sections of today's questions by topic. [personal] asks for
+     * the account's own mix (`userRelated`), otherwise everyone's (`todayItems`); the site falls back to everyone's
+     * when the personal one is empty, and so does [HomeSectionsViewModel][io.github.eyalshimshi.betterstips.ui.home.HomeSectionsViewModel].
+     * [order] is the site's `random_order_number` ([homeFeedOrder]); one visit keeps it for every page so they line up.
+     */
+    suspend fun homeSections(page: Int, order: Int, personal: Boolean): List<HomeSection> {
+        val params = buildJsonObject {
+            put("page", page)
+            put("random_order_number", order)
+            put("feed_type", if (personal) FEED_USER else FEED_TODAY)
+            put("extra_time", false)
+        }
+        val data = if (personal) withSession { api.call("feed.get", params) } else api.call("feed.get", params)
+        val sections = Parsers.homeSections(data)
+        remember(sections.flatMap { it.questions })
+        return sections
     }
 
     /** When [query]'s first page was last saved from Stips (epoch ms), or null. */
@@ -331,9 +353,13 @@ class StipsRepository(
     }
 
     /** Unread chats and notifications. Tiny response; safe to ask every minute while the app is open. */
+    /** Told about every unread count Stips sends (the app's 10 s check, the background check), for the chats widget (#8). */
+    @Volatile
+    var onUnreadCounts: ((UnreadCounts) -> Unit)? = null
+
     suspend fun unreadCounts(): UnreadCounts = withSession {
         Parsers.unreadCounts(api.call("messages.count", buildJsonObject { }))
-    }
+    }.also { counts -> onUnreadCounts?.invoke(counts) }
 
     /** The account's "safe mode" (hides questions Stips marks unsuitable). Stored on Stips, like on the site. */
     suspend fun setSafeMode(on: Boolean) {
@@ -407,11 +433,16 @@ class StipsRepository(
         }
     }
 
+    /** Told about every conversation list Stips sends, so the chats widget can show it without asking again (#8). */
+    @Volatile
+    var onConversations: ((List<Conversation>) -> Unit)? = null
+
     suspend fun conversations(page: Int): List<Conversation> = withSession {
-        Parsers.conversations(api.call("messages.list", buildJsonObject { put("page", page) }), session.session.value.userId)
+        val list = Parsers.conversations(api.call("messages.list", buildJsonObject { put("page", page) }), session.session.value.userId)
+        if (page == 1) onConversations?.invoke(list)
+        list
     }
 
-    /** The thread with one person. [beforeId] loads older messages. */
     /** A page of the thread, oldest first. The first page also says whether you blocked this person (`userBlocked`). */
     suspend fun thread(userId: Long, beforeId: Long?): ChatThread = withSession {
         val params = buildJsonObject {
@@ -716,5 +747,17 @@ class StipsRepository(
     companion object {
         const val ANONYMOUS_MALE = "\u05d0\u05e0\u05d5\u05e0\u05d9\u05de\u05d9"
         const val ANONYMOUS_FEMALE = "\u05d0\u05e0\u05d5\u05e0\u05d9\u05de\u05d9\u05ea"
+
+        private const val FEED_USER = "userRelated"
+        private const val FEED_TODAY = "todayItems"
+
+        /**
+         * The home feed's `random_order_number`, as the site computes it from the local time: 1000 × the weekday
+         * (Sunday 0) + 100 × the hour + the minute / 5. The same number for five minutes keeps pages consistent.
+         */
+        fun homeFeedOrder(time: ZonedDateTime): Int =
+            1000 * (time.dayOfWeek.value % 7) + 100 * time.hour + time.minute / 5
+
+        fun homeFeedOrderNow(): Int = homeFeedOrder(ZonedDateTime.now(StipsTime.ZONE))
     }
 }

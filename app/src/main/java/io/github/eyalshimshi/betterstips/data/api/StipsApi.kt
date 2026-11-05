@@ -95,6 +95,7 @@ class StipsApi(private val client: OkHttpClient) {
                     }
                     throw error
                 }
+                ServerClock.observe(response.header("Date"), System.currentTimeMillis())
                 response.body?.string().orEmpty()
             }
         } catch (e: IOException) {

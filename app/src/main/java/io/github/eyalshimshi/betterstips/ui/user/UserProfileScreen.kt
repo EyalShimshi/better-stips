@@ -43,6 +43,8 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.LocalFlorist
@@ -93,6 +95,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -107,6 +110,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -123,12 +127,17 @@ import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
+import io.github.eyalshimshi.betterstips.ui.components.ExpertFields
+import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
+import io.github.eyalshimshi.betterstips.ui.components.VerifiedMark
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.memberForText
 import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.components.shareText
+import io.github.eyalshimshi.betterstips.ui.components.specialNameColor
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
 import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
@@ -173,6 +182,8 @@ fun UserProfileScreen(
     var editingBio by rememberSaveable { mutableStateOf(false) }
     var photoOpen by rememberSaveable { mutableStateOf(false) }
     val showImages = LocalAppSettings.current.showImages
+    val expert = LocalAppSettings.current.expertMode
+    var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<ThanksMessage?>(null) }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) vm.uploadPhoto(uri)
@@ -214,6 +225,11 @@ fun UserProfileScreen(
                 actions = {
                     IconButton(onClick = { shareText(context, "$SITE_URL/profile/$userId") }) {
                         Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.action_share))
+                    }
+                    if (expert && profile != null) {
+                        IconButton(onClick = { detailsOpen = true }) {
+                            Icon(Icons.Outlined.Code, contentDescription = stringResource(R.string.expert_details))
+                        }
                     }
                     if (isMe) {
                         IconButton(onClick = onOpenSettings) {
@@ -258,6 +274,7 @@ fun UserProfileScreen(
                             page = state.page,
                             isMe = isMe,
                             busy = state.busy,
+                            expert = expert,
                             onChangePhoto = {
                                 pickPhoto.launch(PickVisualMediaRequest(mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly))
                             },
@@ -379,6 +396,14 @@ fun UserProfileScreen(
             onDismiss = { editingBio = false },
         )
     }
+    if (detailsOpen && profile != null) {
+        ServerDetailsDialog(
+            title = stringResource(R.string.expert_details),
+            fields = ExpertFields.profile(profile, state.page),
+            raw = listOf("item_profile" to profile.raw, "page_data" to state.page?.raw),
+            onDismiss = { detailsOpen = false },
+        )
+    }
     val target = pendingDelete
     if (target != null) {
         AlertDialog(
@@ -404,17 +429,61 @@ private fun ProfileHeader(
     page: ProfilePage?,
     isMe: Boolean,
     busy: Boolean,
+    expert: Boolean,
     onChangePhoto: () -> Unit,
     onEditBio: () -> Unit,
     onMessage: (() -> Unit)?,
     onStat: (ChartAction) -> Unit,
     onOpenPhoto: (() -> Unit)?,
 ) {
+    // Stips gives some accounts a colored profile background (#8): a band behind the photo, as a cover.
+    val band = profile.background.takeIf { it.size >= 2 }?.map { Color(it) }
+    Box(Modifier.fillMaxWidth()) {
+        if (band != null) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 12.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Brush.linearGradient(band)),
+            )
+        }
+        ProfileHeaderBody(
+            profile = profile,
+            page = page,
+            isMe = isMe,
+            busy = busy,
+            expert = expert,
+            onChangePhoto = onChangePhoto,
+            onEditBio = onEditBio,
+            onMessage = onMessage,
+            onStat = onStat,
+            onOpenPhoto = onOpenPhoto,
+            top = if (band != null) 40.dp else 8.dp,
+        )
+    }
+}
+
+@Composable
+private fun ProfileHeaderBody(
+    profile: UserProfile,
+    page: ProfilePage?,
+    isMe: Boolean,
+    busy: Boolean,
+    expert: Boolean,
+    onChangePhoto: () -> Unit,
+    onEditBio: () -> Unit,
+    onMessage: (() -> Unit)?,
+    onStat: (ChartAction) -> Unit,
+    onOpenPhoto: (() -> Unit)?,
+    top: Dp,
+) {
     val online = onlineColor()
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(start = 20.dp, end = 20.dp, top = top, bottom = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box {
@@ -466,20 +535,32 @@ private fun ProfileHeader(
                 }
             }
             Spacer(Modifier.width(12.dp))
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Stat(page?.questions, stringResource(R.string.profile_stat_questions)) { onStat(ChartAction.Questions) }
-                Stat(page?.answers, stringResource(R.string.profile_stat_answers)) { onStat(ChartAction.Answers) }
-                Stat(page?.flowers, stringResource(R.string.profile_stat_flowers)) { onStat(ChartAction.Flowers) }
+            // Some accounts hide their numbers on Stips (#8); the app hides them too.
+            if (page?.hideStats != true) {
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    Stat(page?.questions, stringResource(R.string.profile_stat_questions)) { onStat(ChartAction.Questions) }
+                    Stat(page?.answers, stringResource(R.string.profile_stat_answers)) { onStat(ChartAction.Answers) }
+                    Stat(page?.flowers, stringResource(R.string.profile_stat_flowers)) { onStat(ChartAction.Flowers) }
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text(
-            profile.nickname,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                profile.nickname,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (profile.highlightName) specialNameColor() else Color.Unspecified,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (profile.avatar.verified) {
+                Spacer(Modifier.width(6.dp))
+                VerifiedMark(profile.avatar, 24.dp)
+            }
+        }
+        if (expert) ExpertLine("user #${profile.userId}")
         if (profile.online && !isMe) {
             Text(
                 stringResource(if (profile.female) R.string.profile_online_female else R.string.profile_online_male),
@@ -487,16 +568,22 @@ private fun ProfileHeader(
                 color = online,
             )
         }
-        val badges = page?.badges.orEmpty().mapNotNull { badgeLabel(it, profile.female) }
-        val age = page?.age
+        val badges = page?.badges.orEmpty().mapNotNull { badgeLabel(it, profile.female) } + page?.customBadges.orEmpty()
+        val verifiedLabel = when {
+            profile.avatar.platform -> stringResource(R.string.verified_stips)
+            profile.avatar.organization -> stringResource(R.string.verified_organization)
+            else -> null
+        }
+        val age = if (page?.hideAge == true) null else page?.age
         val memberFor = memberForText(page?.activeSince)
-        if (badges.isNotEmpty() || age != null || memberFor != null) {
+        if (badges.isNotEmpty() || verifiedLabel != null || age != null || memberFor != null) {
             Spacer(Modifier.height(8.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
+                if (verifiedLabel != null) InfoPill(Icons.Outlined.Verified, verifiedLabel, highlighted = true)
                 badges.forEach { InfoPill(Icons.Outlined.WorkspacePremium, it, highlighted = true) }
                 if (age != null) {
                     InfoPill(

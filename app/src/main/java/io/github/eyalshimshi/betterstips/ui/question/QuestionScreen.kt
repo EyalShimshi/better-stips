@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.ui.question
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Image
@@ -79,6 +81,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -130,12 +135,16 @@ import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
+import io.github.eyalshimshi.betterstips.ui.components.ExpertFields
+import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
 import io.github.eyalshimshi.betterstips.ui.components.FooterNote
 import io.github.eyalshimshi.betterstips.ui.components.ImageViewerDialog
 import io.github.eyalshimshi.betterstips.ui.components.LinkifiedText
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
+import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
+import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
@@ -146,6 +155,7 @@ import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
 import io.github.eyalshimshi.betterstips.ui.components.shareText
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
+import io.github.eyalshimshi.betterstips.util.AnswerDisplay
 import io.github.eyalshimshi.betterstips.util.AnswerRules
 import io.github.eyalshimshi.betterstips.util.Links
 import java.time.Duration
@@ -167,6 +177,11 @@ private sealed interface PendingAction {
     data object DetachQuestion : PendingAction
 
     data object EditQuestion : PendingAction
+
+    /** Expert mode (#8): what Stips sent about the question, or about one answer. */
+    data object QuestionDetails : PendingAction
+
+    data class AnswerDetails(val answer: Answer) : PendingAction
 }
 
 /** One row of a ⋮ menu. */
@@ -245,11 +260,12 @@ fun QuestionScreen(
         val hidden = question != null && remember(question.id, question.author.userId, blockVersion) {
             container.blocks.isBlocked("ask", question.id, question.author.userId)
         }
-        val answers = remember(state.answers, blockVersion) {
-            state.answers.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }
+        val answers = remember(state.answers, blockVersion, settings.answersOrder) {
+            AnswerDisplay.ordered(state.answers.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }, settings.answersOrder)
         }
         val signedIn = session.signedIn
         val me = session.userId
+        val expert = settings.expertMode
 
         fun requireSignIn(action: () -> Unit) {
             if (signedIn) action() else onSignIn()
@@ -262,6 +278,7 @@ fun QuestionScreen(
         val reportAnswerLabel = stringResource(R.string.report_answer)
         val hideAnswerLabel = stringResource(R.string.hide_answer)
         val hideUserLabel = stringResource(R.string.hide_user_content)
+        val detailsLabel = stringResource(R.string.expert_details)
         val answerMenu: (Answer) -> List<MenuEntry> = { answer ->
             buildList {
                 if (answer.isOwner) {
@@ -276,6 +293,7 @@ fun QuestionScreen(
                         add(MenuEntry(hideUserLabel, Icons.Outlined.Block) { pending = PendingAction.HideUser("ans", answer.id, answer.author) })
                     }
                 }
+                if (expert) add(MenuEntry(detailsLabel, Icons.Outlined.Code) { pending = PendingAction.AnswerDetails(answer) })
             }
         }
         val floweredCount = answers.count { it.flowered }
@@ -339,6 +357,7 @@ fun QuestionScreen(
                         state = state,
                         answers = answers,
                         signedIn = signedIn,
+                        expert = expert,
                         listState = listState,
                         collapse = collapse,
                         onHeroHeight = { heroHeight = it },
@@ -348,6 +367,7 @@ fun QuestionScreen(
                             vm.vote(answer, direction)
                         },
                         onRetry = vm::load,
+                        onRefresh = vm::refresh,
                         answerMenu = answerMenu,
                         canFlower = { answer -> canSendFlower(question, answer, floweredCount) },
                         onFlower = { answer ->
@@ -417,6 +437,7 @@ fun QuestionScreen(
                                     add(MenuEntry(hideUserLabel, Icons.Outlined.Block) { pending = PendingAction.HideUser("ask", question.id, question.author) })
                                 }
                             }
+                            if (expert) add(MenuEntry(detailsLabel, Icons.Outlined.Code) { pending = PendingAction.QuestionDetails })
                         }
                         ActionMenuButton(entries = entries, description = stringResource(R.string.more_actions), collapse = collapse)
                     }
@@ -507,6 +528,20 @@ fun QuestionScreen(
                     },
                 )
             }
+            PendingAction.QuestionDetails -> if (question != null) {
+                ServerDetailsDialog(
+                    title = stringResource(R.string.expert_details),
+                    fields = ExpertFields.question(question, state.answers.size),
+                    raw = listOf("omniobj ask" to question.raw),
+                    onDismiss = { pending = null },
+                )
+            }
+            is PendingAction.AnswerDetails -> ServerDetailsDialog(
+                title = stringResource(R.string.expert_details),
+                fields = ExpertFields.answer(action.answer),
+                raw = listOf("ans.for_item" to action.answer.raw),
+                onDismiss = { pending = null },
+            )
         }
     }
 }
@@ -528,68 +563,101 @@ private fun QuestionContent(
     state: QuestionUiState,
     answers: List<Answer>,
     signedIn: Boolean,
+    expert: Boolean,
     listState: LazyListState,
     collapse: Float,
     onHeroHeight: (Int) -> Unit,
     onOpenTopic: (String) -> Unit,
     onVote: (Answer, Int) -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     answerMenu: (Answer) -> List<MenuEntry>,
     canFlower: (Answer) -> Boolean,
     onFlower: (Answer) -> Unit,
 ) {
-    LazyColumn(
-        state = listState,
+    val pullState = rememberPullToRefreshState()
+    // The hero runs under the see-through top bar, so the spinner comes down below the bar, not behind it (#8).
+    PullToRefreshBox(
+        isRefreshing = state.refreshing,
+        onRefresh = onRefresh,
+        state = pullState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = state.refreshing,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 48.dp),
+            )
+        },
     ) {
-        item(key = "hero") {
-            QuestionHero(
-                question = question,
-                channel = channel,
-                answerCount = maxOf(question.answerCount, state.answers.size),
-                pinCount = state.pinCount,
-                collapse = collapse,
-                onOpenTopic = onOpenTopic,
-                modifier = Modifier.onSizeChanged { onHeroHeight(it.height) },
-            )
-        }
-        if (question.body.isNotBlank()) {
-            item(key = "body") { QuestionBody(question.body) }
-        }
-        item(key = "answers-header") {
-            Row(
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    answersText(maxOf(question.answerCount, state.answers.size)),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
+            item(key = "hero") {
+                QuestionHero(
+                    question = question,
+                    channel = channel,
+                    answerCount = maxOf(question.answerCount, state.answers.size),
+                    pinCount = state.pinCount,
+                    collapse = collapse,
+                    onOpenTopic = onOpenTopic,
+                    modifier = Modifier.onSizeChanged { onHeroHeight(it.height) },
                 )
-                if (state.loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             }
-        }
-        val answersError = state.answersError
-        if (answersError != null && state.answers.isEmpty()) {
-            item(key = "answers-error") { ErrorCard(answersError, onRetry) }
-        }
-        items(answers, key = { it.id }) { answer ->
-            AnswerCard(
-                answer = answer,
-                signedIn = signedIn,
-                menu = answerMenu(answer),
-                showFlowerButton = canFlower(answer),
-                flowering = answer.id in state.flowering,
-                onVote = { direction -> onVote(answer, direction) },
-                onFlower = { onFlower(answer) },
-                modifier = Modifier.animateItem(),
-            )
-        }
-        state.loadedInMs?.let { ms ->
-            item(key = "timing") {
-                FooterNote(stringResource(R.string.loaded_in, String.format(Locale.getDefault(), "%.2f", ms / 1000.0)))
+            if (expert) {
+                item(key = "expert") {
+                    ExpertLine(
+                        ExpertFields.questionLine(question),
+                        Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            if (question.body.isNotBlank()) {
+                item(key = "body") { QuestionBody(question.body) }
+            }
+            item(key = "answers-header") {
+                Row(
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        answersText(maxOf(question.answerCount, state.answers.size)),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (state.loading && !state.refreshing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+            }
+            val answersError = state.answersError
+            if (answersError != null && state.answers.isEmpty()) {
+                item(key = "answers-error") { ErrorCard(answersError, onRetry) }
+            }
+            items(answers, key = { it.id }) { answer ->
+                AnswerCard(
+                    answer = answer,
+                    signedIn = signedIn,
+                    expert = expert,
+                    menu = answerMenu(answer),
+                    showFlowerButton = canFlower(answer),
+                    flowering = answer.id in state.flowering,
+                    onVote = { direction -> onVote(answer, direction) },
+                    onFlower = { onFlower(answer) },
+                    modifier = Modifier.animateItem(),
+                )
+            }
+            // Load times are a diagnostic, so they only show in expert mode (#8).
+            if (expert) {
+                state.loadedInMs?.let { ms ->
+                    item(key = "timing") {
+                        FooterNote(stringResource(R.string.loaded_in, String.format(Locale.getDefault(), "%.2f", ms / 1000.0)))
+                    }
+                }
             }
         }
     }
@@ -875,6 +943,7 @@ private fun ActionMenuButton(entries: List<MenuEntry>, description: String, coll
 private fun AnswerCard(
     answer: Answer,
     signedIn: Boolean,
+    expert: Boolean,
     menu: List<MenuEntry>,
     showFlowerButton: Boolean,
     flowering: Boolean,
@@ -883,9 +952,12 @@ private fun AnswerCard(
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
+    // Organizations and Stips' own system answers get a thin blue outline next to their blue checkmark (#8).
+    val border = if (answer.author.verified) BorderStroke(1.dp, VerifiedBlue.copy(alpha = 0.5f)) else null
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = border,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -895,11 +967,18 @@ private fun AnswerCard(
                 Avatar(answer.author, 28.dp)
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
-                    AuthorName(answer.author, MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        AuthorName(answer.author, MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+                        if (answer.byAsker) {
+                            Spacer(Modifier.width(6.dp))
+                            AskerLabel(female = AnswerDisplay.askerIsFemale(answer))
+                        }
+                    }
                     val ago = agoText(answer.postedAt)
                     if (ago.isNotBlank()) {
                         Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    if (expert) ExpertLine(ExpertFields.answerLine(answer))
                 }
                 if (answer.flowered) {
                     Icon(
@@ -966,6 +1045,24 @@ private fun AnswerCard(
                 }
             }
         }
+    }
+}
+
+/** "שואל השאלה" by an answer the asker wrote, also when they asked anonymously (#8). */
+@Composable
+private fun AskerLabel(female: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    ) {
+        Text(
+            stringResource(if (female) R.string.asker_label_female else R.string.asker_label),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 1.dp),
+        )
     }
 }
 

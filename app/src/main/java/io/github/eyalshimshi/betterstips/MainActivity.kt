@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
         if (link != null) pendingLink.value = link
     }
 
-    /** A Stips link (from another app or a phone notification), or a launcher shortcut. */
-    private fun linkFrom(intent: Intent?): DeepLink? = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action)
+    /** A Stips link (from another app or a phone notification), a launcher shortcut, or a chats widget row. */
+    private fun linkFrom(intent: Intent?): DeepLink? =
+        Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)
 }

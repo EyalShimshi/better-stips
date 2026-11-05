@@ -17,10 +17,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -54,8 +56,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -83,13 +88,16 @@ import androidx.navigation.navArgument
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.crash.CrashReporter
+import io.github.eyalshimshi.betterstips.data.StartTab
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
+import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.MyList
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
@@ -103,8 +111,10 @@ import io.github.eyalshimshi.betterstips.ui.penpals.PenPalsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
 import io.github.eyalshimshi.betterstips.ui.question.QuestionScreen
 import io.github.eyalshimshi.betterstips.ui.settings.NetLogScreen
+import io.github.eyalshimshi.betterstips.ui.settings.SettingsPage
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsScreen
 import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
+import io.github.eyalshimshi.betterstips.ui.signin.WelcomeScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
 import io.github.eyalshimshi.betterstips.util.DeepLink
@@ -114,6 +124,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.util.Locale
 
 object Routes {
@@ -127,6 +138,7 @@ object Routes {
     const val SAVED = "saved"
     const val SIGN_IN = "signin"
     const val SETTINGS = "settings"
+    const val SETTINGS_PAGE = "settings/{page}"
     const val USER = "user/{id}"
     const val NOTIFICATIONS = "notifications"
     const val HOT = "hot"
@@ -140,6 +152,15 @@ object Routes {
     fun myList(kind: MyList) = "mylist/" + kind.name
     fun user(id: Long) = "user/$id"
     fun ask(channelId: Int?) = if (channelId != null) "ask?channel=$channelId" else "ask"
+    fun settingsPage(page: SettingsPage) = "settings/" + page.route
+
+    /** The tab the app opens on (#8). */
+    fun tab(start: StartTab) = when (start) {
+        StartTab.Home -> HOME
+        StartTab.PenPals -> PENPALS
+        StartTab.Chats -> CHATS
+        StartTab.Profile -> PROFILE
+    }
 }
 
 private data class Tab(val route: String, val label: Int, val icon: ImageVector, val selectedIcon: ImageVector)
@@ -170,9 +191,38 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     var counts by remember { mutableStateOf(UnreadCounts()) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // The first launch after installing asks to sign in or go on as a guest (#8). Links and shortcuts skip it.
+    var welcome by rememberSaveable {
+        mutableStateOf(
+            !container.settings.settings.value.onboarded && !container.session.session.value.signedIn &&
+                pendingLink == null && isFreshInstall(context),
+        )
+    }
+    fun finishWelcome() {
+        welcome = false
+        container.settings.update { it.copy(onboarded = true) }
+    }
+    LaunchedEffect(signedIn) {
+        if (signedIn && welcome) finishWelcome()
+    }
+
+    // "Count the seconds" (#8): times under an hour tick every second while the app is on screen.
+    val liveTimes = LocalAppSettings.current.liveTimes
+    val now by produceState<Instant?>(initialValue = null, liveTimes, lifecycleOwner) {
+        value = null
+        if (!liveTimes) return@produceState
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                value = ServerClock.now()
+                delay(1_000L - System.currentTimeMillis() % 1_000L)
+            }
+        }
+    }
+
     val currentOnLinkHandled by rememberUpdatedState(onLinkHandled)
     LaunchedEffect(pendingLink) {
         val link = pendingLink ?: return@LaunchedEffect
+        welcome = false
         openLink(navController, link)
         currentOnLinkHandled()
     }
@@ -220,31 +270,52 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         LocalUriHandler provides uriHandler,
         LocalOpenProfile provides openProfile,
         LocalUnreadCounts provides counts,
+        LocalNow provides now,
     ) {
-        Scaffold(
-            bottomBar = {
-                Column {
-                    RateLimitBanner()
-                    AnimatedVisibility(
-                        visible = showBar,
-                        enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
-                        exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
-                    ) {
-                        BottomBar(navController, route, counts)
+        Box(Modifier.fillMaxSize()) {
+            Scaffold(
+                // Under the welcome screen the app stays ready (links may open into it) but hidden from TalkBack.
+                modifier = if (welcome) Modifier.clearAndSetSemantics { } else Modifier,
+                bottomBar = {
+                    Column {
+                        RateLimitBanner()
+                        AnimatedVisibility(
+                            visible = showBar,
+                            enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
+                            exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
+                        ) {
+                            BottomBar(navController, route, counts)
+                        }
                     }
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbar) },
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        ) { padding ->
-            AppNavHost(
-                navController,
-                Modifier.padding(padding),
-                onNotificationsSeen = { counts = counts.copy(notifications = 0) },
-            )
+                },
+                snackbarHost = { SnackbarHost(snackbar) },
+                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            ) { padding ->
+                AppNavHost(
+                    navController,
+                    Modifier.padding(padding),
+                    onNotificationsSeen = { counts = counts.copy(notifications = 0) },
+                )
+            }
+            AnimatedVisibility(
+                visible = welcome,
+                enter = EnterTransition.None,
+                exit = if (animate) fadeOut() else ExitTransition.None,
+            ) {
+                WelcomeScreen(onGuest = ::finishWelcome)
+            }
         }
     }
     CrashDialog()
+}
+
+/** Whether this is the version first installed (not an update): only then does the welcome screen show. */
+@Suppress("DEPRECATION")
+private fun isFreshInstall(context: Context): Boolean = try {
+    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+    info.firstInstallTime == info.lastUpdateTime
+} catch (e: Exception) {
+    false
 }
 
 private suspend fun fetchCounts(container: AppContainer): UnreadCounts? = try {
@@ -260,6 +331,7 @@ private fun openLink(navController: NavHostController, link: DeepLink) {
         is DeepLink.Question -> navController.navigate(Routes.question(link.id))
         is DeepLink.Profile -> navController.navigate(Routes.user(link.id))
         DeepLink.Messages -> navigateToTab(navController, Routes.CHATS)
+        is DeepLink.Conversation -> navController.navigate(Routes.conversation(link.userId, link.name))
         DeepLink.Hot -> navController.navigate(Routes.HOT) { launchSingleTop = true }
     }
 }
@@ -409,9 +481,12 @@ private class NavMotion(private val animate: Boolean) {
 @Composable
 private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit) {
     val animate = LocalAppSettings.current.animations
-    val session by LocalAppContainer.current.session.session.collectAsStateWithLifecycle()
+    val container = LocalAppContainer.current
+    val session by container.session.session.collectAsStateWithLifecycle()
     val signedIn = session.signedIn
     val motion = remember(animate) { NavMotion(animate) }
+    // The start tab is read once, so changing it in Settings applies the next time the app opens (#8).
+    val startRoute = rememberSaveable { Routes.tab(container.settings.settings.value.startTab) }
     fun openQuestion(id: Long) = navController.navigate(Routes.question(id))
     fun openTopic(name: String) = navController.navigate(Routes.topic(name))
     fun openUser(id: Long) = navController.navigate(Routes.user(id))
@@ -426,7 +501,7 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
 
     NavHost(
         navController = navController,
-        startDestination = Routes.HOME,
+        startDestination = startRoute,
         modifier = modifier,
         enterTransition = motion.enter,
         exitTransition = motion.exit,
@@ -546,9 +621,22 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(
+                page = null,
                 onBack = ::back,
+                onOpenPage = { page -> navController.navigate(Routes.settingsPage(page)) { launchSingleTop = true } },
                 onOpenMyProfile = { navigateToTab(navController, Routes.PROFILE) },
                 onOpenNetLog = { navController.navigate(Routes.NETLOG) { launchSingleTop = true } },
+                onSignIn = ::signIn,
+            )
+        }
+        composable(Routes.SETTINGS_PAGE, arguments = listOf(navArgument("page") { type = NavType.StringType })) { entry ->
+            SettingsScreen(
+                page = SettingsPage.of(entry.arguments?.getString("page")),
+                onBack = ::back,
+                onOpenPage = { page -> navController.navigate(Routes.settingsPage(page)) { launchSingleTop = true } },
+                onOpenMyProfile = { navigateToTab(navController, Routes.PROFILE) },
+                onOpenNetLog = { navController.navigate(Routes.NETLOG) { launchSingleTop = true } },
+                onSignIn = ::signIn,
             )
         }
         composable(Routes.NETLOG) {

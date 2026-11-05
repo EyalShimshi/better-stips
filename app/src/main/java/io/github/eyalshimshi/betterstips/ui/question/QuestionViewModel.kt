@@ -30,6 +30,8 @@ data class QuestionUiState(
     val question: Question? = null,
     val answers: List<Answer> = emptyList(),
     val loading: Boolean = true,
+    /** Pull to refresh is running (#8). */
+    val refreshing: Boolean = false,
     val error: ApiException? = null,
     val answersError: ApiException? = null,
     val loadedInMs: Long? = null,
@@ -86,12 +88,20 @@ class QuestionViewModel(
         load()
     }
 
-    fun load() {
+    /** Pull to refresh (#8): the question and its answers straight from Stips, never the copy from a list. */
+    fun refresh() {
+        if (_state.value.refreshing) return
+        load(fromList = false)
+    }
+
+    fun load() = load(fromList = true)
+
+    private fun load(fromList: Boolean) {
         viewModelScope.launch {
             val started = System.nanoTime()
-            _state.update { it.copy(loading = true, error = null, answersError = null) }
+            _state.update { it.copy(loading = true, refreshing = !fromList, error = null, answersError = null) }
             // A copy from a list shown in the last 3 minutes saves a request (#5).
-            val recent = repository.recentQuestion(questionId, RECENT_MS)
+            val recent = if (fromList) repository.recentQuestion(questionId, RECENT_MS) else null
             val question = async { if (recent != null) Result.success(recent) else attempt { repository.question(questionId) } }
             val answers = async { attempt { repository.answers(questionId) } }
             val following = async { if (session.session.value.signedIn) attempt { repository.isFollowing(questionId) } else null }
@@ -112,6 +122,7 @@ class QuestionViewModel(
                     answers = answers,
                     answersError = a.exceptionOrNull()?.asApiException(),
                     loading = false,
+                    refreshing = false,
                     loadedInMs = if (q.isSuccess) elapsed else s.loadedInMs,
                     anonymous = s.anonymous || (!anonymousTouched && answeredAnonymously(answers)),
                 )

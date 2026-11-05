@@ -11,7 +11,19 @@ data class Author(
     val photoStamp: String?,
     val anonymous: Boolean,
     val online: Boolean,
+    /** Stips' branding for a special account (`specialConfig.itemSpecialRankBranding`, e.g. `RANK_NET_KNIGHT`). */
+    val branding: String? = null,
+    /** Stips colors this account's name (`specialConfig.itemNicknameSpecialRankColor`). */
+    val highlightName: Boolean = false,
+    /** Stips' own system account, "מערכת סטיפס" (`isPlatfromAdmin`, spelled so by Stips). */
+    val platform: Boolean = false,
 ) {
+    /** An organization working inside Stips, by Stips' branding or by [Organizations] (#8). */
+    val organization: Boolean get() = !anonymous && (branding != null || Organizations.isKnown(userId))
+
+    /** Gets the verified mark: an organization, or Stips itself. */
+    val verified: Boolean get() = platform || organization
+
     /** The cropped square photo: `t` is 50 px, `a` 200 px (measured). */
     fun avatarUrl(large: Boolean = false): String? {
         if (anonymous || userId == null || photoStamp.isNullOrBlank()) return null
@@ -24,6 +36,17 @@ data class Author(
         if (anonymous || userId == null || photoStamp.isNullOrBlank()) return null
         return "$CDN_URL/photos/user_profile/l/$userId/$photoStamp.jpg"
     }
+}
+
+/**
+ * Organizations that answer on Stips (#8). Stips brands some of them itself (`specialConfig`, for example Net Knights);
+ * others, such as Sahar's volunteers, get no flag from Stips, so they're listed here by account.
+ */
+object Organizations {
+    /** Sahar's volunteers (emotional support online) and the Net Knights (online safety), as the owner named them. */
+    val KNOWN_USER_IDS: Set<Long> = setOf(10486L, 253000L)
+
+    fun isKnown(userId: Long?): Boolean = userId != null && userId in KNOWN_USER_IDS
 }
 
 sealed interface Cover {
@@ -83,6 +106,8 @@ data class Question(
     val canReport: Boolean = false,
     /** Whether the signed-in user pinned it (`user_pinned == 1`). */
     val userPinned: Boolean = false,
+    /** The item as Stips sent it (compact JSON), for expert mode (#8). */
+    val raw: String? = null,
 ) {
     val shareUrl: String get() = "$SITE_URL/ask/$id"
 }
@@ -109,6 +134,8 @@ data class Answer(
     val canReport: Boolean = false,
     /** The asker's own reply on their question (it can't get a flower). */
     val byAsker: Boolean = false,
+    /** The item as Stips sent it (compact JSON), for expert mode (#8). */
+    val raw: String? = null,
 )
 
 data class Channel(
@@ -131,8 +158,26 @@ data class UserProfile(
     val female: Boolean,
     val photoStamp: String?,
     val online: Boolean = false,
+    /** As on [Author]: Stips' branding and colored name for special accounts, and its own system account. */
+    val branding: String? = null,
+    val highlightName: Boolean = false,
+    val platform: Boolean = false,
+    /** The colors of the header background Stips gives some special accounts (`specialConfig.profileBackground`). */
+    val background: List<Int> = emptyList(),
+    /** The user object as Stips sent it (compact JSON), for expert mode (#8). */
+    val raw: String? = null,
 ) {
-    val avatar: Author get() = Author(nickname, userId, photoStamp, anonymous = false, online = online)
+    val avatar: Author
+        get() = Author(
+            nickname,
+            userId,
+            photoStamp,
+            anonymous = false,
+            online = online,
+            branding = branding,
+            highlightName = highlightName,
+            platform = platform,
+        )
 }
 
 /** `profile.page_data`: what a profile page shows besides the user object. */
@@ -146,7 +191,20 @@ data class ProfilePage(
     val badges: List<String>,
     val bio: String?,
     val bioEditable: Boolean,
+    /** Labels of `custom_rank` badges, which Stips names per account (e.g. "מגן מקוון"). */
+    val customBadges: List<String> = emptyList(),
+    /** The account asks Stips to hide its age, or its counts (`hideAge`, `hideStats`); the site hides them. */
+    val hideAge: Boolean = false,
+    val hideStats: Boolean = false,
+    /** The page data as Stips sent it (compact JSON), for expert mode (#8). */
+    val raw: String? = null,
 )
+
+/**
+ * A section of the website's home feed (`feed.get`, #8): a heading and some of today's questions. A `topic` section's
+ * heading is the topic's name and opens it ([topic]); an `itemList` section has a plain title.
+ */
+data class HomeSection(val title: String, val questions: List<Question>, val topic: String? = null)
 
 enum class ChartAction(val apiName: String) { Answers("ans"), Questions("ask"), Flowers("flowers") }
 

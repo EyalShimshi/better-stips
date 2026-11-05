@@ -40,6 +40,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | v0.6 | The "Hot right now" home-screen widget (F-42) |
 | v0.7 | Issue #6: live chats: online dots, a top bar with the other person, new messages every 3 s, compact bubbles with times on tap, history that loads by itself down to a summary card (F-12, F-43) |
 | v0.8 | Issue #7: the launch crash since v0.6 fixed, and every release opened on an emulator before it's published; report and block in chats, a ↓ button for new messages (F-12), launcher shortcuts (F-44) |
+| v0.9 | Issue #8: Home layouts and options, refresh by hand, a welcome screen, expert mode, the asker's label, verified accounts, seconds, settings in pages (F-45–F-49); the chats widget (F-50) |
 | Later | Per-app language, pinned shortcuts for single questions and chats |
 | Public | Only after Stips' written permission (D-02) |
 
@@ -91,6 +92,12 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-42 | Home-screen widget | P2 | "Hot right now" lists up to 10 hot questions (rank, title, answers and pins) in the wallpaper's colors (Android 12+) or the app's accent, with the system's corner radius. Tapping a question opens it in the app, the title opens the app, ⟳ refreshes. It shows the list the app last loaded, and by itself asks Stips at most every 30 minutes (Android wakes it hourly), within the request budget. Settings → Updates → Home-screen widget asks the launcher to place it |
 | F-43 | Live chats (#6) | P1 | The chat's top bar shows the other person's photo, name and online status, and opens their profile. An open chat checks for new messages every 3 s; the unread badges every 10 s while the app is open; the chats list updates when they change. Every visit starts with all bubble times folded. An opened notification stops being highlighted at once |
 | F-44 | Launcher shortcuts | P2 | Touching and holding the app icon offers *Hot* (the full hot list) and *Chats*; each opens its screen, also from a cold start and when pinned to the home screen |
+| F-45 | Home your way (#8) | P1 | Three layouts: *Hot, then new* (the default), *Like the website* (hot cards, then today's questions by topic; a topic's heading opens it) and *New only*; 3, 5 or 10 hot cards from now, today or this week; channel chips on or off; the tab the app opens on; the order of a question's answers. A ⟳ beside "New questions" while Live is off; pull to refresh on a question |
+| F-46 | Welcome (#8) | P1 | The first launch after installing offers sign-in or *Continue as a guest*; updates, links and shortcuts skip it |
+| F-47 | Expert mode (#8) | P2 | Off: no network log or load times. On: Diagnostics, load times, ids, and *Server details* (the fields read and Stips' JSON, copyable) on questions, answers and profiles |
+| F-48 | Who's who (#8) | P1 | "שואל השאלה" / "שואלת השאלה" on the asker's answers, also anonymous ones; a blue check and outline for organizations and Stips' own account; Stips' highlighted names, profile backgrounds and custom badges; age and numbers hidden where Stips hides them |
+| F-49 | Exact times (#8) | P2 | Under an hour, times show seconds, corrected to Stips' clock; *Count the seconds* makes them tick |
+| F-50 | Chats widget | P2 | Up to 10 latest chats (name, last message, time, unread count) on the home screen; a tap opens the chat. It follows the unread count and the Chats screen; its copy stays on the phone |
 
 ## 7. Non-functional requirements
 
@@ -103,7 +110,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Security | HTTPS only; session token in app-private storage, excluded from backups |
 | Accessibility | 48 dp targets, labels on icon buttons, 200% text, TalkBack reads rows as one sentence |
 | Locale | Hebrew (RTL) and English; content direction follows the text |
-| Respect | User-initiated requests, plus small checks while the app is open (unread counts every 10 s; new messages every 3 s in an open chat) and three opt-in ones (Live, phone notifications, the widget; SPEC D-24…D-26, D-51, D-53); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
+| Respect | User-initiated requests, plus small checks while the app is open (unread counts every 10 s; new messages every 3 s in an open chat) and four opt-in ones (Live, phone notifications, the two widgets; SPEC D-24…D-26, D-51, D-53, D-67); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
 
 ## 8. Backlog (beyond v0.2)
 

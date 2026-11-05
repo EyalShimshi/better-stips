@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -41,12 +42,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,12 +94,14 @@ import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.AppSettings
+import io.github.eyalshimshi.betterstips.data.HomeLayout
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
+import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
@@ -124,24 +129,22 @@ data class HotStripState(
     val error: ApiException? = null,
 )
 
-/** The top 5 hot questions shown as big cards above the New feed. */
+/** The hottest questions shown as big cards on Home; the screen shows as many as the reader chose (#8). */
 class HotStripViewModel(private val repository: StipsRepository) : ViewModel() {
     private val _state = MutableStateFlow(HotStripState())
     val state: StateFlow<HotStripState> = _state.asStateFlow()
-    private var loadedFor: String? = null
-    private var loadedOnce = false
+    private var loadedFor: FeedQuery? = null
     private var job: Job? = null
 
-    fun load(channelName: String?, force: Boolean = false) {
-        if (!force && loadedOnce && loadedFor == channelName) return
-        loadedFor = channelName
-        loadedOnce = true
+    fun load(channelName: String?, window: HotWindow, force: Boolean = false) {
+        val query = FeedQuery(sort = FeedSort.Hot, window = window, channelName = channelName).normalized()
+        if (!force && loadedFor == query) return
+        loadedFor = query
         job?.cancel()
         job = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             try {
-                val query = FeedQuery(sort = FeedSort.Hot, channelName = channelName).normalized()
-                val list = repository.feedPage(query, 1).take(5)
+                val list = repository.feedPage(query, 1)
                 _state.value = HotStripState(items = list, loading = false)
             } catch (e: CancellationException) {
                 throw e
@@ -162,25 +165,46 @@ fun HomeScreen(
     onOpenProfile: (Long) -> Unit,
 ) {
     val container = LocalAppContainer.current
-    val feedVm = appViewModel { FeedViewModel(it.repository, FeedQuery(), useCache = true) }
+    // The New list waits until it's shown, so the website-like layout doesn't spend a request on it (#8).
+    val feedVm = appViewModel { FeedViewModel(it.repository, FeedQuery(), useCache = true, autoLoad = false) }
     val hotVm = appViewModel { HotStripViewModel(it.repository) }
+    val sectionsVm = appViewModel { HomeSectionsViewModel(it.repository, it.session) }
     val state by feedVm.state.collectAsStateWithLifecycle()
     val query by feedVm.query.collectAsStateWithLifecycle()
     val hot by hotVm.state.collectAsStateWithLifecycle()
+    val sections by sectionsVm.state.collectAsStateWithLifecycle()
     val channels by container.channels.channels.collectAsStateWithLifecycle()
     val settings = LocalAppSettings.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(query.channelName) { hotVm.load(query.channelName) }
+    // Home's layout (#8). Picking a channel in the website-like layout shows that channel's hot and new questions.
+    val layout = settings.homeLayout
+    val showsSections = layout == HomeLayout.LikeWebsite && query.channelName == null
+    val showsHot = layout != HomeLayout.NewOnly
+    val showsNew = !showsSections
+    fun loadsNew(next: FeedQuery) = !(layout == HomeLayout.LikeWebsite && next.channelName == null)
+
+    LaunchedEffect(showsNew) { if (showsNew) feedVm.ensureLoaded() }
+    LaunchedEffect(showsSections) { if (showsSections) sectionsVm.ensureLoaded() }
+    LaunchedEffect(query.channelName, showsHot, settings.hotWindow) {
+        if (showsHot) hotVm.load(query.channelName, settings.hotWindow)
+    }
+    // With the chips hidden there's no way to leave a channel, so hiding them goes back to all of Stips.
+    LaunchedEffect(settings.showChannelChips) {
+        if (!settings.showChannelChips && query.channelName != null) {
+            val all = query.copy(channelName = null)
+            feedVm.setQuery(all, loadNow = loadsNew(all))
+        }
+    }
     var liveSheet by rememberSaveable { mutableStateOf(false) }
     var anonymousDialog by rememberSaveable { mutableStateOf(false) }
 
     // Live: while Home is on screen, new questions slide in on top at the chosen rate (5–30 s). Failures slow it
     // down, and it skips its turn when the request budget is low or Stips paused the phone (#3, #4, #5).
-    LaunchedEffect(settings.autoRefreshNew, settings.liveIntervalSeconds, query) {
-        if (!settings.autoRefreshNew) return@LaunchedEffect
+    LaunchedEffect(settings.autoRefreshNew, settings.liveIntervalSeconds, query, showsNew) {
+        if (!settings.autoRefreshNew || !showsNew) return@LaunchedEffect
         val seconds = settings.liveIntervalSeconds
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             var misses = 0
@@ -217,20 +241,8 @@ fun HomeScreen(
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
-        QuestionList(
-            state = state,
-            channels = channels,
-            emptyTitle = stringResource(R.string.empty_feed),
-            onOpen = { onOpenQuestion(it.id) },
-            onRefresh = {
-                feedVm.refresh()
-                hotVm.load(query.channelName, force = true)
-            },
-            onLoadMore = { feedVm.loadMore() },
-            onRetry = { feedVm.retry() },
-            modifier = Modifier.padding(padding),
-            listState = listState,
-            header = {
+        val header: LazyListScope.() -> Unit = {
+            if (settings.showChannelChips) {
                 item(key = "channels") {
                     FeedFilters(
                         query,
@@ -238,30 +250,71 @@ fun HomeScreen(
                         showChannels = true,
                         showSort = false,
                         onChange = {
-                            feedVm.setQuery(it)
+                            feedVm.setQuery(it, loadNow = loadsNew(it))
                             scope.launch { listState.scrollToItem(0) }
                         },
                     )
                 }
+            }
+            if (showsHot) {
                 item(key = "hot") {
                     HotSection(
                         state = hot,
+                        count = settings.hotCount,
+                        window = FeedQuery(sort = FeedSort.Hot, window = settings.hotWindow, channelName = query.channelName).normalized().window,
                         channels = channels,
                         onOpen = { onOpenQuestion(it.id) },
                         onSeeAll = onOpenHot,
-                        onRetry = { hotVm.load(query.channelName, force = true) },
+                        onRetry = { hotVm.load(query.channelName, settings.hotWindow, force = true) },
                     )
                 }
+            }
+            if (showsNew) {
                 item(key = "new-header") {
                     NewHeader(
                         live = settings.autoRefreshNew,
                         seconds = settings.liveIntervalSeconds,
+                        refreshing = state.refreshing,
+                        onRefresh = { feedVm.refresh() },
                         onToggleLive = { container.settings.update { s -> s.copy(autoRefreshNew = !s.autoRefreshNew) } },
                         onLiveOptions = { liveSheet = true },
                     )
                 }
-            },
-        )
+            }
+        }
+        if (showsSections) {
+            HomeSectionsList(
+                state = sections,
+                channels = channels,
+                onOpen = { onOpenQuestion(it.id) },
+                onOpenTopic = onOpenTopic,
+                onRefresh = {
+                    sectionsVm.refresh()
+                    if (showsHot) hotVm.load(query.channelName, settings.hotWindow, force = true)
+                },
+                onLoadMore = { sectionsVm.loadMore() },
+                onRetry = { sectionsVm.retry() },
+                listState = listState,
+                modifier = Modifier.padding(padding),
+                header = header,
+            )
+        } else {
+            QuestionList(
+                state = state,
+                channels = channels,
+                emptyTitle = stringResource(R.string.empty_feed),
+                onOpen = { onOpenQuestion(it.id) },
+                onRefresh = {
+                    feedVm.refresh()
+                    if (showsHot) hotVm.load(query.channelName, settings.hotWindow, force = true)
+                },
+                onLoadMore = { feedVm.loadMore() },
+                onRetry = { feedVm.retry() },
+                modifier = Modifier.padding(padding),
+                listState = listState,
+                header = header,
+            )
+        }
     }
     if (liveSheet) {
         LiveSheet(settings = settings, onChange = { container.settings.update(it) }, onDismiss = { liveSheet = false })
@@ -293,11 +346,22 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun HotSection(
     state: HotStripState,
+    count: Int,
+    window: HotWindow,
     channels: List<Channel>,
     onOpen: (Question) -> Unit,
     onSeeAll: () -> Unit,
     onRetry: () -> Unit,
 ) {
+    val shown = state.items.take(count)
+    val title = stringResource(
+        when (window) {
+            HotWindow.Now -> R.string.hot_now
+            HotWindow.Today -> R.string.hot_today
+            HotWindow.Week -> R.string.hot_week
+            HotWindow.Month -> R.string.hot_month
+        },
+    )
     Column(Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -305,7 +369,7 @@ private fun HotSection(
                 .padding(start = 16.dp, end = 8.dp, top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SectionTitle(stringResource(R.string.hot_now), Modifier.weight(1f))
+            SectionTitle(title, Modifier.weight(1f))
             TextButton(onClick = onSeeAll) { Text(stringResource(R.string.see_all)) }
         }
         val error = state.error
@@ -335,7 +399,7 @@ private fun HotSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    itemsIndexed(state.items, key = { _, question -> question.id }) { index, question ->
+                    itemsIndexed(shown, key = { _, question -> question.id }) { index, question ->
                         HotCard(
                             question = question,
                             rank = index + 1,
@@ -423,9 +487,19 @@ private fun HotCard(question: Question, rank: Int, seed: Int?, onClick: () -> Un
     }
 }
 
-/** "New questions" and the Live chip: tap turns Live on or off, long-press sets how often it checks. */
+/**
+ * "New questions", a small refresh button while Live is off (#8), and the Live chip: tap turns Live on or off,
+ * long-press sets how often it checks.
+ */
 @Composable
-private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onLiveOptions: () -> Unit) {
+private fun NewHeader(
+    live: Boolean,
+    seconds: Int,
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    onToggleLive: () -> Unit,
+    onLiveOptions: () -> Unit,
+) {
     val haptics = LocalHapticFeedback.current
     Row(
         Modifier
@@ -433,7 +507,24 @@ private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onL
             .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f))
+        SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f, fill = false))
+        if (!live) {
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                if (refreshing) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh_new),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.weight(1f))
         val label = if (live) stringResource(R.string.live_with_rate, seconds) else stringResource(R.string.live)
         val optionsLabel = stringResource(R.string.live_options)
         Surface(

@@ -5,7 +5,7 @@
 ## Release flow
 
 1. Push to `main` (the agent does it, or you push from your editor).
-2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles and signs the APK, checks it ([tools/check_apk.py](tools/check_apk.py)), runs the unit tests, then opens it on an Android 15 emulator ([tools/launch_test.sh](tools/launch_test.sh)): over the newest earlier release that opens, as a fresh install, a second time, and from each launcher shortcut. Only then does it publish a pre-release `build-<run>` with `stipsplus-<run>.apk`. The release notes are [RELEASE-NOTES.md](RELEASE-NOTES.md) (update it every round) followed by the launch test's results.
+2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles and signs the APK, checks it ([tools/check_apk.py](tools/check_apk.py)), runs the unit tests, then opens it on an Android 15 emulator ([tools/launch_test.sh](tools/launch_test.sh)): over the newest earlier release that opens, as a fresh install (which must show the welcome screen), a second time, and from each launcher shortcut. Only then does it publish a pre-release `build-<run>` with `stipsplus-<run>.apk`. The release notes are [RELEASE-NOTES.md](RELEASE-NOTES.md) (update it every round) followed by the launch test's results.
 3. A build takes about 15 minutes of your monthly Actions minutes (GitHub Free includes 2,000 a month for private repos): about 5 to build and test, 10 on the emulator.
 4. Errors appear in a box on the run's **Summary** page, and in `status.md` on the `ci-status` branch. A failed launch test lists each step's verdict and the crash's stack trace; screenshots, logcats and the screen's text are in the run's `launch-test` artifact.
 5. A red build is fixed before any new work. No pre-release is published for it.
@@ -74,7 +74,7 @@ $p = [uri]::EscapeDataString('{"userid":275580,"action":"ans"}')
 
 ## When Stips stops answering (issue #3)
 
-The app keeps a network log: Settings → Diagnostics → Network log (Copy, Share, or Report on GitHub, which copies it for pasting). Each line is one request or event:
+The app keeps a network log: Settings → Diagnostics → Network log (Diagnostics appears once expert mode is on, at the bottom of Settings; Copy, Share, or Report on GitHub, which copies it for pasting). Each line is one request or event:
 
 ```
 10:01:02.345  http     objectlist -> 200 | h2 reused #1a2b 104.26.13.211 | 312 ms | 9 KB | ray=… cache=DYNAMIC
@@ -109,9 +109,19 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 
 ## Phone notifications
 
-- Off by default. When turned on (Settings → Updates, or the card on the notifications screen), `Notifier.schedule` registers job **4201** with Android's JobScheduler: every 15 minutes, any network, kept across reboots. Turning it off cancels the job and forgets what was seen.
+- Off by default. When turned on (Settings → Notifications and widgets, or the card on the notifications screen), `Notifier.schedule` registers job **4201** with Android's JobScheduler: every 15 minutes, any network, kept across reboots. Turning it off cancels the job and forgets what was seen.
 - Each run asks `messages.count`; only when notifications are waiting does it read `notifications.list` (Stips then treats them as seen, as when the bell is opened on the site).
 - Debug on a connected phone: `adb shell cmd jobscheduler run -f io.github.eyalshimshi.betterstips 4201` runs it now; `adb shell dumpsys jobscheduler | Select-String betterstips` shows when it last ran.
+
+## Widgets
+
+- Two Glance widgets: "Hot right now" (`HotWidget`, `HotWidgetFeed`) and Chats (`ChatsWidget`, `ChatsWidgetFeed`). Each feed listens to the repository (`onFirstPage`, `onConversations`, `onUnreadCounts`), so lists that screens load anyway reach the widgets at no cost.
+- The chats widget asks Stips only while it's placed (`AppWidgetManager.getAppWidgetIds`), when the unread count changes, hourly when stale, or on ⟳. Its copy (`files/chats_widget.json`) holds private message previews: keep it in the backup exclusions (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`) and deleted on sign-out.
+- A widget row opens a chat through the private action `…action.CHAT` with a `stipsplus://chat/<userId>?name=` address (`Shortcuts.chatUri`); each chat's address differs so Android keeps the taps apart.
+
+## The website-like Home
+
+`feed.get` (SPEC-04 §2.11) is the site's home. If its sections stop loading, open `https://stips.co.il/` in a browser's developer tools, find the `feed.get` call and compare its parameters (`random_order_number`, `feed_type`) with `StipsRepository.homeSections`. Organizations without a Stips flag are listed in `Organizations.KNOWN_USER_IDS` (`data/model/Models.kt`).
 
 ## Data files
 

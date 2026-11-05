@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and older: back up everything except the Stips session token. -->
+<!-- Android 11 and older: back up everything except the Stips session token and the chats widget's copy of your chats. -->
 <full-backup-content>
     <exclude domain="sharedpref" path="session.xml" />
+    <exclude domain="file" path="chats_widget.json" />
 </full-backup-content>

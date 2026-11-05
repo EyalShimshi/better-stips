@@ -24,30 +24,48 @@ data class FeedUiState(
     val error: ApiException? = null,
 )
 
-/** One paged list of questions: Home, a topic, or the user's own lists. */
+/**
+ * One paged list of questions: Home, a topic, or the user's own lists. With [autoLoad] off it waits for
+ * [ensureLoaded], so Home's website-like layout doesn't spend a request on a New list it doesn't show (#8).
+ */
 class FeedViewModel(
     private val repository: StipsRepository,
     initial: FeedQuery,
     private val useCache: Boolean,
+    autoLoad: Boolean = true,
 ) : ViewModel() {
     private val _query = MutableStateFlow(initial.normalized())
     val query: StateFlow<FeedQuery> = _query.asStateFlow()
 
-    private val _state = MutableStateFlow(FeedUiState())
+    private val _state = MutableStateFlow(FeedUiState(loading = !autoLoad))
     val state: StateFlow<FeedUiState> = _state.asStateFlow()
 
     private var page = 0
     private var job: Job? = null
+    private var started = false
 
     init {
-        load(reset = true, refreshing = false, showCache = useCache)
+        if (autoLoad) load(reset = true, refreshing = false, showCache = useCache)
     }
 
-    fun setQuery(query: FeedQuery) {
+    /** Loads the list unless it already did (or is). */
+    fun ensureLoaded() {
+        if (!started) load(reset = true, refreshing = false, showCache = useCache)
+    }
+
+    /** A new query; with [loadNow] off it only waits for the next [ensureLoaded]. */
+    fun setQuery(query: FeedQuery, loadNow: Boolean = true) {
         val next = query.normalized()
         if (next == _query.value) return
         _query.value = next
-        load(reset = true, refreshing = false, showCache = useCache)
+        if (loadNow) {
+            load(reset = true, refreshing = false, showCache = useCache)
+        } else {
+            job?.cancel()
+            started = false
+            page = 0
+            _state.value = FeedUiState(loading = true)
+        }
     }
 
     fun refresh() {
@@ -90,6 +108,7 @@ class FeedViewModel(
 
     private fun load(reset: Boolean, refreshing: Boolean, showCache: Boolean) {
         job?.cancel()
+        started = true
         val query = _query.value
         job = viewModelScope.launch {
             if (reset) {

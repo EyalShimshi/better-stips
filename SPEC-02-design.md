@@ -79,8 +79,9 @@ flowchart TD
 └──────────────────────────────────────┘
 ```
 
-- Pull to refresh reloads both. The next page of New loads near the end; "That's everything" at the end.
+- Pull to refresh reloads both. The next page of New loads near the end; "That's everything" at the end. While Live is off, a small ⟳ beside "New questions" reloads just that list (v0.9).
 - **Live** (off by default, also in Settings): every 30 s while Home is on screen, new questions slide in at the top (items animate into place).
+- **Layouts (v0.9, D-59), in Settings → Home and reading:** *Hot, then new* (above, the default) · *Like the website*: the hot cards, then today's questions in sections, each under a heading with a thin rule ("#topic ›" opens the topic; a list's title is plain), loading more while scrolling, with no New list and no Live · *New only*: the chips and the New list. Also: 3, 5 or 10 hot cards; hot from now, today or this week (the title follows: "Hot today"…); the chip row on or off.
 - First launch with nothing cached: skeleton cards and rows. Later launches: the last-seen page at once.
 - Errors replace the list only when nothing is shown: "Can't reach Stips right now." + *Retry*. Otherwise a snackbar with *Retry*.
 
@@ -119,6 +120,7 @@ flowchart TD
 - Signed out, the composer is a tonal button: *Sign in to answer*; pin and updates lead to sign-in.
 - Tinted with the channel's scheme when the question has a channel.
 - Not found (`API_ERROR_EOF`): "This question was deleted or doesn't exist." + *Go back*.
+- **v0.9:** pull down to reload the question and its answers (the spinner comes down below the top bar). The asker's own answers carry a small tertiary pill, "שואל השאלה" / "שואלת השאלה", after the name. Verified accounts (organizations, Stips' own) show a blue ✓ after the name, and their answers a thin blue outline. Answers follow the chosen order (as on Stips, newest, oldest, most votes). In expert mode: an id line under the hero and under each name, *Server details* in the ⋮ menus, and the load time at the end.
 
 ### 5.3 Chats
 
@@ -196,6 +198,7 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 - Tabs: **Thanks wall** (first and default; others can write on it) · **Activity**.
 - On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (250 characters).
 - Signed out, the Profile tab is a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
+- **Special accounts (v0.9, D-64):** Stips' gradient background as a 64 dp rounded band behind the top of the photo; the name in Stips' purple when it highlights it, with a blue ✓; an *Organization* (or *Stips' own account*) pill and `custom_rank` pills first among the badges; no age pill or numbers when Stips hides them. In expert mode, "user #id" under the name and *Server details* in the top bar.
 
 ### 5.6 Sign in
 
@@ -212,9 +215,13 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 └──────────────────────────────────────┘
 ```
 
+**Welcome (v0.9, D-61):** on the first launch after installing, the same form covers the app under "Stips+" (display, primary), "Welcome" and a line about the app, with *Continue as a guest* (outlined) under *Sign in*. Either one closes it for good; updates, links and shortcuts skip it.
+
 ### 5.7 Settings
 
-Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and bio → your profile · Safe mode · Account details ↗ · Change password ↗ · Sign out) · **Updates** (Phone notifications · Live new questions, each with its data cost) · **Colors** (Dynamic color · Accent swatches · Theme System/Light/Dark · Pure black) · **Interface** (Show images · Animations) · **Performance** (recent timings) · **Stips** (Contact ↗ · Rules ↗ · About Stips ↗ · Delete account ↗) · **About** (version, license, source, report a problem, disclaimer). ↗ rows open the Stips site in the browser.
+**v0.9 (D-66):** a main page of rows with icons, each opening a page: **Account** (signed in: Profile photo and bio → your profile · Safe mode · Account details ↗ · Change password ↗ · Sign out; signed out, the row is *Sign in to Stips*) · **Home and reading** (Home's layout, radio rows · Hot questions on Home 3/5/10 · Which hot questions · Channel chips · Open the app on · Order of answers · Count the seconds) · **Appearance** (Dynamic color · Accent swatches · Theme · Pure black · Show images · Animations) · **Notifications and widgets** (Phone notifications · Live controls · "Hot right now" widget · Chats widget) · **Privacy and safety** (Anonymous mode · Hidden content) · **Stips** (Contact ↗ · Rules ↗ · About Stips ↗ · Delete account ↗) · **About** (version, source, license, report a problem, disclaimer). Then **For experts**: *Expert mode*, and with it on, **Diagnostics** (network log, recent load times). ↗ rows open the Stips site in the browser.
+
+Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and bio → your profile · Safe mode · Account details ↗ · Change password ↗ · Sign out) · **Updates** (Phone notifications · Live new questions, each with its data cost) · **Colors** (Dynamic color · Accent swatches · Theme System/Light/Dark · Pure black) · **Interface** (Show images · Animations) · **Performance** (recent timings) · **Stips** (Contact ↗ · Rules ↗ · About Stips ↗ · Delete account ↗) · **About** (version, license, source, report a problem, disclaimer).
 
 ### 5.9 Ask a question
 
@@ -272,6 +279,7 @@ Groups (DESIGN-PHILOSOPHY §8): **Stips account** (signed in: Profile photo and 
 | Notifications | Opt-in phone notifications (channel "Stips updates"), checked every ~15 minutes |
 | Photo picker | Choosing a profile photo (no storage permission) |
 | Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
+| Chats widget | v0.9, D-67: latest chats with name, last message, clock time and an unread badge (bold when unread); the title counts unread; a tap opens the chat; signed out, a line asks to sign in |
 | Launcher shortcuts | *Hot* and *Chats* (v0.8, D-57): touch and hold the icon; Material glyphs in deep Stips green on the light circle of the shortcut icon guidelines |
 
 ## 7. Localization

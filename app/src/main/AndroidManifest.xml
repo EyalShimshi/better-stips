@@ -66,5 +66,19 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/hot_widget_info" />
         </receiver>
+
+        <!-- The chats widget (#8). -->
+        <receiver
+            android:name=".widget.ChatsWidgetReceiver"
+            android:enabled="@bool/glance_appwidget_available"
+            android:exported="false"
+            android:label="@string/widget_chats_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/chats_widget_info" />
+        </receiver>
     </application>
 </manifest>

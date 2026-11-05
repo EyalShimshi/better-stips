@@ -9,6 +9,7 @@
 | M2 v0.2 | Owner feedback: hot-first Home with Live, compact question header, pins, Get updates, answer links/editing/detaching, notifications, social profiles, photo and bio, account settings, motion | Owner uses it daily instead of the official app |
 | M2.5 v0.3 | Issues #1–#4: crash and connection fixes, network log, Live rate, ask a question, pen pals, report/block, anonymous mode, flowers, thanks writing, people search | The owner uses posting and moderation daily |
 | M3 v0.4 | Widget (shipped in v0.6), shortcuts (shipped in v0.8), tablet layout, lint in CI | DESIGN-PHILOSOPHY §13 checklist passes on every screen |
+| M3.5 v0.9 | Issue #8: Home layouts and options, welcome, expert mode, who's who (asker, verified accounts), seconds, settings in pages; the chats widget | The owner sets Home the way they like it |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes

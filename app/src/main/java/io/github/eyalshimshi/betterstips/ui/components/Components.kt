@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.outlined.Schedule
@@ -58,10 +59,12 @@ import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.api.ApiException
+import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
+import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
@@ -78,6 +81,16 @@ val LocalOpenProfile = staticCompositionLocalOf<(Long) -> Unit> { {} }
 
 /** Unread chats and notifications, refreshed by AppRoot while the app is open. */
 val LocalUnreadCounts = compositionLocalOf { UnreadCounts() }
+
+/**
+ * The time "how long ago" is measured against. AppRoot ticks it every second while "Count times live" is on (#8);
+ * null means the moment the text is drawn.
+ */
+val LocalNow = compositionLocalOf<Instant?> { null }
+
+/** Now, as Stips' servers see it (a wrong phone clock is corrected, [ServerClock]). */
+@Composable
+fun currentTime(): Instant = LocalNow.current ?: ServerClock.now()
 
 /** The first letter of the first word, for monograms. */
 fun monogram(text: String): String =
@@ -169,12 +182,21 @@ fun channelLabel(channel: Channel): String {
     return if (hebrewUi) channel.name else channel.nameEn ?: channel.name
 }
 
-/** "5 min", "לפני 3 שעות", or a date. */
+/** "5 min 12 s" under an hour (#8), "לפני 3 שעות", or a date. */
 @Composable
 fun agoText(instant: Instant?): String {
     if (instant == null) return ""
     val resources = LocalContext.current.resources
-    return when (val ago = StipsTime.ago(instant, Instant.now())) {
+    val now = currentTime()
+    val recent = StipsTime.underAnHour(instant, now)
+    if (recent != null) {
+        return when {
+            recent.minutes == 0 && recent.seconds == 0 -> stringResource(R.string.time_just_now)
+            recent.minutes == 0 -> resources.getQuantityString(R.plurals.time_seconds, recent.seconds, recent.seconds)
+            else -> stringResource(R.string.time_minutes_seconds, recent.minutes, recent.seconds)
+        }
+    }
+    return when (val ago = StipsTime.ago(instant, now)) {
         StipsTime.Ago.JustNow -> stringResource(R.string.time_just_now)
         is StipsTime.Ago.Minutes -> resources.getQuantityString(R.plurals.time_minutes, ago.count.toInt(), ago.count.toInt())
         is StipsTime.Ago.Hours -> resources.getQuantityString(R.plurals.time_hours, ago.count.toInt(), ago.count.toInt())
@@ -190,23 +212,68 @@ fun answersText(count: Int): String =
 @Composable
 fun pinsText(count: Int): String = LocalContext.current.resources.getQuantityString(R.plurals.pins_count, count, count)
 
-/** An author's name that opens their profile (unless anonymous). */
+/** An author's name that opens their profile (unless anonymous), with the verified mark for organizations (#8). */
 @Composable
 fun AuthorName(author: Author, style: TextStyle, modifier: Modifier = Modifier) {
     val openProfile = LocalOpenProfile.current
     val userId = author.userId
-    Text(
-        authorName(author),
+    NameWithMark(
+        author = author,
         style = style,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
         modifier = modifier.then(
             if (userId != null && !author.anonymous) Modifier.clickable { openProfile(userId) } else Modifier,
         ),
     )
 }
+
+/** The name in Stips' special color when it gives one, then the blue check for organizations and Stips itself. */
+@Composable
+fun NameWithMark(author: Author, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            authorName(author),
+            style = style,
+            color = if (author.highlightName) specialNameColor() else color,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (author.verified) {
+            Spacer(Modifier.width(3.dp))
+            val markSize = if (style.fontSize.isSp) with(LocalDensity.current) { style.fontSize.toDp() } + 2.dp else 16.dp
+            VerifiedMark(author, markSize)
+        }
+    }
+}
+
+/** The blue check by organizations working inside Stips, and by Stips' own system account (#8). */
+@Composable
+fun VerifiedMark(author: Author, size: Dp = 16.dp) {
+    if (!author.verified) return
+    Icon(
+        Icons.Filled.Verified,
+        contentDescription = stringResource(if (author.platform) R.string.verified_stips else R.string.verified_organization),
+        tint = VerifiedBlue,
+        modifier = Modifier.size(size),
+    )
+}
+
+/** The verified mark's blue, the same in light and dark themes so it reads as the familiar check. */
+val VerifiedBlue = Color(0xFF1D9BF0)
+
+/** Stips' purple for names it highlights (the site animates them toward #9069d7), at a tone that suits the theme. */
+@Composable
+fun specialNameColor(): Color {
+    val dark = LocalIsDark.current
+    return remember(dark) {
+        val lch = ColorMath.toLch(SPECIAL_NAME_SEED)
+        Color(SchemeGenerator.TonalPalette(lch.h, minOf(lch.c, 80.0)).tone(if (dark) 78 else 42))
+    }
+}
+
+private const val SPECIAL_NAME_SEED = 0xFF9069D7.toInt()
 
 @Composable
 fun QuestionRow(question: Question, channel: Channel?, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -252,15 +319,7 @@ fun QuestionMetaRow(
             if (clickableAuthor) {
                 AuthorName(question.author, style, Modifier.weight(1f, fill = false))
             } else {
-                Text(
-                    authorName(question.author),
-                    style = style,
-                    color = color,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
+                NameWithMark(question.author, style, color, Modifier.weight(1f, fill = false))
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -284,11 +343,20 @@ private fun MetaItem(icon: ImageVector, text: String, color: Color) {
     }
 }
 
-/** "5m", "3h", "2d" (Hebrew: "5 דק׳"…), or a short date: for tight rows. */
+/** "5m", "3h", "2d" (Hebrew: "5 דק׳"…), or a short date: for tight rows. Under an hour, with seconds (#8). */
 @Composable
 fun shortAgoText(instant: Instant?): String {
     if (instant == null) return ""
-    return when (val ago = StipsTime.ago(instant, Instant.now())) {
+    val now = currentTime()
+    val recent = StipsTime.underAnHour(instant, now)
+    if (recent != null) {
+        return when {
+            recent.minutes == 0 && recent.seconds == 0 -> stringResource(R.string.time_short_now)
+            recent.minutes == 0 -> stringResource(R.string.time_short_seconds, recent.seconds)
+            else -> stringResource(R.string.time_short_minutes_seconds, recent.minutes, recent.seconds)
+        }
+    }
+    return when (val ago = StipsTime.ago(instant, now)) {
         StipsTime.Ago.JustNow -> stringResource(R.string.time_short_now)
         is StipsTime.Ago.Minutes -> stringResource(R.string.time_short_minutes, ago.count.toInt())
         is StipsTime.Ago.Hours -> stringResource(R.string.time_short_hours, ago.count.toInt())

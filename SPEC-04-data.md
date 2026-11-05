@@ -53,6 +53,7 @@
 | A channel | `objectlist` | `{"method":"ask.new","channel":"לימודים","page":1}`; hot adds `"filter_section_name":"week"` (`week` · `month`) | Same, all from that channel. **The channel is passed by its Hebrew name**, not its id |
 | A topic (tag) | `objectlist` | `{"method":"ask.new","topic":"מתמטיקה","page":1}`; hot as for channels | Same |
 | Pinned questions | `homepage.content` | — | `data.pinnedItems`: 5 questions |
+| The website's home sections | `feed.get` | `{"page":1,"random_order_number":1309,"feed_type":"userRelated","extra_time":false}` (`todayItems` when signed out, or when `userRelated` is empty) | `data.results`: sections `{elementType, name, title, items}`; about 11 on page 1. A `topic` section shows `name` and links to the topic; an `itemList` shows `title`. 1–5 questions each (§2.11) |
 | One question | `omniobj` | `rest_action=GET`, `omniobj={"objType":"ask","data":{"id":19745077}}` | `data.omniOmniObj`: one question |
 | Its answers | `objectlist` | `{"method":"ans.for_item","askid":19745077}` | `data`: all answers at once (no paging) |
 | Channels | `smartdata.get` | `{"namespace":"item","unit":"RemoteConfig"}` | `data.results.itemChannels.channels` |
@@ -176,6 +177,7 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 | `extra.flowered` | Picked as a best answer (a "flower") |
 | `extra.item_profile` | The answerer |
 | `extra.parent_item_title` | The question's title (in lists of a user's answers) |
+| `extra.parentItemCreatorResponse` | The asker wrote this answer; the site labels it "שואל השאלה:" ("שואלת השאלה:" when the nickname is "אנונימית") |
 | `meta.permissions.edit`, `meta.permissions.itemOwner` | The signed-in user may edit it (time-limited) / wrote it |
 
 ### 2.6 Images
@@ -214,7 +216,7 @@ The snapshot, with every channel's full gradient, ships as `app/src/main/assets/
 
 Browsing 100 questions with thumbnails costs roughly 0.5–1 MB; opening questions with large covers adds about 50 KB each.
 
-Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB every 10 s while the app is open (≈0.3 MB an hour at most). **An open chat** asks for new messages every 3 s (under 1 KB when nothing is new, ≈1 MB an hour) and for the other person's profile once a minute, only while it's on screen. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day. **The widget** asks for the first Hot page (≈9 KB) only when Android wakes it (hourly) and its copy is over 30 minutes old: at most 24 a day, ≈0.2 MB; nothing when the app loaded that list recently.
+Background costs (all opt-in or only while the app is open): **Live** reloads the first New page every 30 s by default (5 s at the fastest, ≈6.7 MB an hour) while Home is on screen, ≈120 × 9.5 KB ≈ 1.1 MB an hour. **Unread counts** cost under 1 KB every 10 s while the app is open (≈0.3 MB an hour at most). **An open chat** asks for new messages every 3 s (under 1 KB when nothing is new, ≈1 MB an hour) and for the other person's profile once a minute, only while it's on screen. **Phone notifications** cost ≈96 small checks a day, plus a list (a few KB) only when something is new: well under 1 MB a day. **The widget** asks for the first Hot page (≈9 KB) only when Android wakes it (hourly) and its copy is over 30 minutes old: at most 24 a day, ≈0.2 MB; nothing when the app loaded that list recently. **The chats widget**, while it's on the home screen, asks for the first page of chats (a few KB) when the unread count changes, or hourly when its copy is over 30 minutes old; nothing when the Chats screen loaded the list. **Counting the seconds** costs nothing.
 
 ### 2.10 Request limit (`IP_RATE_LIMIT`, #5)
 
@@ -236,6 +238,14 @@ Background costs (all opt-in or only while the app is open): **Live** reloads th
 - **Stips+ 0.5 sends the site's Referer** (D-49) with its honest User-Agent, and paces itself near the official app (40 at once, then 30 a minute: at most 190 in any 5 minutes, D-46).
 - **The site's profile graph** loads only the selected action (`ask`, `ans` or `flowers`) and reloads when the selection changes.
 - **Open:** whether calls with the Referer have a limit of their own (none seen up to 245 in 4½ minutes), the exact window for calls without it, and the refusal's full length. The probe workflow re-measures all three (MAINTAINING.md).
+
+### 2.11 Home sections, special accounts and the server's clock (#8, measured 2026-11)
+
+- **`feed.get`** is the website's home below its five hot questions. `random_order_number` is computed by the page from the local (Israel) time: 1000 × the weekday (Sunday 0) + 100 × the hour + the minute / 5, so the order changes every five minutes; Stips+ keeps one number for all pages of a visit. Page 2 had 26 sections. A section's `items` are ordinary question objects (`objType: "ask"`). Sections can repeat a topic; Stips+ merges them.
+- **`item_profile.specialConfig`** appears only on special accounts (absent, or an empty array, otherwise). Net Knights (user 253000): `{"profileBackground":"linear-gradient(135deg, #f64f59, #b45ae0, #109cbb)","profileLightColorNickname":true,"itemNicknameSpecialRankColor":true,"itemSpecialRankBranding":"RANK_NET_KNIGHT"}`. The site outlines `RANK_NET_KNIGHT` answers (`rgba(192,14,212,.3)`), animates highlighted nicknames between #5e5e5e and #9069d7, and sends `item.send_view` when such an answer is shown (Stips+ doesn't).
+- **`profile.page_data`** may carry `hideAge: true` and `hideStats: true` (Net Knights), and `badges` entries `{"name":"custom_rank","label":"מגן מקוון"}` whose label is shown as is. Sahar volunteers (user 10486) have only a `senior_advisor` badge, with no special flag.
+- **Stips' system account** answers as "מערכת סטיפס" with `item_profile.isPlatfromAdmin: true` (Stips' spelling) and `anonflg: true`; the site shows a system label instead of a profile link.
+- **The server's clock:** every answer from Stips carries an HTTP `Date` header (to the second). Stips+ estimates the phone's offset from it and corrects times when it's 2 s or more (D-65).
 
 ## 3. Data model (in the app)
 

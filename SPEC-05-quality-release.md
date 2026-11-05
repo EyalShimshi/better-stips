@@ -6,17 +6,18 @@
 |---|---|
 | Parsing | Recorded, anonymized fixtures in `app/src/test/resources/fixtures/`: feed, question, answers, channels config, errors, odd types (ids as strings, nulls, missing fields) |
 | API helpers | The `+` encoding; envelope errors → `ApiException` codes |
-| Time | Israel-time parsing across DST; relative formatting buckets |
+| Time | Israel-time parsing across DST; relative formatting buckets; minutes and seconds under an hour; the server-clock offset and HTTP dates (v0.9) |
 | Validation | The site's repeated-letter rule; length limits |
 | Colors | Scheme generator: tones land within ±2 of target, text/background contrast ≥ 4.5:1, grey seeds stay calm |
 | Data files | `assets/channels.json`: parses, unique ids, non-empty names, valid colors; `res/xml/shortcuts.xml` matches the actions MainActivity handles |
+| v0.9 rules (`ParsersV9Test`, `RulesV9Test`) | Special accounts (Net Knights, Sahar volunteers, the system account, anonymous answers), profile backgrounds, hidden age and numbers, custom badges; `feed.get` sections merged by heading and paged without repeats; the home feed's order number; the order of answers and the asker's label; chat links from the widget; the chats widget's list, its saved copy and clock times; expert mode's id lines and JSON |
 
 **On the built APK (CI, before every release, D-55):**
 
 | Check | What it catches |
 |---|---|
 | `tools/check_apk.py` | Reads the APK's dex files: every class that a library creates by name (Room databases, WorkManager input mergers and workers, start-up initializers, Glance action callbacks) still has the constructor it's called with. R8 removed some in builds 7–9 (#7) |
-| `tools/launch_test.sh` on an Android 15 emulator | Opens the app over the newest earlier release that opens, as a fresh install, a second time, and from each launcher shortcut (checking the screen's text). Fails on a crash, "not responding" or a process that quits; keeps screenshots, logcats and the screen's text |
+| `tools/launch_test.sh` on an Android 15 emulator | Opens the app over the newest earlier release that opens, as a fresh install (which must show the welcome screen, v0.9), a second time, and from each launcher shortcut (checking the screen's text). Fails on a crash, "not responding" or a process that quits; keeps screenshots, logcats and the screen's text |
 
 Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §11 spikes): the emulator is signed out.
 

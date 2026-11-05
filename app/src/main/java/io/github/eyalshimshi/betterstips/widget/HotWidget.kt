@@ -101,7 +101,7 @@ class RefreshHotWidget : ActionCallback {
     }
 }
 
-private fun accentColors(accent: Int) = SchemeGenerator.palettes(accent).let {
+internal fun accentColors(accent: Int) = SchemeGenerator.palettes(accent).let {
     ColorProviders(light = it.toColorScheme(dark = false), dark = it.toColorScheme(dark = true))
 }
 
@@ -135,9 +135,9 @@ private fun HotWidgetContent(state: HotWidgetFeed.State) {
     ) {
         when {
             state.items.isNotEmpty() -> QuestionList(state.items)
-            !state.loaded || state.refreshing -> Message(context.getString(R.string.widget_loading), onClick = null)
-            state.failed -> Message(context.getString(R.string.hot_failed), onClick = refresh)
-            else -> Message(context.getString(R.string.widget_empty), onClick = refresh)
+            !state.loaded || state.refreshing -> WidgetMessage(context.getString(R.string.widget_loading), onClick = null)
+            state.failed -> WidgetMessage(context.getString(R.string.hot_failed), onClick = refresh)
+            else -> WidgetMessage(context.getString(R.string.widget_empty), onClick = refresh)
         }
     }
 }
@@ -183,8 +183,9 @@ private fun QuestionRow(rank: Int, question: Question) {
     }
 }
 
+/** A line of text filling a widget: loading, empty, or a failure to tap for another try. */
 @Composable
-private fun Message(text: String, onClick: Action?) {
+internal fun WidgetMessage(text: String, onClick: Action?) {
     val base = GlanceModifier.fillMaxSize().padding(8.dp)
     Box(
         modifier = if (onClick != null) base.clickable(onClick) else base,

@@ -117,7 +117,7 @@ open_app() {
   } | tee -a "$REPORT"
 }
 
-# expect_text LABEL TEXT: the screen of step LABEL must show TEXT (checks where a shortcut landed).
+# expect_text LABEL TEXT: the screen of step LABEL must show TEXT (checks where a launch or a shortcut landed).
 expect_text() {
   local label=$1 text=$2
   if [ "$verdict" != "ok" ]; then
@@ -172,6 +172,8 @@ if ! adb install "$APK" > "$OUT/install.txt" 2>&1; then
   exit 1
 fi
 open_app fresh-install count
+# The first launch after installing asks to sign in or go on as a guest (#8).
+expect_text fresh-install "Welcome"
 adb shell am force-stop "$PKG"
 open_app second-launch count
 

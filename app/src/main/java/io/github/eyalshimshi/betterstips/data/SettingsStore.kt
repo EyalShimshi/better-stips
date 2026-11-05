@@ -1,11 +1,30 @@
 package io.github.eyalshimshi.betterstips.data
 
 import android.content.Context
+import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 enum class ThemeMode { System, Light, Dark }
+
+/** What Home shows below the channel chips (#8). */
+enum class HomeLayout {
+    /** The hottest questions as big cards, then the New feed (the default since v0.2). */
+    HotAndNew,
+
+    /** Like the website: the hottest questions, then sections of questions by topic, and no New feed. */
+    LikeWebsite,
+
+    /** Only the New feed. */
+    NewOnly,
+}
+
+/** The tab the app opens on (#8). */
+enum class StartTab { Home, PenPals, Chats, Profile }
+
+/** How a question's answers are ordered (#8). */
+enum class AnswersOrder { AsOnStips, Newest, Oldest, TopVoted }
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
@@ -22,6 +41,20 @@ data class AppSettings(
     val liveIntervalSeconds: Int = LIVE_MAX_SECONDS,
     /** Anonymous mode: answers and questions go out anonymously until this time (epoch ms); 0 is off (#4). */
     val anonymousUntil: Long = 0L,
+    /** Expert mode (#8): diagnostics, load times, and ids and server data on questions, answers and profiles. */
+    val expertMode: Boolean = false,
+    /** Times under an hour count up every second on screen, from the phone's clock (#8). */
+    val liveTimes: Boolean = false,
+    val homeLayout: HomeLayout = HomeLayout.HotAndNew,
+    /** How many hot questions Home shows: one of [HOT_COUNTS]. */
+    val hotCount: Int = 5,
+    /** The time window of Home's hot questions: one of [HOT_WINDOWS] (in a channel, Stips' own week/month apply). */
+    val hotWindow: HotWindow = HotWindow.Now,
+    val showChannelChips: Boolean = true,
+    val startTab: StartTab = StartTab.Home,
+    val answersOrder: AnswersOrder = AnswersOrder.AsOnStips,
+    /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
+    val onboarded: Boolean = false,
 ) {
     fun anonymousModeOn(now: Long = System.currentTimeMillis()): Boolean = anonymousUntil > now
 
@@ -32,6 +65,12 @@ data class AppSettings(
          */
         const val LIVE_MIN_SECONDS = 5
         const val LIVE_MAX_SECONDS = 30
+
+        /** The choices for [hotCount]. */
+        val HOT_COUNTS = listOf(3, 5, 10)
+
+        /** The choices for [hotWindow]: the windows Stips offers on its main hot list. */
+        val HOT_WINDOWS = listOf(HotWindow.Now, HotWindow.Today, HotWindow.Week)
 
         /** Anonymous mode with no end time. */
         const val ANONYMOUS_FOREVER = Long.MAX_VALUE
@@ -78,6 +117,15 @@ class SettingsStore(context: Context) {
             .putBoolean("backgroundNotifications", next.backgroundNotifications)
             .putInt("liveIntervalSeconds", next.liveIntervalSeconds)
             .putLong("anonymousUntil", next.anonymousUntil)
+            .putBoolean("expertMode", next.expertMode)
+            .putBoolean("liveTimes", next.liveTimes)
+            .putString("homeLayout", next.homeLayout.name)
+            .putInt("hotCount", next.hotCount)
+            .putString("hotWindow", next.hotWindow.name)
+            .putBoolean("showChannelChips", next.showChannelChips)
+            .putString("startTab", next.startTab.name)
+            .putString("answersOrder", next.answersOrder.name)
+            .putBoolean("onboarded", next.onboarded)
             .apply()
     }
 
@@ -95,6 +143,19 @@ class SettingsStore(context: Context) {
             liveIntervalSeconds = prefs.getInt("liveIntervalSeconds", defaults.liveIntervalSeconds)
                 .coerceIn(AppSettings.LIVE_MIN_SECONDS, AppSettings.LIVE_MAX_SECONDS),
             anonymousUntil = prefs.getLong("anonymousUntil", defaults.anonymousUntil),
+            expertMode = prefs.getBoolean("expertMode", defaults.expertMode),
+            liveTimes = prefs.getBoolean("liveTimes", defaults.liveTimes),
+            homeLayout = enumOr(prefs.getString("homeLayout", null), defaults.homeLayout),
+            hotCount = prefs.getInt("hotCount", defaults.hotCount).takeIf { it in AppSettings.HOT_COUNTS } ?: defaults.hotCount,
+            hotWindow = enumOr(prefs.getString("hotWindow", null), defaults.hotWindow).takeIf { it in AppSettings.HOT_WINDOWS }
+                ?: defaults.hotWindow,
+            showChannelChips = prefs.getBoolean("showChannelChips", defaults.showChannelChips),
+            startTab = enumOr(prefs.getString("startTab", null), defaults.startTab),
+            answersOrder = enumOr(prefs.getString("answersOrder", null), defaults.answersOrder),
+            onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
         )
     }
+
+    private inline fun <reified E : Enum<E>> enumOr(name: String?, fallback: E): E =
+        enumValues<E>().firstOrNull { it.name == name } ?: fallback
 }

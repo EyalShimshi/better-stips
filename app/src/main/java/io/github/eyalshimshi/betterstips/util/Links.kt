@@ -1,5 +1,8 @@
 package io.github.eyalshimshi.betterstips.util
 
+import java.net.URLDecoder
+import java.net.URLEncoder
+
 object Links {
     private val url = Regex("""https?://[^\s<>"'\u05f3\u05f4]+""", RegexOption.IGNORE_CASE)
     private val trailing = ".,;:!?)]}\u05be"
@@ -44,6 +47,9 @@ sealed interface DeepLink {
 
     data object Messages : DeepLink
 
+    /** One chat (the chats widget's rows, #8). */
+    data class Conversation(val userId: Long, val name: String) : DeepLink
+
     /** The full Hot list (the launcher shortcut). */
     data object Hot : DeepLink
 }
@@ -52,13 +58,29 @@ sealed interface DeepLink {
 object Shortcuts {
     const val ACTION_HOT = "io.github.eyalshimshi.betterstips.action.HOT"
     const val ACTION_CHATS = "io.github.eyalshimshi.betterstips.action.CHATS"
+
+    /** A row of the chats widget: [chatUri] says which chat. Only the app's own widget sends it. */
+    const val ACTION_CHAT = "io.github.eyalshimshi.betterstips.action.CHAT"
     const val ID_HOT = "hot"
     const val ID_CHATS = "chats"
+    private const val CHAT_PREFIX = "stipsplus://chat/"
+    private val chatLink = Regex("""^stipsplus://chat/(\d+)(?:\?name=(.*))?$""")
 
-    /** Where a shortcut's intent action leads, or null for any other intent. */
-    fun link(action: String?): DeepLink? = when (action) {
+    /** Where a shortcut's (or the chats widget's) intent leads, or null for any other intent. */
+    fun link(action: String?, data: String? = null): DeepLink? = when (action) {
         ACTION_HOT -> DeepLink.Hot
         ACTION_CHATS -> DeepLink.Messages
+        ACTION_CHAT -> chat(data) ?: DeepLink.Messages
         else -> null
+    }
+
+    /** One chat's address for [ACTION_CHAT]: a different one per chat, so Android keeps their taps apart. Pure. */
+    fun chatUri(userId: Long, name: String): String = CHAT_PREFIX + userId + "?name=" + URLEncoder.encode(name, "UTF-8")
+
+    private fun chat(data: String?): DeepLink.Conversation? {
+        val match = chatLink.matchEntire(data?.trim() ?: return null) ?: return null
+        val userId = match.groupValues[1].toLongOrNull() ?: return null
+        val name = runCatching { URLDecoder.decode(match.groupValues[2], "UTF-8") }.getOrDefault("")
+        return DeepLink.Conversation(userId, name)
     }
 }
