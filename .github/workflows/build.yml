@@ -149,6 +149,7 @@ jobs:
           name: apk
 
       # The newest earlier releases: the build is also opened over the data of the newest one that still opens.
+      # Newest by build number: the API's own order put build-9 ahead of build-11 (build 12 was tested over build 6).
       - name: Get earlier releases
         env:
           GH_TOKEN: ${{ github.token }}
@@ -156,7 +157,12 @@ jobs:
         run: |
           mv "stipsplus-$RUN_NUMBER.apk" app.apk
           old=""
-          for tag in $(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=4" --jq '.[].tag_name'); do
+          tags=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '
+            [.[] | .tag_name | select(test("^build-[0-9]+$")) | ltrimstr("build-") | tonumber
+              | select(. != (env.RUN_NUMBER | tonumber))]
+            | sort | reverse | .[:4] | .[] | "build-\(.)"')
+          echo "Earlier releases, newest first: $tags"
+          for tag in $tags; do
             if gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'stipsplus-*.apk' -O "$tag.apk"; then
               old="$old $tag.apk"
             fi
