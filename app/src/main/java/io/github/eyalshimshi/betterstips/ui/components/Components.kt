@@ -30,7 +30,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -70,6 +72,8 @@ import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.StipsTime
 import java.time.Instant
@@ -89,6 +93,29 @@ val LocalUnreadCounts = compositionLocalOf { UnreadCounts() }
  * null means the moment the text is drawn.
  */
 val LocalNow = compositionLocalOf<Instant?> { null }
+
+/** Taps on the bottom bar's tab that's already open, by its route (v0.12). Provided by AppRoot. */
+val LocalTabReselects = staticCompositionLocalOf<SharedFlow<String>> { MutableSharedFlow() }
+
+/** Farther down than this, going back to the top jumps instead of scrolling through everything. */
+private const val RESELECT_ANIMATE_LIMIT = 30
+
+/** Tapping [route]'s tab while it's open brings [listState] back to the top, as in other apps (v0.12). */
+@Composable
+fun ScrollToTopOnReselect(route: String, listState: LazyListState) {
+    val reselects = LocalTabReselects.current
+    val animate by rememberUpdatedState(LocalAppSettings.current.animations)
+    LaunchedEffect(reselects, listState, route) {
+        reselects.collect { tapped ->
+            if (tapped != route) return@collect
+            if (animate && listState.firstVisibleItemIndex <= RESELECT_ANIMATE_LIMIT) {
+                listState.animateScrollToItem(0)
+            } else {
+                listState.scrollToItem(0)
+            }
+        }
+    }
+}
 
 /** Now, as Stips' servers see it (a wrong phone clock is corrected, [ServerClock]). */
 @Composable

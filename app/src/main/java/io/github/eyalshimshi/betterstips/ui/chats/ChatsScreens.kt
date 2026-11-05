@@ -8,6 +8,12 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,12 +23,20 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.absolutePadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,11 +58,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -76,24 +93,41 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -105,6 +139,7 @@ import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
+import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.LinkifiedText
@@ -113,6 +148,8 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
+import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
+import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.authorName
@@ -120,6 +157,7 @@ import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.memberForText
 import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -127,6 +165,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlin.math.roundToInt
 
 /** How often an open chat asks for new messages (the site's own chat asks every 1.6 s). */
 private const val CHAT_POLL_MS = 3_000L
@@ -160,8 +199,17 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
     LaunchedEffect(unread, session.signedIn) {
         if (session.signedIn) vm.refreshQuietly()
     }
+    val listState = rememberLazyListState()
+    // Tapping Chats again scrolls back to the top (v0.12).
+    ScrollToTopOnReselect(Routes.CHATS, listState)
+    var dmSettings by rememberSaveable { mutableStateOf(false) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.chats_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.chats_title)) },
+                actions = { DmSettingsButton { dmSettings = true } },
+            )
+        },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         if (!session.signedIn) {
@@ -181,7 +229,7 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
             onRefresh = { vm.refresh() },
             modifier = Modifier.padding(padding),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
                 when {
                     state.loading && state.conversations.isEmpty() -> item(key = "loading") {
                         Box(
@@ -204,6 +252,15 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
                 }
             }
         }
+    }
+    if (dmSettings) ChatSettingsSheet(onDismiss = { dmSettings = false })
+}
+
+/** The way into DM settings, at the top of the chats screens (v0.12). */
+@Composable
+private fun DmSettingsButton(onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.dm_settings))
     }
 }
 
@@ -255,6 +312,29 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var reporting by rememberSaveable { mutableStateOf(false) }
     var confirmingBlock by rememberSaveable { mutableStateOf(false) }
+    var dmSettings by rememberSaveable { mutableStateOf(false) }
+    val settings = LocalAppSettings.current
+    val youText = stringResource(R.string.chat_you)
+    // Easy reply and reply quotes in chats (v0.12): carets count messages in Stips' order, oldest first.
+    val canReply = settings.chatEasyReply && !state.blocked
+    val positions = remember(state.messages) { state.messages.withIndex().associate { (i, m) -> m.id to i } }
+    var highlight by remember { mutableStateOf<ChatHighlight?>(null) }
+
+    /** Scrolls to a message a reply points at and lights it up for a moment. */
+    fun jumpTo(messageId: Long) {
+        val position = positions[messageId] ?: return
+        // The list is reversed: the newest message is item 0.
+        val item = state.messages.size - 1 - position
+        scope.launch {
+            listState.animateScrollToItem(item)
+            highlight = ChatHighlight(messageId, System.nanoTime())
+        }
+    }
+    LaunchedEffect(highlight) {
+        if (highlight == null) return@LaunchedEffect
+        delay(CHAT_HIGHLIGHT_MS + 200)
+        highlight = null
+    }
 
     LaunchedEffect(state.notice) {
         val notice = state.notice ?: return@LaunchedEffect
@@ -323,6 +403,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                 },
                 navigationIcon = { BackButton(onBack) },
                 actions = {
+                    DmSettingsButton { dmSettings = true }
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_actions))
@@ -354,11 +435,18 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
             if (state.blocked) {
                 BlockedBar(name = title, busy = state.blockBusy, onUnblock = { vm.setBlocked(false) })
             } else {
+                val replyTo = state.replyTo
                 MessageComposer(
                     draft = state.draft,
+                    draftVersion = state.draftVersion,
+                    focusComposer = state.focusComposer,
+                    replyTo = replyTo,
+                    // Their name, or null for a reply to the user's own message.
+                    replyName = if (replyTo != null && replyTo.fromUserId != null && replyTo.fromUserId == myId) null else title,
                     sending = state.sending,
                     error = state.sendError?.let { errorMessage(it) },
                     onDraft = vm::setDraft,
+                    onCancelReply = vm::cancelReply,
                     onSend = vm::send,
                 )
             }
@@ -378,12 +466,26 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
             ) {
                 itemsIndexed(newestFirst, key = { _, message -> message.id }) { index, message ->
+                    val position = positions[message.id]
+                    val reply = if (settings.chatReplyQuotes && position != null) {
+                        remember(message.text, position, settings.chatHideReplyCarets) {
+                            ReplyRefs.resolve(message.text, position, settings.chatHideReplyCarets)
+                        }
+                    } else {
+                        null
+                    }
                     Bubble(
                         message = message,
                         mine = message.fromUserId != null && message.fromUserId == myId,
                         expanded = message.id in state.expanded,
                         onClick = { vm.toggleTime(message.id) },
                         onLongClick = { copyMessage(context, message.text, copiedText) },
+                        reply = reply,
+                        messages = state.messages,
+                        authorOf = { m -> if (m.fromUserId != null && m.fromUserId == myId) youText else title },
+                        onJump = { jumpTo(it) },
+                        onSwipeReply = if (canReply) ({ vm.replyTo(message) }) else null,
+                        highlightKey = highlight?.takeIf { it.messageId == message.id }?.nonce,
                         // The message drawn above this one is the next item: close together while one person writes.
                         modifier = Modifier.padding(top = if (ChatRules.continuesRun(message, newestFirst.getOrNull(index + 1))) 2.dp else 10.dp),
                     )
@@ -447,6 +549,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { confirmingBlock = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
+    if (dmSettings) ChatSettingsSheet(onDismiss = { dmSettings = false })
 }
 
 /** The round ↓ button while reading earlier messages, with how many of theirs arrived meanwhile. */
@@ -644,7 +747,21 @@ private fun ChatSummary(other: Author, name: String, state: ConversationUiState,
     }
 }
 
-/** A compact bubble with the text only: a tap shows its time, a long-press copies it (#6). */
+/** How far a bubble is dragged to reply to it (easy reply in chats, v0.12), and how far it can go. */
+private val BUBBLE_SWIPE_THRESHOLD = 56.dp
+private val BUBBLE_SWIPE_MAX = 88.dp
+
+/** How long a message glows after a jump to it (v0.12, as answers). */
+private const val CHAT_HIGHLIGHT_MS = 2_000L
+
+/** A message to light up after a jump; [nonce] tells repeated jumps to the same one apart. */
+private data class ChatHighlight(val messageId: Long, val nonce: Long)
+
+/**
+ * A compact bubble with the text only: a tap shows its time, a long-press copies it (#6). Easy reply (v0.12): dragging
+ * it from left to right (in Hebrew too) replies to it. A message that points up with carets shows the one it replies
+ * to as a quote above its text, which stays as written.
+ */
 @Composable
 private fun Bubble(
     message: ChatMessage,
@@ -652,32 +769,183 @@ private fun Bubble(
     expanded: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    reply: ReplyRefs.Resolved?,
+    messages: List<ChatMessage>,
+    authorOf: (ChatMessage) -> String,
+    onJump: (Long) -> Unit,
+    onSwipeReply: (() -> Unit)?,
+    highlightKey: Long?,
     modifier: Modifier = Modifier,
 ) {
-    val animate = LocalAppSettings.current.animations
-    val container = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val settings = LocalAppSettings.current
+    val animations = settings.animations
+    val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val threshold = with(density) { BUBBLE_SWIPE_THRESHOLD.toPx() }
+    val maxDrag = with(density) { BUBBLE_SWIPE_MAX.toPx() }
+    val base = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
     val content = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    Column(modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
+
+    // A jump lights the bubble up: two slow breaths over two seconds, then back to normal.
+    val glow = remember { Animatable(0f) }
+    LaunchedEffect(highlightKey) {
+        if (highlightKey == null) return@LaunchedEffect
+        if (animations) {
+            glow.snapTo(0f)
+            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
+            glow.animateTo(0.35f, tween(450, easing = FastOutSlowInEasing))
+            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
+            glow.animateTo(0f, tween(850, easing = FastOutSlowInEasing))
+        } else {
+            glow.snapTo(1f)
+            delay(CHAT_HIGHLIGHT_MS)
+            glow.snapTo(0f)
+        }
+    }
+    val container = lerp(base, MaterialTheme.colorScheme.tertiaryContainer, glow.value)
+
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var armed by remember { mutableStateOf(false) }
+    val currentOnSwipeReply by rememberUpdatedState(onSwipeReply)
+    val dragState = rememberDraggableState { delta ->
+        val resisted = if (dragX >= threshold) delta * 0.3f else delta
+        dragX = (dragX + resisted).coerceIn(0f, maxDrag)
+        val nowArmed = dragX >= threshold
+        if (nowArmed != armed) {
+            armed = nowArmed
+            if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+        }
+    }
+    val replyLabel = stringResource(R.string.action_reply)
+    val quoted = reply?.targets?.mapNotNull { messages.getOrNull(it) }.orEmpty()
+    val inBody = remember(reply, messages) {
+        reply?.inBody?.mapNotNull { (range, index) -> messages.getOrNull(index)?.let { TextTarget(range, it.id) } }.orEmpty()
+    }
+
+    Box(
+        modifier
+            .fillMaxWidth()
+            .draggable(
+                state = dragState,
+                orientation = Orientation.Horizontal,
+                enabled = onSwipeReply != null,
+                onDragStopped = {
+                    if (dragX >= threshold) currentOnSwipeReply?.invoke()
+                    armed = false
+                    animate(dragX, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> dragX = value }
+                },
+            ),
+    ) {
+        if (onSwipeReply != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.Reply,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(AbsoluteAlignment.CenterLeft)
+                    .absolutePadding(left = 4.dp)
+                    .size(22.dp)
+                    .graphicsLayer {
+                        val progress = (dragX / threshold).coerceIn(0f, 1f)
+                        alpha = progress
+                        scaleX = 0.6f + 0.4f * progress
+                        scaleY = 0.6f + 0.4f * progress
+                    },
+            )
+        }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .absoluteOffset { IntOffset(dragX.roundToInt(), 0) },
+            horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
+        ) {
+            Box(
+                Modifier
+                    .widthIn(max = 300.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(container)
+                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    .semantics {
+                        val action = onSwipeReply
+                        if (action != null) {
+                            customActions = listOf(
+                                CustomAccessibilityAction(replyLabel) {
+                                    action()
+                                    true
+                                },
+                            )
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                // The quotes stretch to the text's width, and the text to theirs.
+                Column(Modifier.width(IntrinsicSize.Max), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    quoted.forEach { target ->
+                        ChatQuote(
+                            author = authorOf(target),
+                            text = ReplyRefs.snippet(target.text, hideLeading = settings.chatHideReplyCarets),
+                            content = content,
+                            onClick = { onJump(target.id) },
+                        )
+                    }
+                    LinkifiedText(
+                        reply?.body ?: message.text,
+                        style = MaterialTheme.typography.bodyLarge.copy(color = content),
+                        selectable = false,
+                        targets = inBody,
+                        onTarget = onJump,
+                    )
+                }
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = if (animations) expandVertically() + fadeIn() else EnterTransition.None,
+                exit = if (animations) shrinkVertically() + fadeOut() else ExitTransition.None,
+            ) {
+                Text(
+                    bubbleTime(message.time),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The message a reply points at, inside its bubble: who wrote it and its first lines; a tap goes there (v0.12). */
+@Composable
+private fun ChatQuote(author: String, text: String, content: Color, onClick: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(10.dp))
+            .background(content.copy(alpha = 0.07f))
+            .clickable(onClickLabel = stringResource(R.string.chat_reply_jump), onClick = onClick),
+    ) {
         Box(
             Modifier
-                .widthIn(max = 300.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(container)
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(horizontal = 12.dp, vertical = 7.dp),
-        ) {
-            LinkifiedText(message.text, style = MaterialTheme.typography.bodyLarge.copy(color = content), selectable = false)
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = if (animate) expandVertically() + fadeIn() else EnterTransition.None,
-            exit = if (animate) shrinkVertically() + fadeOut() else ExitTransition.None,
-        ) {
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(accent),
+        )
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             Text(
-                bubbleTime(message.time),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                author,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text,
+                style = MaterialTheme.typography.bodySmall,
+                color = content.copy(alpha = 0.8f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -708,11 +976,30 @@ private fun copyMessage(context: Context, text: String, copied: String) {
 @Composable
 private fun MessageComposer(
     draft: String,
+    draftVersion: Int,
+    focusComposer: Int,
+    replyTo: ChatMessage?,
+    replyName: String?,
     sending: Boolean,
     error: String?,
     onDraft: (String) -> Unit,
+    onCancelReply: () -> Unit,
     onSend: () -> Unit,
 ) {
+    var field by remember { mutableStateOf(TextFieldValue(draft, TextRange(draft.length))) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(draftVersion) {
+        // The app replaced the text (a reply started or was cancelled, a message went out): cursor at the end.
+        if (field.text != draft) field = TextFieldValue(draft, TextRange(draft.length))
+    }
+    // Easy reply (v0.12): a swipe starts a reply, so the cursor goes to the text and the keyboard opens.
+    LaunchedEffect(focusComposer) {
+        if (focusComposer > 0) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(
             Modifier
@@ -721,15 +1008,21 @@ private fun MessageComposer(
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
+            if (replyTo != null) ChatReplyBar(replyTo, replyName, onCancelReply)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
-                    value = draft,
-                    onValueChange = onDraft,
+                    value = field,
+                    onValueChange = {
+                        field = it
+                        onDraft(it.text)
+                    },
                     placeholder = { Text(stringResource(R.string.message_hint)) },
                     maxLines = 5,
                     shape = RoundedCornerShape(20.dp),
                     isError = error != null,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focusRequester),
                 )
                 Spacer(Modifier.width(8.dp))
                 FilledIconButton(onClick = onSend, enabled = !sending && draft.isNotBlank()) {
@@ -743,6 +1036,60 @@ private fun MessageComposer(
             if (error != null) {
                 Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
+        }
+    }
+}
+
+/** Above the box while replying (v0.12): to whom ([name], or null for the user's own message), its first line, ✕. */
+@Composable
+private fun ChatReplyBar(replyTo: ChatMessage, name: String?, onCancel: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(12.dp))
+            .background(accent.copy(alpha = 0.08f)),
+    ) {
+        Box(
+            Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(accent),
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.Reply,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .size(18.dp),
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Text(
+                if (name != null) stringResource(R.string.reply_to, name) else stringResource(R.string.reply_to_self),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                ReplyRefs.snippet(replyTo.text, hideLeading = LocalAppSettings.current.chatHideReplyCarets),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onCancel) {
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.reply_cancel), modifier = Modifier.size(20.dp))
         }
     }
 }

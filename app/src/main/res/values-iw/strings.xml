@@ -644,4 +644,19 @@
     <string name="notify_prompt_later">לא עכשיו</string>
     <string name="settings_hide_reply_carets">הסתרת ה־^</string>
     <string name="settings_hide_reply_carets_summary">מסתיר את ה־^^ שתשובה מתחילה בהם כשהציטוט כבר מראה למה הם מצביעים. כשזה כבוי, התשובות מוצגות בדיוק כפי שנכתבו.</string>
+    <!-- v0.12: DMs -->
+    <string name="dm_settings">הגדרות שיחות</string>
+    <string name="dm_settings_summary">תגובה מהירה, ציטוטים, התראות על הודעות, ווידג\'ט שיחות</string>
+    <string name="settings_chat_replies">תגובות</string>
+    <string name="settings_chat_easy_reply_summary">החלקה ימינה על הודעה מגיבה לה: ההודעה שלך תתחיל ב־^ שמצביעים עליה (^^). רגע לפני השליחה, Stips+ בודק אם הגיעו הודעות חדשות וסופר מחדש, כי אי אפשר לערוך הודעה אחרי שנשלחה.</string>
+    <string name="settings_chat_reply_quotes">הצגת ההודעה שמגיבים לה</string>
+    <string name="settings_chat_reply_quotes_summary">הודעות שמצביעות למעלה עם ^ (כמו ^^ או 4^) מציגות את ההודעה שהן מגיבות לה. הקשה עליה עוברת אליה.</string>
+    <string name="settings_chat_hide_carets_summary">מסתיר את ה־^^ שהודעה מתחילה בהם כשהציטוט כבר מראה למה הם מצביעים. כשזה כבוי, ההודעות מוצגות בדיוק כפי שנכתבו.</string>
+    <string name="settings_chat_notifications">התראות על הודעות</string>
+    <string name="settings_chat_notifications_summary">התראה לכל שיחה עם הודעות חדשות. כשזה כבוי, ההתראות בטלפון הן רק על תשובות, פרחים ותודות.</string>
+    <string name="settings_chat_sound">צליל וחלונית קופצת</string>
+    <string name="settings_chat_sound_summary">הגדרות אנדרואיד להתראות על הודעות</string>
+    <string name="chat_you">אני</string>
+    <string name="reply_to_self">תגובה להודעה שלך</string>
+    <string name="chat_reply_jump">מעבר להודעה שמגיבים לה</string>
 </resources>

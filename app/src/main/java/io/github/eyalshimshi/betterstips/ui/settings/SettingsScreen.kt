@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Login
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Check
@@ -81,6 +82,7 @@ import io.github.eyalshimshi.betterstips.data.ThemeMode
 import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.notify.Notifier
+import io.github.eyalshimshi.betterstips.ui.chats.ChatSettingsContent
 import io.github.eyalshimshi.betterstips.ui.components.AnonymousModeDialog
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
@@ -104,6 +106,7 @@ enum class SettingsPage(val route: String) {
     Reading("reading"),
     Appearance("appearance"),
     Notifications("notifications"),
+    Chats("chats"),
     Privacy("privacy"),
     Stips("stips"),
     About("about"),
@@ -138,6 +141,7 @@ fun SettingsScreen(
             SettingsPage.Reading -> R.string.settings_reading
             SettingsPage.Appearance -> R.string.settings_appearance
             SettingsPage.Notifications -> R.string.settings_notifications_widgets
+            SettingsPage.Chats -> R.string.dm_settings
             SettingsPage.Privacy -> R.string.settings_privacy_safety
             SettingsPage.Stips -> R.string.settings_stips
             SettingsPage.About -> R.string.settings_about
@@ -161,6 +165,8 @@ fun SettingsScreen(
                 SettingsPage.Reading -> ReadingPage(settings)
                 SettingsPage.Appearance -> AppearancePage(settings)
                 SettingsPage.Notifications -> NotificationsPage(settings, snackbar)
+                // The same rows as the DM settings sheet in the chats screens (v0.12).
+                SettingsPage.Chats -> ChatSettingsContent(snackbar)
                 SettingsPage.Privacy -> PrivacyPage(settings, snackbar)
                 SettingsPage.Stips -> StipsPage()
                 SettingsPage.About -> AboutPage(container)
@@ -176,7 +182,7 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
     val session by container.session.session.collectAsStateWithLifecycle()
     val store = container.settings
     Spacer(Modifier.height(8.dp))
-    val rows = 7
+    val rows = 8
     if (session.signedIn) {
         GroupRow(
             stringResource(R.string.settings_account),
@@ -222,8 +228,16 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
         icon = Icons.Outlined.Notifications,
     )
     GroupRow(
-        stringResource(R.string.settings_privacy_safety),
+        stringResource(R.string.dm_settings),
         4,
+        rows,
+        { onOpenPage(SettingsPage.Chats) },
+        summary = stringResource(R.string.dm_settings_summary),
+        icon = Icons.AutoMirrored.Outlined.Chat,
+    )
+    GroupRow(
+        stringResource(R.string.settings_privacy_safety),
+        5,
         rows,
         { onOpenPage(SettingsPage.Privacy) },
         summary = stringResource(R.string.settings_privacy_safety_summary),
@@ -231,7 +245,7 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
     )
     GroupRow(
         stringResource(R.string.settings_stips),
-        5,
+        6,
         rows,
         { onOpenPage(SettingsPage.Stips) },
         summary = stringResource(R.string.settings_stips_summary),
@@ -239,7 +253,7 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
     )
     GroupRow(
         stringResource(R.string.settings_about),
-        6,
+        7,
         rows,
         { onOpenPage(SettingsPage.About) },
         summary = stringResource(R.string.settings_about_summary, container.versionName),

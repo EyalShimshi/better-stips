@@ -198,6 +198,15 @@ object Notifier {
         if (!start(context, intent)) openAppSettings(context)
     }
 
+    /** Android's own settings for message notifications: sound, pop-up, lock screen (v0.12, the DM settings). */
+    fun openMessageSettings(context: Context) {
+        ensureChannels(context)
+        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_MESSAGES)
+        if (!start(context, intent)) openNotificationSettings(context)
+    }
+
     private fun start(context: Context, intent: Intent): Boolean = try {
         if (context !is Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
@@ -365,10 +374,14 @@ object Notifier {
             prefs.edit().putString(KEY_KNOWN, NotifyRules.encode(pick.known)).remove(KEY_LEGACY).apply()
         }
 
-        // Messages: the chats list when the unread count says something changed; one notification per chat.
+        // Messages: the chats list when the unread count says something changed; one notification per chat. With
+        // message notifications off (v0.12) nothing is kept, so turning them on again doesn't replay old ones.
         val lastUnread = if (prefs.contains(KEY_MESSAGES)) prefs.getInt(KEY_MESSAGES, 0) else null
         val chatsKnown = prefs.getString(KEY_CHATS, null)
-        if (counts.messages <= 0) {
+        if (!container.settings.settings.value.chatNotifications) {
+            if (chatsKnown != null) cancelAll(context, TAG_CHAT, TAG_CHATS)
+            prefs.edit().remove(KEY_CHATS).apply()
+        } else if (counts.messages <= 0) {
             if ((lastUnread ?: 0) > 0) cancelAll(context, TAG_CHAT, TAG_CHATS)
             prefs.edit().putString(KEY_CHATS, "").apply()
         } else if (NotifyRules.listChats(counts.messages, lastUnread, prefs.getLong(KEY_CHATS_AT, 0L), now)) {

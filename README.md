@@ -4,7 +4,7 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.11)
+## Features (v0.12)
 
 - **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it); pull down to reload. Search finds topics and people.
 - **Home your way** (Settings → Home and reading): the default, a layout **like the website** (hot questions, then today's questions by topic), or **new questions only**; 3, 5 or 10 hot cards, from now, today or this week; the channel chips on or off; which tab the app opens on.
@@ -20,10 +20,11 @@
 - **Report and hide:** report a question, answer or pen-pal post to Stips' moderators; hide an item or everything from one user (Settings → Privacy and safety → Hidden content brings it all back).
 - **Pen pals (חברים לעט):** read the board, post your own message, and tap a post to start a private chat.
 - **Profiles** for everyone: photo (tap to view it big), questions · answers · flowers, bio, badges, age, how long they've been on Stips, the **credibility** gauge, the **thanks wall** first (write on others', delete on yours), and activity graphs. Special accounts show Stips' colors and badges.
-- **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began; a ↓ button counts new messages and jumps back down. ⋮ reports someone to Stips' team or blocks their messages.
+- **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. **Swipe a message to the right to reply to it** with Stips' carets, as on answers, and messages that point up show the one they reply to as a quote. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began; a ↓ button counts new messages and jumps back down. ⋮ reports someone to Stips' team or blocks their messages, and ⚙ opens **DM settings** (also in Settings): replies, message notifications and their sound, the chats widget.
+- **Back to the top:** tap the open tab (Home, Pen pals, Chats, Profile) again.
 - **Notifications:** Stips' list with new ones highlighted until you open them, a badge on the bell and on Chats, and optional **phone notifications** that pop up within minutes while you use your phone: new answers, flowers and thanks, and one per chat with who wrote and what. Settings → Notifications and widgets shows the last check and anything in Android that holds them back, with *Check now* and *Send a test*.
 - **Welcome:** the first launch offers to sign in, or to look around as a guest.
-- **Settings** in pages: account, Home and reading, appearance, notifications and widgets, privacy and safety, Stips' own pages, about. **Expert mode** adds ids, *Server details* (what Stips sent, copyable), load times, and **Diagnostics → Network log** for bug reports.
+- **Settings** in pages: account, Home and reading, appearance, notifications and widgets, DM settings, privacy and safety, Stips' own pages, about. **Expert mode** adds ids, *Server details* (what Stips sent, copyable), load times, and **Diagnostics → Network log** for bug reports.
 - **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, haptic feedback, and transitions that follow your finger on predictive back.
 
 ## Install

@@ -139,12 +139,13 @@ class NotificationsViewModel(
         refresh()
     }
 
-    fun refresh() {
+    /** [verify]: the user pulled to refresh, so the session is checked with Stips first (#9: a lost one lists nothing). */
+    fun refresh(verify: Boolean = false) {
         val gen = ++generation
         _state.update { it.copy(refreshing = true, error = null) }
         viewModelScope.launch {
             try {
-                val list = repository.notifications(page = 1)
+                val list = repository.notifications(page = 1, verify = verify)
                 if (gen != generation) return@launch
                 markNew(list)
                 _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false) }
@@ -261,7 +262,7 @@ private fun NotificationsList(
             Notifier.clearUpdates(context)
         }
     }
-    PullToRefreshBox(isRefreshing = state.refreshing && state.page > 0, onRefresh = vm::refresh, modifier = modifier.fillMaxSize()) {
+    PullToRefreshBox(isRefreshing = state.refreshing && state.page > 0, onRefresh = { vm.refresh(verify = true) }, modifier = modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (!settings.backgroundNotifications || !Notifier.canPost(context)) {
                 item(key = "phone") {
@@ -275,7 +276,7 @@ private fun NotificationsList(
             }
             val error = state.error
             when {
-                state.page == 0 && error != null -> item(key = "error") { ErrorCard(error, onRetry = vm::refresh) }
+                state.page == 0 && error != null -> item(key = "error") { ErrorCard(error, onRetry = { vm.refresh() }) }
                 state.page == 0 -> item(key = "loading") {
                     Box(
                         Modifier

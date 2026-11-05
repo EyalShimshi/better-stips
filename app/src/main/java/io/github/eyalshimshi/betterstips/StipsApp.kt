@@ -21,8 +21,10 @@ import io.github.eyalshimshi.betterstips.data.SettingsStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.data.UserBadges
+import io.github.eyalshimshi.betterstips.data.api.CookieGenerationStamp
 import io.github.eyalshimshi.betterstips.data.api.NetLogListener
 import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
+import io.github.eyalshimshi.betterstips.data.api.StaleCookieGuard
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.api.UserAgentInterceptor
 import io.github.eyalshimshi.betterstips.diag.NetLog
@@ -63,6 +65,9 @@ class AppContainer(private val app: Application) {
     val httpClient: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .addInterceptor(userAgent)
+        // A late answer from before a sign-in can't replace its session cookie (#9).
+        .addInterceptor(CookieGenerationStamp(cookieJar))
+        .addNetworkInterceptor(StaleCookieGuard(cookieJar))
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)

@@ -10,6 +10,7 @@ import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,7 +70,8 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
         job = viewModelScope.launch {
             _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
             try {
-                val list = repository.conversations(page = 1)
+                // Pulling to refresh also makes sure the session is alive: a lost one answers with no chats (#9).
+                val list = repository.conversations(page = 1, verify = refreshing)
                 _state.update { it.copy(conversations = list, loading = false, refreshing = false) }
             } catch (e: CancellationException) {
                 throw e
@@ -89,6 +91,12 @@ data class ConversationUiState(
     val earlierFailed: Boolean = false,
     val error: ApiException? = null,
     val draft: String = "",
+    /** Bumped when the app (not the user's typing) replaces the draft, so the field moves its cursor to the end. */
+    val draftVersion: Int = 0,
+    /** Easy reply (v0.12): the message this one replies to; the draft opens with the carets pointing at it. */
+    val replyTo: ChatMessage? = null,
+    /** Bumped to put the cursor in the box and open the keyboard (a swipe started a reply). */
+    val focusComposer: Int = 0,
     val sending: Boolean = false,
     val sendError: ApiException? = null,
     /** The other person: photo and online status for the top bar, and the summary at the start (#6). */
@@ -248,26 +256,67 @@ class ConversationViewModel(
     }
 
     fun setDraft(text: String) {
-        _state.update { it.copy(draft = text, sendError = null) }
+        _state.update {
+            // Deleting the carets by hand ends the reply.
+            val replyTo = if (it.replyTo != null && ReplyRefs.leadingCount(text) == null) null else it.replyTo
+            it.copy(draft = text, replyTo = replyTo, sendError = null)
+        }
+    }
+
+    /**
+     * Easy reply (v0.12), as on answers: the draft opens with Stips' carets pointing at [message], counted from where a
+     * new message lands (the bottom); a pointer the draft already opens with is replaced.
+     */
+    fun replyTo(message: ChatMessage) {
+        val s = _state.value
+        val count = ChatRules.replyCount(s.messages, message.id) ?: return
+        _state.update {
+            it.copy(
+                replyTo = message,
+                draft = ReplyRefs.withReply(it.draft, count),
+                draftVersion = it.draftVersion + 1,
+                focusComposer = it.focusComposer + 1,
+                sendError = null,
+            )
+        }
+    }
+
+    fun cancelReply() {
+        _state.update { it.copy(replyTo = null, draft = ReplyRefs.withoutReply(it.draft), draftVersion = it.draftVersion + 1) }
     }
 
     fun send() {
         val current = _state.value
-        val text = current.draft.trim()
-        if (text.isEmpty() || current.sending) return
+        if (current.draft.isBlank() || current.sending) return
         viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null) }
             try {
+                var text = current.draft.trim()
+                val replyTo = current.replyTo
+                if (replyTo != null) {
+                    // Stips can't edit a sent message, so the carets are counted again just before sending, with the
+                    // newest messages in: ones that came while the user wrote land in between.
+                    pollNew()
+                    ChatRules.replyCount(_state.value.messages, replyTo.id)?.let { text = ReplyRefs.withReply(text, it) }
+                }
                 val id = repository.sendMessage(userId, text)
                 if (id == null) {
                     // Stips always answers with the new id (the site treats a missing one as a failure); if it ever
                     // doesn't, fetch the message rather than guess an id the next check would duplicate.
-                    _state.update { it.copy(draft = "", sending = false) }
+                    _state.update { it.copy(draft = "", draftVersion = it.draftVersion + 1, replyTo = null, sending = false) }
                     pollNew()
                     return@launch
                 }
                 val sent = ChatMessage(id = id, text = text, time = java.time.Instant.now(), fromUserId = myUserId, toUserId = userId)
-                _state.update { s -> s.copy(messages = ChatRules.merge(s.messages, listOf(sent)), draft = "", sending = false) }
+                _state.update { s ->
+                    s.copy(
+                        messages = ChatRules.merge(s.messages, listOf(sent)),
+                        draft = "",
+                        draftVersion = s.draftVersion + 1,
+                        replyTo = null,
+                        sending = false,
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -279,6 +328,15 @@ class ConversationViewModel(
 
 /** Pure rules for the chat screen. */
 object ChatRules {
+    /**
+     * How many messages up [targetId] is from a message sent now, which lands at the bottom: the count of its carets
+     * (v0.12). Null when that message isn't loaded.
+     */
+    fun replyCount(messages: List<ChatMessage>, targetId: Long): Int? {
+        val index = messages.indexOfFirst { it.id == targetId }
+        return if (index < 0) null else messages.size - index
+    }
+
     /** Every message once, oldest first, whatever order pages and checks arrive in. */
     fun merge(current: List<ChatMessage>, incoming: List<ChatMessage>): List<ChatMessage> =
         (current + incoming).distinctBy { it.id }.sortedBy { it.id }

@@ -6,7 +6,7 @@ plugins {
 }
 
 // Raise the minor version every round. The build number comes from CI.
-val versionMajorMinor = "0.11"
+val versionMajorMinor = "0.12"
 val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 
 android {
@@ -86,4 +86,5 @@ dependencies {
     implementation(libs.glance.material3)
 
     testImplementation(libs.junit)
+    testImplementation(libs.mockwebserver)
 }

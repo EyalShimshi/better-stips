@@ -104,6 +104,8 @@ import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
+import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
+import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
@@ -174,6 +176,8 @@ fun HomeScreen(
     val channels by container.channels.channels.collectAsStateWithLifecycle()
     val settings = LocalAppSettings.current
     val listState = rememberLazyListState()
+    // Tapping Home again scrolls back to the top (v0.12).
+    ScrollToTopOnReselect(Routes.HOME, listState)
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 

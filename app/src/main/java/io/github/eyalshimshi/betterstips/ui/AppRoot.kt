@@ -100,6 +100,7 @@ import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
+import io.github.eyalshimshi.betterstips.ui.components.LocalTabReselects
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.feed.HotScreen
@@ -126,6 +127,7 @@ import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.Locale
@@ -199,6 +201,8 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     val signedIn = session.signedIn
     var counts by remember { mutableStateOf(UnreadCounts()) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    // Tapping the open tab again sends its route here; that tab scrolls back to the top (v0.12).
+    val tabReselects = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
 
     // The first launch after installing asks to sign in or go on as a guest (#8). Links and shortcuts skip it.
     var welcome by rememberSaveable {
@@ -280,6 +284,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         LocalOpenProfile provides openProfile,
         LocalUnreadCounts provides counts,
         LocalNow provides now,
+        LocalTabReselects provides tabReselects,
     ) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
@@ -293,7 +298,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
                             enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
                             exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
                         ) {
-                            BottomBar(navController, route, counts)
+                            BottomBar(navController, route, counts, onReselect = { tabReselects.tryEmit(it) })
                         }
                     }
                 },
@@ -399,14 +404,15 @@ private fun RateLimitBanner() {
 }
 
 @Composable
-private fun BottomBar(navController: NavHostController, route: String?, counts: UnreadCounts) {
+private fun BottomBar(navController: NavHostController, route: String?, counts: UnreadCounts, onReselect: (String) -> Unit) {
     NavigationBar {
         tabs.forEach { tab ->
             val selected = route == tab.route
             val unread = if (tab.route == Routes.CHATS) counts.messages else 0
             NavigationBarItem(
                 selected = selected,
-                onClick = { navigateToTab(navController, tab.route) },
+                // The bar shows only on the tabs' own screens, so the open tab is at its top level: back to its top.
+                onClick = { if (selected) onReselect(tab.route) else navigateToTab(navController, tab.route) },
                 icon = {
                     BadgedBox(
                         badge = {

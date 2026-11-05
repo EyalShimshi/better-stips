@@ -4,21 +4,41 @@ package io.github.eyalshimshi.betterstips.util
 object TextUtils {
     private val lineBreaks = Regex("(?i)<br\\s*/?>|</p>|</div>")
     private val tags = Regex("<[^>]+>")
-    private val numericEntity = Regex("&#(x?[0-9a-fA-F]+);")
+    private val entity = Regex("&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});")
     private val namedEntities = mapOf(
-        "&quot;" to "\"", "&amp;" to "&", "&lt;" to "<", "&gt;" to ">", "&apos;" to "'", "&#39;" to "'", "&nbsp;" to " ",
+        "amp" to "&", "AMP" to "&", "lt" to "<", "LT" to "<", "gt" to ">", "GT" to ">", "quot" to "\"", "QUOT" to "\"",
+        "apos" to "'", "nbsp" to " ", "ndash" to "\u2013", "mdash" to "\u2014", "hellip" to "\u2026", "laquo" to "\u00ab",
+        "raquo" to "\u00bb", "lsquo" to "\u2018", "rsquo" to "\u2019", "ldquo" to "\u201c", "rdquo" to "\u201d",
+        "bull" to "\u2022", "middot" to "\u00b7", "times" to "\u00d7", "divide" to "\u00f7", "deg" to "\u00b0",
+        "copy" to "\u00a9", "reg" to "\u00ae", "trade" to "\u2122", "euro" to "\u20ac", "shy" to "\u00ad",
+        "lrm" to "\u200e", "rlm" to "\u200f", "zwj" to "\u200d", "zwnj" to "\u200c",
     )
 
-    /** Strips tags and decodes the common entities. */
+    /**
+     * Decodes HTML character references once: "&gt;" → ">", "&#1488;" → "א", and "&amp;lt;" → "&lt;" (what its author
+     * wrote). Stips stores what people write HTML-escaped, and its site decodes it on display, so every text from
+     * Stips goes through here (v0.12). Unknown names and anything that isn't a reference stay as they are ("AT&T").
+     */
+    fun decodeEntities(text: String): String {
+        if ('&' !in text) return text
+        return entity.replace(text) { match ->
+            val body = match.groupValues[1]
+            val decoded = when {
+                body.startsWith("#x") || body.startsWith("#X") -> codePoint(body.drop(2).toIntOrNull(16))
+                body.startsWith("#") -> codePoint(body.drop(1).toIntOrNull())
+                else -> namedEntities[body]
+            }
+            decoded ?: match.value
+        }
+    }
+
+    private fun codePoint(code: Int?): String? =
+        if (code != null && code in 1..0x10FFFF) String(Character.toChars(code)) else null
+
+    /** Strips tags and decodes the entities, once. */
     fun htmlToPlain(html: String?): String {
         if (html.isNullOrBlank()) return ""
-        var text = html.replace(lineBreaks, "\n").replace(tags, "")
-        namedEntities.forEach { (entity, value) -> text = text.replace(entity, value) }
-        text = numericEntity.replace(text) { match ->
-            val raw = match.groupValues[1]
-            val code = if (raw.startsWith("x") || raw.startsWith("X")) raw.drop(1).toIntOrNull(16) else raw.toIntOrNull()
-            if (code != null && code in 1..0x10FFFF) String(Character.toChars(code)) else match.value
-        }
+        val text = decodeEntities(html.replace(lineBreaks, "\n").replace(tags, ""))
         return text.lines().joinToString("\n") { it.trim() }.trim()
     }
 

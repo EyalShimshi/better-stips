@@ -43,6 +43,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | v0.9 | Issue #8: Home layouts and options, refresh by hand, a welcome screen, expert mode, the asker's label, verified accounts, seconds, settings in pages (F-45–F-49); the chats widget (F-50) |
 | v0.10 | Easy reply and reply quotes (F-51, F-52), notifications that open at the new answer or the flowered one (F-53), moderators marked on answers (F-54); seconds only under a minute, no ⟳ beside "New questions" |
 | v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, one notification per chat, notifications that pop up, a status panel with fixes, and a one-time offer to turn them on (F-55); reply quotes keep the answer's text as written (F-52) |
+| v0.12 | Easy reply and quotes in chats (F-56), DM settings (F-57), tapping the open tab goes back to the top (F-58); text with `<`, `>`, `&` or quotes shows as written; #9: chats no longer come back empty after reopening the app |
 | Later | Per-app language, pinned shortcuts for single questions and chats |
 | Public | Only after Stips' written permission (D-02) |
 
@@ -105,6 +106,9 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-53 | Notifications open in place (v0.10) | P1 | A notification about new answers opens its question at the first new one; one about a flower, at the user's answer that got it; the answer lights up for two seconds. From the bell and from phone notifications |
 | F-54 | Moderators on answers (v0.10) | P2 | "נאמן סטיפס" / "נאמנת סטיפס" (and senior moderators) by the name on their answers, as on their profiles. A setting turns it off |
 | F-55 | Phone notifications that arrive (v0.11) | P1 | New answers, flowers, thanks and messages reach the phone within minutes while it's in use (every 1, 2 or 5 minutes; 2 by default), and about every 15 minutes otherwise; they pop up. One notification per chat, with who wrote and what; tapping opens the chat. A status panel in Settings shows the last check and what holds checks back (Android's notification settings, restricted background use, battery saving), with *Check now* and *Send a test*. Signed-in users are offered, once, to turn them on and to let Stips+ run in the background |
+| F-56 | Easy reply in chats (v0.12) | P1 | As on answers: swipe a message to the right to reply; the draft opens with the carets and a bar says to whom. The count is checked again, with new messages fetched, just before sending (Stips can't edit messages). Messages that point up show the one they reply to as a quote; their text stays as written. Chat-only switches |
+| F-57 | DM settings (v0.12) | P1 | A ⚙ at the top of the chats list and of every chat opens the chat options in one sheet: easy reply, quotes, hiding their carets, phone and message notifications, Android's sound settings for messages, the chats widget. Also a page in Settings |
+| F-58 | Back to the top (v0.12) | P2 | Tapping the open tab (Home, Pen pals, Chats, Profile) scrolls it back to the top |
 
 ## 7. Non-functional requirements
 

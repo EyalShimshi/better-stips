@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -64,11 +66,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
+import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
+import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
@@ -99,6 +103,9 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
     val visible = remember(state.items, blockVersion) {
         state.items.filterNot { container.blocks.isBlocked("penfriendsitem", it.id, it.author.userId) }
     }
+    val listState = rememberLazyListState()
+    // Tapping חברים לעט again scrolls back to the top (v0.12).
+    ScrollToTopOnReselect(Routes.PENPALS, listState)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.penpals_title)) }) },
@@ -119,7 +126,7 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
                 MessageCard(stringResource(R.string.penpals_closed_title), stringResource(R.string.penpals_closed_body), null, null)
             }
         } else {
-            PenPalsList(state, visible, session.signedIn, session.userId, padding, vm, onOpenConversation, onSignIn) { reportTarget = it }
+            PenPalsList(state, visible, session.signedIn, session.userId, padding, vm, listState, onOpenConversation, onSignIn) { reportTarget = it }
         }
     }
     PenPalsDialogs(state, vm, reportTarget, onSignIn) { reportTarget = null }
@@ -133,6 +140,7 @@ private fun PenPalsList(
     myUserId: Long?,
     padding: PaddingValues,
     vm: PenPalsViewModel,
+    listState: LazyListState,
     onOpenConversation: (Long, String) -> Unit,
     onSignIn: () -> Unit,
     onReport: (PenPalPost) -> Unit,
@@ -144,7 +152,7 @@ private fun PenPalsList(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = 4.dp, bottom = 96.dp)) {
                 item(key = "intro") {
                     Text(
                         stringResource(R.string.penpals_intro),

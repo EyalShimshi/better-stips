@@ -63,6 +63,14 @@ data class AppSettings(
     val replyQuotes: Boolean = true,
     /** The opening carets of an answer shown with quotes are left out; off, so answers show as written (v0.11). */
     val hideReplyCarets: Boolean = false,
+    /** Easy reply in private chats: swipe a message to reply to it with carets (v0.12). Apart from answers' switch. */
+    val chatEasyReply: Boolean = true,
+    /** Chat messages that point up with carets show the message they reply to (v0.12). */
+    val chatReplyQuotes: Boolean = true,
+    /** The opening carets of a chat message shown with quotes are left out; off, so messages show as written (v0.12). */
+    val chatHideReplyCarets: Boolean = false,
+    /** Phone notifications include new chat messages (v0.12); off, they're only about answers, flowers and thanks. */
+    val chatNotifications: Boolean = true,
     /** "נאמן סטיפס" by moderators' names on answers; each answerer is looked up once every two weeks (v0.10). */
     val moderatorBadges: Boolean = true,
     /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
@@ -146,6 +154,10 @@ class SettingsStore(context: Context) {
             .putBoolean("easyReply", next.easyReply)
             .putBoolean("replyQuotes", next.replyQuotes)
             .putBoolean("hideReplyCarets", next.hideReplyCarets)
+            .putBoolean("chatEasyReply", next.chatEasyReply)
+            .putBoolean("chatReplyQuotes", next.chatReplyQuotes)
+            .putBoolean("chatHideReplyCarets", next.chatHideReplyCarets)
+            .putBoolean("chatNotifications", next.chatNotifications)
             .putBoolean("moderatorBadges", next.moderatorBadges)
             .putBoolean("onboarded", next.onboarded)
             .apply()
@@ -180,6 +192,10 @@ class SettingsStore(context: Context) {
             easyReply = prefs.getBoolean("easyReply", defaults.easyReply),
             replyQuotes = prefs.getBoolean("replyQuotes", defaults.replyQuotes),
             hideReplyCarets = prefs.getBoolean("hideReplyCarets", defaults.hideReplyCarets),
+            chatEasyReply = prefs.getBoolean("chatEasyReply", defaults.chatEasyReply),
+            chatReplyQuotes = prefs.getBoolean("chatReplyQuotes", defaults.chatReplyQuotes),
+            chatHideReplyCarets = prefs.getBoolean("chatHideReplyCarets", defaults.chatHideReplyCarets),
+            chatNotifications = prefs.getBoolean("chatNotifications", defaults.chatNotifications),
             moderatorBadges = prefs.getBoolean("moderatorBadges", defaults.moderatorBadges),
             onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
         )

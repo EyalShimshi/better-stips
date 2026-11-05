@@ -14,9 +14,25 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Proxy
 
-/** Keeps Stips' ASP session cookie for this process only; a restart restores the session with the token. */
+/**
+ * Keeps Stips' session cookies for this process only; a restart restores the session with the token.
+ *
+ * Each sign-in starts a new [generation] ([StaleCookieGuard]). Answers to requests sent before it carry the fresh
+ * anonymous session Stips gave a request without one; arriving after the sign-in, they used to replace its cookie, so
+ * chats and notifications came back empty until the app restarted (#9).
+ */
 class SessionCookieJar : CookieJar {
     private val store = LinkedHashMap<String, Cookie>()
+
+    /** Counts sign-ins in this process; a request is "stale" when one finished while it was out. */
+    @Volatile
+    var generation = 0L
+        private set
+
+    @Synchronized
+    fun nextGeneration() {
+        generation++
+    }
 
     @Synchronized
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
@@ -33,6 +49,43 @@ class SessionCookieJar : CookieJar {
     @Synchronized
     fun clear() {
         store.clear()
+    }
+}
+
+/** The sign-in generation a call started in ([CookieGenerationStamp]). */
+data class CookieGeneration(val value: Long)
+
+/**
+ * An application interceptor: stamps each call with the sign-in generation it starts in, before its cookies are added
+ * and before it waits for a connection (a new one can take hundreds of milliseconds, time enough for a sign-in).
+ */
+class CookieGenerationStamp(private val jar: SessionCookieJar) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response =
+        chain.proceed(chain.request().newBuilder().tag(CookieGeneration::class.java, CookieGeneration(jar.generation)).build())
+}
+
+/**
+ * A network interceptor (#9): an answer to a request that started before the latest sign-in may not set cookies, so
+ * its late anonymous session can't replace the signed-in one. A sign-in's own answer starts the next generation,
+ * before its cookies are saved.
+ */
+class StaleCookieGuard(private val jar: SessionCookieJar) : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request()
+        val startedIn = request.tag(CookieGeneration::class.java)?.value ?: jar.generation
+        val response = chain.proceed(request)
+        val name = request.tag(ApiTag::class.java)?.name
+        if (name == SIGN_IN) {
+            jar.nextGeneration()
+            return response
+        }
+        if (jar.generation == startedIn || response.headers("Set-Cookie").isEmpty()) return response
+        NetLog.event("session", "kept the signed-in session: ${name ?: "a request"} from before the sign-in brought another")
+        return response.newBuilder().removeHeader("Set-Cookie").build()
+    }
+
+    private companion object {
+        const val SIGN_IN = "user.login"
     }
 }
 

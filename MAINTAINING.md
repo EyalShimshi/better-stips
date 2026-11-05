@@ -92,7 +92,7 @@ How to read it:
 - **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6. The official app is the website in a WebView, so its calls carry the site's Referer.
 - **`FAILED … Timeout` or `ConnectException` on new connections:** the network (or Cloudflare dropping our address) — compare with `network` lines.
 - **`FAILED` on `reused` connections only, then fine on `new` ones:** a stale connection; the app drops idle connections after any failure and on network changes.
-- **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out.
+- **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out. "kept the signed-in session: … from before the sign-in brought another" is the #9 race being stopped (below); it's harmless.
 - **`api … BAD_RESPONSE (body starts: <!DOCTYPE …)`:** Stips sent a web page instead of JSON (a challenge page or an error page).
 
 The log never contains request parameters, cookies, tokens or text the user wrote.
@@ -129,6 +129,13 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 - **Caret pointers** are read and written in one place, `util/ReplyRefs.kt`, tested on real answers in `RulesV10Test` and `RulesV11Test`. If people start writing pointers another way, add the form there with an example. Counting relies on Stips listing answers oldest first (SPEC-04 §2.12). The answer's text is shown as written; only the *Hide the carets* setting (`hideLeading`) drops the opening pointers.
 - **Where a notification opens** is decided in `util/JumpRules.kt`. Stips' notification texts aren't in the site's code, so the "N new answers" count is a guess at their wording. With expert mode on, { } on a notification shows its type, its raw JSON and where the app opens it; fix the patterns there when a text is read wrong.
 - **Moderator marks** come from people's profile badges (`profile.page_data`), cached in the `user_badges` prefs for two weeks. If the marks cost too many requests, lower `MAX_BADGE_LOOKUPS` in `QuestionViewModel`, or turn the setting's default off.
+
+## Chats, text and the session (v0.12)
+
+- **Easy reply in chats** uses the same `ReplyRefs` as answers; `ChatRules.replyCount` counts from the bottom of the loaded chat. Stips has no way to edit or delete a message (the site's code has `messages.list`, `from_user`, `get_single_message`, `send`, `count`, `block_user`), so the count is redone once just before sending, after fetching new messages, and never after. The DM settings live in one composable, `ui/chats/ChatSettings.kt`, shown both as the ⚙ sheet on the chats screens and as Settings → DM settings: add DM options there, not in two places.
+- **Text arrives HTML-escaped.** Parsers read people's text with `text(key)` / `decodedText()` (`data/parse/JsonAccess.kt`), which decode entities once (`decodeEntities` in `util/TextUtils.kt`). Use them for any new text field; don't decode again later (`&amp;lt;` must stay `&lt;`). Unknown entity names are left as they are; add one to the table when a new one shows up raw.
+- **The session cookie (#9).** Stips gives any request without a session cookie a new anonymous one. `CookieGenerationStamp` tags each call with the jar's sign-in generation; `StaleCookieGuard` (a network interceptor, so it runs before OkHttp saves cookies) starts a new generation on each `user.login` answer and drops `Set-Cookie` from answers to calls that started in an older one. Keep both in the client (`StipsApp.httpClient`), in that order. Lists that come back empty and pull-to-refresh on chats and notifications check the session with `user.get_app_user` (`ensureSession(verify = true)`) and fetch again if it had to sign in. `SessionCookieRaceTest` replays the race with MockWebServer.
+- **Back to the top:** the bottom bar sends a reselected tab's route through `LocalTabReselects`; a screen joins with `ScrollToTopOnReselect(route, listState)`.
 
 ## Data files
 

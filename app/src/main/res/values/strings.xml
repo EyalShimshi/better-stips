@@ -618,4 +618,19 @@
     <string name="notify_prompt_later">Not now</string>
     <string name="settings_hide_reply_carets">Hide the carets</string>
     <string name="settings_hide_reply_carets_summary">Leaves out the ^^ an answer starts with when its quote already shows what they point at. Off, answers show exactly as written.</string>
+    <!-- v0.12: DMs -->
+    <string name="dm_settings">DM settings</string>
+    <string name="dm_settings_summary">Easy reply, quotes, message notifications, the chats widget</string>
+    <string name="settings_chat_replies">Replies</string>
+    <string name="settings_chat_easy_reply_summary">Swipe a message to the right to reply to it: yours starts with the carets that point to it (^^). Just before sending, Stips+ checks for new messages and counts again, since a sent message can\'t be edited.</string>
+    <string name="settings_chat_reply_quotes">Show what messages reply to</string>
+    <string name="settings_chat_reply_quotes_summary">Messages that point up with carets (^^, 4^) show the message they reply to. Tap it to go there.</string>
+    <string name="settings_chat_hide_carets_summary">Leaves out the ^^ a message starts with when its quote already shows what they point at. Off, messages show exactly as written.</string>
+    <string name="settings_chat_notifications">Message notifications</string>
+    <string name="settings_chat_notifications_summary">A notification for each chat with new messages. Off, phone notifications are only about answers, flowers and thanks.</string>
+    <string name="settings_chat_sound">Sound and pop-up</string>
+    <string name="settings_chat_sound_summary">Android\'s settings for message notifications</string>
+    <string name="chat_you">You</string>
+    <string name="reply_to_self">Replying to your message</string>
+    <string name="chat_reply_jump">Go to the message it replies to</string>
 </resources>

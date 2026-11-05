@@ -366,8 +366,12 @@ class StipsRepository(
         }
     }
 
-    suspend fun notifications(page: Int): List<StipsNotification> = withSession {
-        Parsers.notifications(api.call("notifications.list", buildJsonObject { put("page", page) }))
+    suspend fun notifications(page: Int, verify: Boolean = false): List<StipsNotification> {
+        val fetch: suspend () -> List<StipsNotification> = {
+            Parsers.notifications(api.call("notifications.list", buildJsonObject { put("page", page) }))
+        }
+        val list = withSession(verify) { fetch() }
+        return if (page == 1 && !verify) againIfSessionLost(list, fetch) else list
     }
 
     /** Told about every unread count Stips sends (the app's 10 s check, the background check), for the chats widget (#8). */
@@ -455,21 +459,32 @@ class StipsRepository(
     @Volatile
     var onConversations: ((List<Conversation>) -> Unit)? = null
 
-    suspend fun conversations(page: Int): List<Conversation> = withSession {
-        val list = Parsers.conversations(api.call("messages.list", buildJsonObject { put("page", page) }), session.session.value.userId)
+    /** [verify] (pulling to refresh) checks the session with Stips first; an empty first page checks it anyway (#9). */
+    suspend fun conversations(page: Int, verify: Boolean = false): List<Conversation> {
+        val fetch: suspend () -> List<Conversation> = {
+            Parsers.conversations(api.call("messages.list", buildJsonObject { put("page", page) }), session.session.value.userId)
+        }
+        val first = withSession(verify) { fetch() }
+        val list = if (page == 1 && !verify) againIfSessionLost(first, fetch) else first
         if (page == 1) onConversations?.invoke(list)
-        list
+        return list
     }
 
     /** A page of the thread, oldest first. The first page also says whether you blocked this person (`userBlocked`). */
-    suspend fun thread(userId: Long, beforeId: Long?): ChatThread = withSession {
+    suspend fun thread(userId: Long, beforeId: Long?): ChatThread {
         val params = buildJsonObject {
             put("userid", userId)
             put("msgid", beforeId ?: 0L)
             if (beforeId == null) put("first_load", true) else put("history", true)
         }
-        val page = Parsers.chatThread(api.call("messages.from_user", params))
-        page.copy(messages = page.messages.sortedBy { it.id })
+        val fetch: suspend () -> ChatThread = {
+            val page = Parsers.chatThread(api.call("messages.from_user", params))
+            page.copy(messages = page.messages.sortedBy { it.id })
+        }
+        val first = withSession { fetch() }
+        // An empty chat may be a lost session (#9), as with the lists.
+        if (beforeId != null || first.messages.isNotEmpty() || !sessionWasLost()) return first
+        return withSession { fetch() }
     }
 
     /**
@@ -749,8 +764,8 @@ class StipsRepository(
      * Account calls: make sure the session exists; if Stips says we're signed out, sign in again with the token
      * and retry once. Other errors are passed on untouched (a failed post must not be sent twice).
      */
-    private suspend fun <T> withSession(block: suspend () -> T): T {
-        session.ensureSession()
+    private suspend fun <T> withSession(verify: Boolean = false, block: suspend () -> T): T {
+        session.ensureSession(verify = verify)
         return try {
             block()
         } catch (e: ApiException) {
@@ -758,6 +773,21 @@ class StipsRepository(
             session.ensureSession(force = true)
             block()
         }
+    }
+
+    /**
+     * Stips answers account calls without a live session with empty data, not an error (#9). So an empty first page
+     * checks the session with Stips; if it had been lost, it's restored and the page is asked again.
+     */
+    private suspend fun <T> againIfSessionLost(list: List<T>, fetch: suspend () -> List<T>): List<T> =
+        if (list.isEmpty() && sessionWasLost()) withSession { fetch() } else list
+
+    /** Checks the session with Stips now; true when it was gone and has been restored. A network error keeps it as it is. */
+    private suspend fun sessionWasLost(): Boolean = try {
+        session.ensureSession(verify = true)
+    } catch (e: ApiException) {
+        if (e.code == ApiException.NOT_SIGNED_IN) throw e
+        false
     }
 
     private fun elapsedMs(startedNanos: Long): Long = (System.nanoTime() - startedNanos) / 1_000_000

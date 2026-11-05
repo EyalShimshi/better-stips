@@ -130,6 +130,8 @@ import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.ExpertFields
 import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
+import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedMark
 import io.github.eyalshimshi.betterstips.ui.components.agoText
@@ -175,6 +177,8 @@ fun UserProfileScreen(
     val isMe = session.signedIn && session.userId == userId
     val profile = state.profile
     val listState = rememberLazyListState()
+    // As the Profile tab (no back button), tapping the tab again scrolls back to the top (v0.12).
+    if (onBack == null) ScrollToTopOnReselect(Routes.PROFILE, listState)
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()

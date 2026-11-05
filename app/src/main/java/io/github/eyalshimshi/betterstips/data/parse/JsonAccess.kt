@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.data.parse
 
+import io.github.eyalshimshi.betterstips.util.TextUtils
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -23,6 +24,11 @@ internal fun JsonElement?.primitiveText(): String? {
 }
 
 internal fun JsonObject.str(key: String): String? = this[key].primitiveText()
+
+/** What people wrote, as they wrote it: Stips sends it HTML-escaped ("&gt;" for ">"), so it's decoded once (v0.12). */
+internal fun JsonObject.text(key: String): String? = str(key)?.let(TextUtils::decodeEntities)
+
+internal fun JsonElement?.decodedText(): String? = primitiveText()?.let(TextUtils::decodeEntities)
 
 internal fun JsonObject.long(key: String): Long? {
     val text = str(key)?.trim() ?: return null

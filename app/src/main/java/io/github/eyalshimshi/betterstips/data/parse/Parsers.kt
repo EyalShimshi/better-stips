@@ -64,16 +64,16 @@ object Parsers {
         val permissions = item.obj("meta")?.obj("permissions")
         return Question(
             id = id,
-            title = d.str("q").orEmpty().trim(),
-            body = d.str("text_content").orEmpty().trim(),
-            topics = d.arr("tagslist")?.mapNotNull { it.primitiveText()?.trim()?.takeIf { tag -> tag.isNotEmpty() } }.orEmpty(),
+            title = d.text("q").orEmpty().trim(),
+            body = d.text("text_content").orEmpty().trim(),
+            topics = d.arr("tagslist")?.mapNotNull { it.decodedText()?.trim()?.takeIf { tag -> tag.isNotEmpty() } }.orEmpty(),
             postedAt = StipsTime.parse(d.str("time")),
             answerCount = d.int("answer_count") ?: 0,
             pinCount = d.int("pin_count") ?: 0,
             channelId = d.int("channel_id") ?: 0,
             author = author(extra?.obj("item_profile"), d.str("name"), d.bool("anonflg")),
             cover = cover(d.str("photo"), extra?.obj("content_image")),
-            link = d.str("q_link")?.trim()?.takeIf { it.startsWith("http://") || it.startsWith("https://") },
+            link = d.text("q_link")?.trim()?.takeIf { it.startsWith("http://") || it.startsWith("https://") },
             userPinned = d.int("user_pinned") == 1,
             canEdit = permissions?.bool("edit") ?: false,
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
@@ -98,8 +98,9 @@ object Parsers {
         val anonymous = profile?.bool("anonflg") ?: anonymousFlag ?: false
         // Present on special accounts only (measured: Net Knights); Stips may send it as an empty array otherwise.
         val special = profile?.obj("specialConfig")
+        val nickname = profile?.str("nickname")?.takeIf { it.isNotBlank() } ?: fallbackName?.takeIf { it.isNotBlank() } ?: ""
         return Author(
-            nickname = profile?.str("nickname")?.takeIf { it.isNotBlank() } ?: fallbackName?.takeIf { it.isNotBlank() } ?: "",
+            nickname = TextUtils.decodeEntities(nickname),
             userId = if (anonymous) null else profile?.long("userid"),
             photoStamp = if (anonymous) null else profile?.str("photostamp")?.takeIf { it.isNotBlank() },
             anonymous = anonymous,
@@ -118,15 +119,15 @@ object Parsers {
         val id = d.long("id") ?: return null
         val extra = item.obj("extra")
         val links = (1..3).mapNotNull { n ->
-            val url = d.str("link$n")?.trim()
+            val url = d.text("link$n")?.trim()
             if (url.isNullOrEmpty() || !(url.startsWith("http://") || url.startsWith("https://"))) null
-            else AnswerLink(url, d.str("link${n}name")?.trim()?.takeIf { it.isNotEmpty() })
+            else AnswerLink(url, d.text("link${n}name")?.trim()?.takeIf { it.isNotEmpty() })
         }
         val permissions = item.obj("meta")?.obj("permissions")
         return Answer(
             id = id,
             questionId = d.long("askid") ?: 0,
-            text = d.str("a").orEmpty().trim(),
+            text = d.text("a").orEmpty().trim(),
             postedAt = StipsTime.parse(d.str("time")),
             score = d.int("votes_score") ?: 0,
             userVote = extra?.int("userVote") ?: 0,
@@ -135,7 +136,7 @@ object Parsers {
             links = links,
             canEdit = permissions?.bool("edit") ?: false,
             isOwner = permissions?.bool("itemOwner") ?: false,
-            parentTitle = extra?.str("parent_item_title")?.trim()?.takeIf { it.isNotEmpty() },
+            parentTitle = extra?.text("parent_item_title")?.trim()?.takeIf { it.isNotEmpty() },
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
             canReport = permissions?.bool("report") ?: false,
             byAsker = extra?.bool("parentItemCreatorResponse") ?: false,
@@ -199,7 +200,7 @@ object Parsers {
         val special = itemProfile?.obj("specialConfig")
         return UserProfile(
             userId = id,
-            nickname = d.str("nickname").orEmpty(),
+            nickname = d.text("nickname").orEmpty(),
             points = d.int("points") ?: 0,
             female = d.int("gender") == 2,
             photoStamp = (extra?.str("photostamp") ?: itemProfile?.str("photostamp"))?.takeIf { it.isNotBlank() },
@@ -217,8 +218,8 @@ object Parsers {
     fun profilePage(data: JsonElement?): ProfilePage? {
         val d = data.asObject() ?: return null
         val page = d.obj("user_profile_page")
-        val bio = page?.obj("data")?.str("text_status")?.trim()?.takeIf { it.isNotEmpty() }
-            ?: d.str("profile_quote")?.trim()?.takeIf { it.isNotEmpty() }
+        val bio = page?.obj("data")?.text("text_status")?.trim()?.takeIf { it.isNotEmpty() }
+            ?: d.text("profile_quote")?.trim()?.takeIf { it.isNotEmpty() }
         val badges = d.arr("badges")?.mapNotNull { it.asObject() }.orEmpty()
         return ProfilePage(
             questions = d.int("questions") ?: 0,
@@ -230,7 +231,7 @@ object Parsers {
             bio = bio,
             bioEditable = page?.obj("meta")?.obj("permissions")?.bool("edit") ?: false,
             customBadges = badges.filter { it.str("name") == "custom_rank" }
-                .mapNotNull { it.str("label")?.trim()?.takeIf { label -> label.isNotEmpty() } },
+                .mapNotNull { it.text("label")?.trim()?.takeIf { label -> label.isNotEmpty() } },
             hideAge = d.bool("hideAge") == true,
             hideStats = d.bool("hideStats") == true,
             raw = d.toString(),
@@ -248,8 +249,8 @@ object Parsers {
         results.forEach { element ->
             val e = element.asObject() ?: return@forEach
             // As on the site: a topic section shows its name and links to it; an item list shows its title.
-            val topic = if (e.str("elementType") == "topic") e.str("name")?.trim()?.takeIf { it.isNotEmpty() } else null
-            val title = (topic ?: e.str("title") ?: e.str("name"))?.trim()?.takeIf { it.isNotEmpty() } ?: return@forEach
+            val topic = if (e.str("elementType") == "topic") e.text("name")?.trim()?.takeIf { it.isNotEmpty() } else null
+            val title = (topic ?: e.text("title") ?: e.text("name"))?.trim()?.takeIf { it.isNotEmpty() } ?: return@forEach
             val questions = e.arr("items")?.mapNotNull { question(it) }.orEmpty()
             if (questions.isEmpty()) return@forEach
             val list = sections.getOrPut(title) { mutableListOf() }
@@ -275,7 +276,7 @@ object Parsers {
         val permissions = item.obj("meta")?.obj("permissions")
         ThanksMessage(
             id = id,
-            text = d.str("msg").orEmpty().trim(),
+            text = d.text("msg").orEmpty().trim(),
             time = StipsTime.parse(d.str("time")),
             author = author(item.obj("extra")?.obj("item_profile"), null, false),
             canDelete = permissions?.bool("deleteWithoutMsg") == true || permissions?.bool("delete") == true,
@@ -294,7 +295,7 @@ object Parsers {
             else -> null
         }
         val html = TextUtils.htmlToPlain(n.str("contentHtml"))
-        val msg = n.str("msgText")?.trim()?.takeIf { it.isNotEmpty() }
+        val msg = n.text("msgText")?.trim()?.takeIf { it.isNotEmpty() }
         StipsNotification(
             id = id,
             text = html.ifBlank { msg.orEmpty() },
@@ -337,7 +338,7 @@ object Parsers {
 
     /** `smartdata.get` utils/GetUrlMeta: a page's title, used to name attached links. */
     fun urlTitle(data: JsonElement?): String? =
-        data.asObject()?.obj("results")?.str("title")?.trim()?.takeIf { it.isNotEmpty() }
+        data.asObject()?.obj("results")?.text("title")?.trim()?.takeIf { it.isNotEmpty() }
 
     /** The photo upload script answers `{success: true}` or `{success: false, error: "…"}`. */
     fun uploadResult(text: String): Pair<Boolean, String?> {
@@ -360,7 +361,7 @@ object Parsers {
             if (other.userId == null) return@mapNotNull null
             Conversation(
                 other = other,
-                lastMessage = m.str("msg").orEmpty().trim(),
+                lastMessage = m.text("msg").orEmpty().trim(),
                 time = StipsTime.parse(m.str("time")),
                 timeText = m.str("hebrew_time"),
                 unread = m.int("newCount") ?: m.int("new_count") ?: 0,
@@ -377,7 +378,7 @@ object Parsers {
             val id = m.long("id") ?: return@mapNotNull null
             ChatMessage(
                 id = id,
-                text = m.str("msg").orEmpty().trim(),
+                text = m.text("msg").orEmpty().trim(),
                 time = StipsTime.parse(m.str("time")),
                 fromUserId = m.long("fromuserid"),
                 toUserId = m.long("touserid"),
@@ -394,7 +395,7 @@ object Parsers {
 
     /** `item.autotags {title}` and `item.tag_suggest {q}`: `{tags: [...]}`. */
     fun tags(data: JsonElement?): List<String> =
-        data.asObject()?.arr("tags")?.mapNotNull { it.primitiveText()?.trim()?.takeIf { tag -> tag.isNotEmpty() } }?.distinct().orEmpty()
+        data.asObject()?.arr("tags")?.mapNotNull { it.decodedText()?.trim()?.takeIf { tag -> tag.isNotEmpty() } }?.distinct().orEmpty()
 
     /** `photos.tag_gallery {tags}`: Stips' own photos for those tags. */
     fun galleryPhotos(data: JsonElement?): List<GalleryPhoto> =
@@ -418,7 +419,7 @@ object Parsers {
         val permissions = item.obj("meta")?.obj("permissions")
         PenPalPost(
             id = id,
-            text = d.str("msg").orEmpty().trim(),
+            text = d.text("msg").orEmpty().trim(),
             time = StipsTime.parse(d.str("time")),
             author = author(item.obj("extra")?.obj("item_profile"), null, false),
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
@@ -433,7 +434,7 @@ object Parsers {
 
     /** `penfriends/LastMessageForUser`: `{messageText}`. */
     fun lastPenPalMessage(data: JsonElement?): String? =
-        data.asObject()?.obj("results")?.str("messageText")?.trim()?.takeIf { it.isNotEmpty() }
+        data.asObject()?.obj("results")?.text("messageText")?.trim()?.takeIf { it.isNotEmpty() }
 
     /** `item.send_flower {id}` answers `{flowerSent: true}`. */
     fun flowerSent(data: JsonElement?): Boolean = data.asObject()?.bool("flowerSent") ?: false

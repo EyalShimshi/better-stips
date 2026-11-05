@@ -52,7 +52,7 @@ flowchart TD
 
 ## 4. Navigation and adaptive layout
 
-- **Bottom bar:** Home · Pen pals · Chats · Profile (icons with labels; filled icon when selected; Chats shows the unread count). It hides on inner screens, sliding away.
+- **Bottom bar:** Home · Pen pals · Chats · Profile (icons with labels; filled icon when selected; Chats shows the unread count). It hides on inner screens, sliding away. Tapping the open tab scrolls it back to the top (v0.12, D-78).
 - **Back:** system back and predictive back everywhere; the top bar's back arrow mirrors in RTL.
 - **Motion (D-32):** a new screen slides in from the end over the current one, which drifts a quarter of the way toward the start; Back reverses it. Tabs fade through (out 90 ms, in 210 ms). During the predictive back gesture the screen follows the finger toward the edge it was swiped from, and the screen below slides in from a quarter away. The *Animations* switch turns all of it off.
 - **Deep links:** `https://stips.co.il/ask/<id>` opens the question, `/profile/<id>` the profile, `/messages` the Chats tab. The same links work from phone notifications and inside answers.
@@ -136,7 +136,7 @@ flowchart TD
 └──────────────────────────────────────┘
 ```
 
-The list updates by itself when the unread count changes (checked every 10 s while the app is open) and on returning from a chat.
+The list updates by itself when the unread count changes (checked every 10 s while the app is open) and on returning from a chat. Pulling it down also makes sure the session is alive (#9). The top bar's ⚙ (tune) opens **DM settings** (v0.12, D-76): a sheet with *Replies* (easy reply, show what messages reply to, hide the carets), *Notifications* (phone notifications; while on, message notifications and Android's sound and pop-up settings) and the chats widget. Settings has the same page.
 
 Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
@@ -168,6 +168,8 @@ Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 Earlier messages load by themselves as the top comes into view; there's no "Load earlier" button (#6). Every visit starts with all times folded. The chat asks for new messages every 3 s while it's on screen, and not while their messages are blocked.
 
 **Report** is a dialog with the site's five reasons as radio buttons (spam or ads; sexual messages or offers; insults; suspicious questions about personal details; something else), then an optional details field. **Block** asks first; unblocking doesn't.
+
+**Replies (v0.12, D-75):** as answers (§5.2): dragging a bubble from left to right slides it after the finger with a ↩ growing in on the left; past 56 dp a haptic tick, and letting go starts a reply. Above the box: a bar with a start-side primary stripe, ↩, "Replying to Yael" (or "Replying to your message"), the first line, ✕. A message that points up shows, inside its bubble above the text, a quote: a 3 dp primary stripe, the author ("You" for one's own) in primary labelMedium, two lines in bodySmall, on a 7 % tint of the bubble's text color; quote and text share the wider width. A tap on the quote, or on a pointer in the text, scrolls there, and that bubble breathes toward tertiary container for two seconds. ⚙ in the top bar opens DM settings, as in the list.
 
 ### 5.5 Profile (everyone's, social-style)
 

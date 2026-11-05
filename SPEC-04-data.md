@@ -138,6 +138,8 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 - Account calls made without a live session return `status: "ok"` with **empty data** (`messages.count` → 0/0, `notifications.list` → `[]`, `AskAdditionalData` → false). Only `user.get_app_user` fails, with "המשתמש אינו מחובר למערכת".
 - `user.login` with a token Stips no longer accepts returns `{"status":"ok","data":{"logged":false}}`.
 - Stips is served through **Cloudflare** (`Server: cloudflare`, `CF-RAY`) from one ASP.NET origin (one `ASPSESSIONID…` cookie name across requests). A Cloudflare limit shows as HTTP 429 or 403.
+- **A call without the session cookie gets a new anonymous session cookie** (#9, v0.12). A feed call sent before the sign-in, answered after it, therefore replaced the signed-in cookie, and account calls came back empty: in the owner's log `messages.list` went from 2 KB to 85 B a second after the sign-in, on the same connection. The app now ignores cookies from answers to calls that started before the latest sign-in (D-79).
+- **Text is HTML-escaped** (v0.12): what people write comes back with `&lt;`, `&gt;`, `&amp;`, `&quot;` and numeric references, which the site decodes on display. Stips+ decodes it once in the parsers (D-77).
 
 **Request limit:** an address that sends about 100 calls without the site's Referer is refused with `IP_RATE_LIMIT`; calls with it (every call from the website and the official app) aren't limited that way (measured in v0.4–0.5, §2.10).
 

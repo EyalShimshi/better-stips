@@ -82,17 +82,19 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
      * Makes sure Stips knows this session. After a restart, or when the session may have expired on the server
      * (Stips quietly answers account calls with empty data then), it checks, and signs in again with the token.
      * Only a clear "this token is not valid" ({"logged": false}) signs the user out; errors never do (#3).
+     * [verify] checks with Stips even when the session was confirmed in the last [FRESH_MS] (#9: an empty list, or the
+     * user pulling to refresh). Returns true when it had to sign in again.
      */
-    suspend fun ensureSession(force: Boolean = false) {
+    suspend fun ensureSession(force: Boolean = false, verify: Boolean = false): Boolean {
         val token = _session.value.token ?: throw ApiException(ApiException.NOT_SIGNED_IN)
-        mutex.withLock {
+        return mutex.withLock {
             val now = System.currentTimeMillis()
             val live = liveToken == token
-            if (!force && live && now - confirmedAt < FRESH_MS) return
-            if (force && live && now - loggedInAt < RELOGIN_COOLDOWN_MS) return
+            if (!force && !verify && live && now - confirmedAt < FRESH_MS) return false
+            if (force && live && now - loggedInAt < RELOGIN_COOLDOWN_MS) return false
             if (!force && live && stillSignedIn()) {
                 confirmedAt = now
-                return
+                return false
             }
             val data = try {
                 api.call("user.login", buildJsonObject { put("auth_token", token) }, forcePost = true)
@@ -116,6 +118,7 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
             loggedInAt = now
             NetLog.event("session", if (force) "signed in again (Stips said we were signed out)" else "session restored with the saved token")
             save(_session.value.copy(token = newToken, safeFilter = result.safeFilter ?: _session.value.safeFilter))
+            true
         }
     }
 
