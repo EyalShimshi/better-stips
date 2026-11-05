@@ -177,6 +177,7 @@ Build the path from code to a phone first. Everything after it depends on it.
    - a version bump.
 5. **Push** (the agent, or the owner from their editor) → CI builds → the owner installs and gives feedback.
 6. **The agent writes the round summary.**
+7. **Before finishing, the agent checks the open issues again** (and the newest commits on the main branch, where the owner may leave a note from the phone). The owner may file new ones while the agent works, or cancel a build on purpose to have them in the same release. Handle them, and reference them in a commit (`Refs #N`, `Fixes #N`), so the issue shows they were read.
 
 ### Patterns that worked
 
