@@ -104,8 +104,8 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
         state.items.filterNot { container.blocks.isBlocked("penfriendsitem", it.id, it.author.userId) }
     }
     val listState = rememberLazyListState()
-    // Tapping חברים לעט again scrolls back to the top (v0.12).
-    ScrollToTopOnReselect(Routes.PENPALS, listState)
+    // Tapping חברים לעט again scrolls back to the top (v0.12) and reloads the board (v0.13, #10).
+    ScrollToTopOnReselect(Routes.PENPALS, listState, onRefresh = vm::refresh)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.penpals_title)) }) },

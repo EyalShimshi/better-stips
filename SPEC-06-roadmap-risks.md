@@ -13,7 +13,7 @@
 | M3.6 v0.10 | Easy reply and reply quotes, notifications that open at the new answer, moderators on answers | Replying in busy threads takes one swipe |
 | M3.7 v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, per-chat notifications that pop up, a status panel and a one-time offer | The owner gets new answers and messages on the phone within minutes |
 | M3.8 v0.12 | Easy reply in chats, DM settings, back to the top, text as written; #9 | Chats work as answers do, and stay signed in |
-| M3.9 v0.13 | "Unread" bars, notices from Stips' team, block screens, credibility explained and projected, the 50-point and 5-flower limits | The app says what Stips' rules mean for the user before they hit them |
+| M3.9 v0.13 | "Unread" bars, notices from Stips' team, block screens, credibility explained and projected, the 50-point and 5-flower limits; #10: edit history, reload on re-tapping a tab, colored scores, a scroll button on threads | The app says what Stips' rules mean for the user before they hit them |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes

@@ -116,6 +116,10 @@
 | D-85 | **Below 50 points, no easy reply on answers (v0.13).** Stips allows no editing below 50, and easy reply corrects its carets by editing, so swiping and *Reply* are off for answers then; the switch in Settings says why and how many points the user has. Reply quotes stay, for everyone's answers. Chats are unaffected: they count before sending (D-75). Editing an answer was already offered only when Stips' own permission allows it | The owner's ask: "disable specifically the ability to auto-caret … I don't want to punish the user" | Owner (ask), agent |
 | D-86 | **What the credibility points mean (v0.13).** The gauge on every profile shows Stips' rating (מושלם 90–100, אמין מאוד 70–89, אמין 60–69, בסדר 40–59, בעייתי 30–39, מזיק 20–29, מזיק מאוד 0–19) and how fast it rises (a point every 3–7 days from 90, every 2 days from 70, daily from 20, never below 20). A tap opens what they allow (editing from 50, activity from 30), *When will the points reach…* (a slider; the day, or a range from 90 up, if none are taken away), the milestones ahead with their dates, and Stips' table. One's own adds the rule book's goals: the senior answerer badge (500 flowers) and what Stips asks of moderators (15+, 100 points, 3,000 flowers, a year and a half, a year since the last block) | The owner's ask, from Stips' rule book 3.2.0 and the rate table the owner sent | Owner (ask), agent |
 | D-87 | **Messages need 5 flowers (v0.13),** as on the site (`MIN_FLOWERS_TO_SEND_MESSAGE`, moderators exempt): below that, the chat's composer gives way to the site's explanation ("שליחת מסרים פתוחה למשתמשים בעלי 5 פרחים ומעלה…"), as pen pals already did (D-44) | Found in the site's code and the rule book while checking the owner's PDF; a message that Stips refuses is worse than saying so up front | Agent |
+| D-88 | **An answer's edit history (#10, v0.13).** Stips keeps earlier versions of edited questions and answers (`revision_flg`), and the site lists them ("גרסאות קודמות") from `objectlist` `omniobj_revision.for_item` (`itemid`, `itemObjType`): newest first, each with the fields the next edit changed as they were before it (`jsonstring`), who edited (`editor`: owner, moderator, platformAdmin) and when. An edited answer says "· edited" after its time; that, or ⋮ → *Edit history*, opens a sheet with every version, newest first: *Now*, earlier versions and *Original*, each with "Edited by the answerer / a moderator / Stips" and when (the original: when it was posted), its text and links. A field the edit didn't change shows as it is now, as on the site | The owner's ask ("You can check the website for how it's done") | Owner (ask), agent |
+| D-89 | **Tapping the open tab also reloads it (#10, v0.13):** Home, Pen pals, Chats and Profile scroll back to the top and refresh at the same time, as if entering the page again (D-78) | The owner's ask: a "re-enter the page", like other platforms | Owner (ask), agent |
+| D-90 | **Scores in color (#10, v0.13):** an answer's score is green above zero (#188038, #81C995 in dark mode) and the theme's error red below; zero stays as it was | The owner's ask | Owner (ask), agent |
+| D-91 | **A scroll button on question threads (#10, v0.13):** a small round button at the bottom corner; ↓ goes down to the last answer, and once the header has folded away completely (the switch the owner suggested) the arrow turns around (an animated half turn) and goes back up to the question. Far jumps skip most of the way, then scroll. It hides when the whole thread fits on the screen | The owner's ask, including "not immediately on first touch" | Owner (ask), agent |
 
 ## Next steps
 
@@ -128,12 +132,12 @@
 7. Owner: try easy reply on a busy new question, and open a few notifications about new answers and flowers. If one opens at the wrong answer, turn on expert mode, tap { } on that notification, and send me what it shows (D-70).
 8. Owner: after updating, answer the notifications offer (allow running in the background when Android asks). Then in Settings → Notifications and widgets, tap *Send a test* and *Check now*. If notifications still don't come, send me the status lines there (D-74).
 9. Owner: in a chat, swipe a message to reply, and try ⚙ DM settings at the top. If chats ever show empty again, pull down once; if they're still empty, share the network log (#9, D-79).
-10. Owner: when a notice from Stips' team arrives (a removal, a report's outcome, a note), check that Stips+ labels it right; if not, turn on expert mode, tap { } on it, and send me what it shows (D-82). Tap the credibility gauge on your profile for the projection (D-86).
-11. Next round candidates: the Android 17 emulator in the release check (about 10 more minutes per build), "Add to home screen" for one question or chat (pinned shortcuts), choosing an Unsplash cover with our own Unsplash key, a generated widget preview for the widget picker, stacking two easy replies in one answer, an optional "instant" mode for notifications with the screen off (a foreground service), gentle hints from the rule book while writing (a question without "?", emojis, repeated letters).
+10. Owner: when a notice from Stips' team arrives (a removal, a report's outcome, a note), check that Stips+ labels it right; if not, turn on expert mode, tap { } on it, and send me what it shows (D-82). Tap the credibility gauge on your profile for the projection (D-86). On an edited answer, tap "· edited" and check the versions against the site's (D-88).
+11. Next round candidates: the Android 17 emulator in the release check (about 10 more minutes per build), "Add to home screen" for one question or chat (pinned shortcuts), choosing an Unsplash cover with our own Unsplash key, a generated widget preview for the widget picker, stacking two easy replies in one answer, an optional "instant" mode for notifications with the screen off (a foreground service), gentle hints from the rule book while writing (a question without "?", emojis, repeated letters), a question's own edit history.
 
 ## Implementation notes
 
-### Thirteenth build (v0.13, credibility, Stips' team, unread bars)
+### Thirteenth build (v0.13, credibility, Stips' team, unread bars; #10)
 
 | Spec says / the site does | v0.13 does | Why / next step |
 |---|---|---|
@@ -145,6 +149,10 @@
 | v0.10: easy reply for everyone | Off for answers below 50 points, with the reason (D-85) | Stips allows no editing below 50 |
 | The profile gauge said Low/Fair/Good/Excellent | Stips' ratings and rates; a sheet with the projection, milestones, table and goals (D-86) | The rule book and the owner's table |
 | v0.7–v0.12: the composer was always there, and Stips refuses messages below 5 flowers | The composer says why first, as the site does (D-87) | — |
+| The site shows an answer's earlier versions | So does Stips+, from the same list (D-88) | #10. Questions have them too; not shown yet |
+| v0.12: tapping the open tab only scrolled to the top | It also reloads (D-89) | #10 |
+| Scores in the text color | Green above zero, red below (D-90) | #10 |
+| Long threads: scroll by hand | A ↓/↑ button (D-91) | #10 |
 
 ### Twelfth build (v0.12, DMs, text as written, back to the top; #9)
 

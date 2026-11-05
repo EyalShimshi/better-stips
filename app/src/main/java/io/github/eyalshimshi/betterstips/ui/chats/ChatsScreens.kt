@@ -209,8 +209,10 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
         if (session.signedIn) vm.refreshQuietly()
     }
     val listState = rememberLazyListState()
-    // Tapping Chats again scrolls back to the top (v0.12).
-    ScrollToTopOnReselect(Routes.CHATS, listState)
+    // Tapping Chats again scrolls back to the top (v0.12) and reloads the list (v0.13, #10).
+    ScrollToTopOnReselect(Routes.CHATS, listState) {
+        if (session.signedIn) vm.refresh()
+    }
     var dmSettings by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         topBar = {

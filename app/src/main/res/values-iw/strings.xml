@@ -745,4 +745,17 @@
         <item quantity="many">%d הודעות שלא נקראו</item>
         <item quantity="other">%d הודעות שלא נקראו</item>
     </plurals>
+    <string name="answer_edited_mark">נערכה</string>
+    <string name="edit_history">היסטוריית עריכות</string>
+    <string name="edit_history_now">עכשיו</string>
+    <string name="edit_history_earlier">גרסה קודמת</string>
+    <string name="edit_history_original">הגרסה המקורית</string>
+    <string name="edit_history_posted">פורסמה</string>
+    <string name="edit_history_by_owner">נערך על ידי העונה</string>
+    <string name="edit_history_by_moderator">נערך על ידי נאמן</string>
+    <string name="edit_history_by_stips">נערך על ידי סטיפס</string>
+    <string name="edit_history_by_unknown">נערך</string>
+    <string name="edit_history_empty">אין גרסאות קודמות לפריט זה</string>
+    <string name="scroll_to_top">חזרה למעלה</string>
+    <string name="scroll_to_bottom">ירידה לתשובה האחרונה</string>
 </resources>

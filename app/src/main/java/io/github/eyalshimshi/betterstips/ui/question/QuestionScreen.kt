@@ -2,13 +2,19 @@ package io.github.eyalshimshi.betterstips.ui.question
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -69,6 +75,7 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
@@ -95,6 +102,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -178,6 +186,7 @@ import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
+import io.github.eyalshimshi.betterstips.ui.components.voteScoreColor
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
@@ -201,6 +210,7 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** What a dialog on the question screen is about. */
@@ -281,6 +291,8 @@ fun QuestionScreen(
         var showLinkDialog by remember { mutableStateOf(false) }
         var pending by remember { mutableStateOf<PendingAction?>(null) }
         var viewerOpen by remember { mutableStateOf(false) }
+        // An edited answer whose history is open (v0.13, #10).
+        var historyFor by remember { mutableStateOf<Answer?>(null) }
         var creditShown by remember { mutableStateOf(false) }
         val creditText = (question?.cover as? Cover.Unsplash)?.creatorName?.let { stringResource(R.string.photo_credit, it) }
         LaunchedEffect(creditShown) {
@@ -338,9 +350,12 @@ fun QuestionScreen(
         val hideAnswerLabel = stringResource(R.string.hide_answer)
         val hideUserLabel = stringResource(R.string.hide_user_content)
         val detailsLabel = stringResource(R.string.expert_details)
+        val historyLabel = stringResource(R.string.edit_history)
         val answerMenu: (Answer) -> List<MenuEntry> = { answer ->
             buildList {
                 if (canReply) add(MenuEntry(replyLabel, Icons.AutoMirrored.Filled.Reply) { vm.replyTo(answer) })
+                // Edited answers keep their earlier versions on Stips (v0.13, #10).
+                if (answer.edited) add(MenuEntry(historyLabel, Icons.Outlined.History) { historyFor = answer })
                 if (answer.isOwner) {
                     if (answer.canEdit) add(MenuEntry(editLabel, Icons.Filled.Edit) { vm.startEdit(answer) })
                     if (!answer.author.anonymous) add(MenuEntry(detachLabel, Icons.Outlined.PersonOff) { pending = PendingAction.DetachAnswer(answer) })
@@ -442,6 +457,7 @@ fun QuestionScreen(
                         moderatorOf = moderatorOf,
                         onVisibleAuthors = vm::wantBadges,
                         onJumpHandled = vm::consumeJump,
+                        onHistory = { historyFor = it },
                     )
                 }
                 QuestionTopBar(
@@ -510,6 +526,16 @@ fun QuestionScreen(
                         ActionMenuButton(entries = entries, description = stringResource(R.string.more_actions), collapse = collapse)
                     }
                 }
+                // Down to the last answer; once the header has folded away, back up to the top (v0.13, #10).
+                if (question != null && !notFound && !hidden) {
+                    ScrollJumpButton(
+                        listState = listState,
+                        up = collapse >= 1f,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                    )
+                }
             }
         }
 
@@ -526,6 +552,7 @@ fun QuestionScreen(
         if (viewerOpen && cover != null) {
             ImageViewerDialog(fullUrl = cover.fullUrl, previewUrl = cover.largeUrl, caption = creditText, onDismiss = { viewerOpen = false })
         }
+        historyFor?.let { answer -> EditHistorySheet(answer, onDismiss = { historyFor = null }) }
         when (val action = pending) {
             null -> Unit
             is PendingAction.Report -> ReportDialog(
@@ -661,6 +688,7 @@ private fun QuestionContent(
     moderatorOf: (Answer) -> ModeratorBadge?,
     onVisibleAuthors: (Collection<Long>) -> Unit,
     onJumpHandled: () -> Unit,
+    onHistory: (Answer) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
@@ -805,6 +833,7 @@ private fun QuestionContent(
                         onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
                         highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
                         moderator = moderatorOf(answer),
+                        onShowHistory = if (answer.edited) ({ onHistory(answer) }) else null,
                     )
                 }
             }
@@ -825,6 +854,56 @@ private const val KEY_EXPERT = "expert"
 private const val KEY_BODY = "body"
 private const val KEY_ANSWERS_HEADER = "answers-header"
 private const val KEY_ANSWERS_ERROR = "answers-error"
+
+/** Farther than this, the scroll button jumps most of the way and scrolls the rest. */
+private const val JUMP_ANIMATE_LIMIT = 25
+private const val JUMP_NEAR = 6
+
+/**
+ * A small round button on the thread (v0.13, #10): ↓ goes down to the last answer; once the header has folded away, the
+ * arrow turns around and goes back up to the question. Only while the thread is longer than the screen.
+ */
+@Composable
+private fun ScrollJumpButton(listState: LazyListState, up: Boolean, modifier: Modifier = Modifier) {
+    val scope = rememberCoroutineScope()
+    val animations = LocalAppSettings.current.animations
+    val scrollable by remember(listState) { derivedStateOf { listState.canScrollForward || listState.canScrollBackward } }
+    val rotation by animateFloatAsState(
+        targetValue = if (up) 180f else 0f,
+        animationSpec = if (animations) tween(300, easing = FastOutSlowInEasing) else snap(),
+        label = "scroll-jump",
+    )
+    AnimatedVisibility(
+        visible = scrollable,
+        enter = if (animations) fadeIn() + scaleIn() else EnterTransition.None,
+        exit = if (animations) fadeOut() + scaleOut() else ExitTransition.None,
+        modifier = modifier,
+    ) {
+        SmallFloatingActionButton(
+            onClick = {
+                scope.launch {
+                    val target = if (up) 0 else (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                    if (!animations) {
+                        listState.scrollToItem(target)
+                    } else {
+                        if (abs(listState.firstVisibleItemIndex - target) > JUMP_ANIMATE_LIMIT) {
+                            listState.scrollToItem(if (up) JUMP_NEAR else (target - JUMP_NEAR).coerceAtLeast(0))
+                        }
+                        listState.animateScrollToItem(target)
+                    }
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Icon(
+                Icons.Filled.KeyboardArrowDown,
+                contentDescription = stringResource(if (up) R.string.scroll_to_top else R.string.scroll_to_bottom),
+                modifier = Modifier.graphicsLayer { rotationZ = rotation },
+            )
+        }
+    }
+}
 
 /**
  * The cover as a background that fades into the page; the title sits on the fade. The photo drifts slower than the
@@ -1123,6 +1202,7 @@ private fun AnswerCard(
     onSwipeReply: (() -> Unit)?,
     highlightKey: Long?,
     moderator: ModeratorBadge?,
+    onShowHistory: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -1235,8 +1315,26 @@ private fun AnswerCard(
                             }
                         }
                         val ago = agoText(answer.postedAt)
-                        if (ago.isNotBlank()) {
-                            Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // "· edited", which opens the answer's earlier versions, as on the site (v0.13, #10).
+                        if (ago.isNotBlank() || onShowHistory != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (ago.isNotBlank()) {
+                                    Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (onShowHistory != null) {
+                                    if (ago.isNotBlank()) {
+                                        Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(
+                                        stringResource(R.string.answer_edited_mark),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .clickable(onClickLabel = stringResource(R.string.edit_history), onClick = onShowHistory),
+                                    )
+                                }
+                            }
                         }
                         if (expert) ExpertLine(ExpertFields.answerLine(answer))
                     }
@@ -1298,7 +1396,8 @@ private fun AnswerCard(
                             tint = if (answer.userVote == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(answer.score.toString(), style = MaterialTheme.typography.labelLarge)
+                    // Green above zero, red below (v0.13, #10).
+                    Text(answer.score.toString(), style = MaterialTheme.typography.labelLarge, color = voteScoreColor(answer.score))
                     IconButton(onClick = { onVote(-1) }, enabled = signedIn) {
                         Icon(
                             Icons.Filled.KeyboardArrowDown,

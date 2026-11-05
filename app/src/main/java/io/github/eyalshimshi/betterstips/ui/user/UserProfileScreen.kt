@@ -180,8 +180,8 @@ fun UserProfileScreen(
     val isMe = session.signedIn && session.userId == userId
     val profile = state.profile
     val listState = rememberLazyListState()
-    // As the Profile tab (no back button), tapping the tab again scrolls back to the top (v0.12).
-    if (onBack == null) ScrollToTopOnReselect(Routes.PROFILE, listState)
+    // As the Profile tab (no back button), tapping the tab again scrolls back to the top (v0.12) and reloads (v0.13, #10).
+    if (onBack == null) ScrollToTopOnReselect(Routes.PROFILE, listState, onRefresh = vm::load)
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()

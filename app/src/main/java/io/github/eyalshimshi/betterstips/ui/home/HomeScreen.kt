@@ -176,8 +176,6 @@ fun HomeScreen(
     val channels by container.channels.channels.collectAsStateWithLifecycle()
     val settings = LocalAppSettings.current
     val listState = rememberLazyListState()
-    // Tapping Home again scrolls back to the top (v0.12).
-    ScrollToTopOnReselect(Routes.HOME, listState)
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -187,6 +185,12 @@ fun HomeScreen(
     val showsHot = layout != HomeLayout.NewOnly
     val showsNew = !showsSections
     fun loadsNew(next: FeedQuery) = !(layout == HomeLayout.LikeWebsite && next.channelName == null)
+
+    // Tapping Home again scrolls back to the top (v0.12) and reloads it, like entering it again (v0.13, #10).
+    ScrollToTopOnReselect(Routes.HOME, listState) {
+        if (showsSections) sectionsVm.refresh() else feedVm.refresh()
+        if (showsHot) hotVm.load(query.channelName, settings.hotWindow, force = true)
+    }
 
     LaunchedEffect(showsNew) { if (showsNew) feedVm.ensureLoaded() }
     LaunchedEffect(showsSections) { if (showsSections) sectionsVm.ensureLoaded() }

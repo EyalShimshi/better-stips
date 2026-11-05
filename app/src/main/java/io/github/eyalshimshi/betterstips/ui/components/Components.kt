@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
@@ -100,14 +101,19 @@ val LocalTabReselects = staticCompositionLocalOf<SharedFlow<String>> { MutableSh
 /** Farther down than this, going back to the top jumps instead of scrolling through everything. */
 private const val RESELECT_ANIMATE_LIMIT = 30
 
-/** Tapping [route]'s tab while it's open brings [listState] back to the top, as in other apps (v0.12). */
+/**
+ * Tapping [route]'s tab while it's open brings [listState] back to the top, as in other apps (v0.12), and reloads it
+ * at the same time ([onRefresh]), as if entering the page again (v0.13, #10).
+ */
 @Composable
-fun ScrollToTopOnReselect(route: String, listState: LazyListState) {
+fun ScrollToTopOnReselect(route: String, listState: LazyListState, onRefresh: (() -> Unit)? = null) {
     val reselects = LocalTabReselects.current
     val animate by rememberUpdatedState(LocalAppSettings.current.animations)
+    val refresh by rememberUpdatedState(onRefresh)
     LaunchedEffect(reselects, listState, route) {
         reselects.collect { tapped ->
             if (tapped != route) return@collect
+            refresh?.invoke()
             if (animate && listState.firstVisibleItemIndex <= RESELECT_ANIMATE_LIMIT) {
                 listState.animateScrollToItem(0)
             } else {
@@ -115,6 +121,14 @@ fun ScrollToTopOnReselect(route: String, listState: LazyListState) {
             }
         }
     }
+}
+
+/** An answer's score: green above zero, red below, as usual at zero (v0.13, #10). */
+@Composable
+fun voteScoreColor(score: Int): Color = when {
+    score > 0 -> if (LocalIsDark.current) Color(0xFF81C995) else Color(0xFF188038)
+    score < 0 -> MaterialTheme.colorScheme.error
+    else -> LocalContentColor.current
 }
 
 /** Now, as Stips' servers see it (a wrong phone clock is corrected, [ServerClock]). */

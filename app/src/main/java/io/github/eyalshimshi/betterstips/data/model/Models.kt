@@ -134,8 +134,26 @@ data class Answer(
     val canReport: Boolean = false,
     /** The asker's own reply on their question (it can't get a flower). */
     val byAsker: Boolean = false,
+    /** Stips kept earlier versions of it (`revision_flg`): it was edited, and its history can be shown (v0.13, #10). */
+    val edited: Boolean = false,
     /** The item as Stips sent it (compact JSON), for expert mode (#8). */
     val raw: String? = null,
+)
+
+/**
+ * One of an answer's earlier versions (`omniobj_revision.for_item`, v0.13 (#10)), newest first as Stips lists them: what the
+ * fields that edit changed said before it, who made the edit, and when.
+ */
+data class AnswerRevision(
+    /** The text before the edit; null when the edit didn't change the text (a link, say). */
+    val text: String?,
+    /** The links before the edit; null when the edit didn't change them. */
+    val links: List<AnswerLink>?,
+    /** Who made the edit: "owner" (the one who answered), "moderator" or "platformAdmin" (Stips itself). */
+    val editor: String?,
+    val time: Instant?,
+    /** Stips' Hebrew time for the edit ("לפני 5 דקות"), when it sends no exact one. */
+    val timeText: String?,
 )
 
 data class Channel(

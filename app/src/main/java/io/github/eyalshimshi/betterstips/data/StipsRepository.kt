@@ -4,6 +4,7 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
+import io.github.eyalshimshi.betterstips.data.model.AnswerRevision
 import io.github.eyalshimshi.betterstips.data.model.AppUser
 import io.github.eyalshimshi.betterstips.data.model.AskAllowance
 import io.github.eyalshimshi.betterstips.data.model.AskDraft
@@ -175,6 +176,18 @@ class StipsRepository(
             buildJsonObject {
                 put("method", "ans.for_item")
                 put("askid", questionId)
+            },
+        ),
+    )
+
+    /** An edited answer's earlier versions, newest first, as the site's "גרסאות קודמות" lists them (v0.13, #10). */
+    suspend fun answerRevisions(answerId: Long): List<AnswerRevision> = Parsers.answerRevisions(
+        api.call(
+            "objectlist",
+            buildJsonObject {
+                put("method", "omniobj_revision.for_item")
+                put("itemid", answerId)
+                put("itemObjType", "ans")
             },
         ),
     )

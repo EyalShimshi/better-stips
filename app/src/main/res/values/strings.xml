@@ -709,4 +709,17 @@
         <item quantity="one">1 unread message</item>
         <item quantity="other">%d unread messages</item>
     </plurals>
+    <string name="answer_edited_mark">edited</string>
+    <string name="edit_history">Edit history</string>
+    <string name="edit_history_now">Now</string>
+    <string name="edit_history_earlier">Earlier version</string>
+    <string name="edit_history_original">Original</string>
+    <string name="edit_history_posted">Posted</string>
+    <string name="edit_history_by_owner">Edited by the answerer</string>
+    <string name="edit_history_by_moderator">Edited by a moderator</string>
+    <string name="edit_history_by_stips">Edited by Stips</string>
+    <string name="edit_history_by_unknown">Edited</string>
+    <string name="edit_history_empty">Stips has no earlier versions of this answer.</string>
+    <string name="scroll_to_top">Back to the top</string>
+    <string name="scroll_to_bottom">Down to the last answer</string>
 </resources>

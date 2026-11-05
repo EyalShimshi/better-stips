@@ -16,6 +16,7 @@
 | v0.12 rules (`RulesV12Test`) | HTML entities decoded once (named, numeric, hex; `&amp;lt;` stays `&lt;`; unknown ones and plain ampersands untouched) and in the parsers (answers, questions, tags, chats); easy reply in chats: the carets counted from the bottom, and read back to the same message |
 | #9 (`SessionCookieRaceTest`, MockWebServer) | A slow answer from before the sign-in, arriving after it, doesn't replace the signed-in session cookie; answers after the sign-in still set cookies |
 | v0.13 rules (`RulesV13Test`) | Credibility by the rule book: each rating's range and rate, editing from 50, blocks (23 points → 7 days, below 20 for good), the block screen's state from Stips' block or the points (unknown points never block), days to a target (3–7 a point from 90), milestones, months on Stips from the profile's phrase; the team's notices told apart (a question title saying "נמחק" doesn't make one) and opening at the top; the "unread" marks in questions (the user's own answers not counted) and chats (Stips' count, else the last visit); `appUser` with a block and a moderator rank, and missing points left unknown |
+| #10 (`EditHistoryTest`) | Earlier versions read from `jsonstring` (decoded once; links only when the edit changed them; unreadable JSON keeps nothing); answers marked edited by `revision_flg`; the versions newest first, each with the edit that made it, the oldest the original, unchanged fields as they are now; Stips' editor names |
 
 **On the built APK (CI, before every release, D-55):**
 

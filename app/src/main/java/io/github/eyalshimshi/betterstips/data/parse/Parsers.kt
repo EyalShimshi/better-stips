@@ -4,6 +4,7 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.AccountBan
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
+import io.github.eyalshimshi.betterstips.data.model.AnswerRevision
 import io.github.eyalshimshi.betterstips.data.model.AppUser
 import io.github.eyalshimshi.betterstips.data.model.AskAllowance
 import io.github.eyalshimshi.betterstips.data.model.Author
@@ -141,9 +142,40 @@ object Parsers {
             canDelete = permissions?.bool("delete") == true || permissions?.bool("deleteWithoutMsg") == true,
             canReport = permissions?.bool("report") ?: false,
             byAsker = extra?.bool("parentItemCreatorResponse") ?: false,
+            edited = d.bool("revision_flg") == true,
             raw = item.toString(),
         )
     }
+
+    /**
+     * `objectlist` `omniobj_revision.for_item`: an item's earlier versions, newest first (v0.13, #10). Each keeps, as JSON
+     * in `jsonstring`, the fields the next edit changed, as they were before it; `editor` says who edited.
+     */
+    fun answerRevisions(data: JsonElement?): List<AnswerRevision> = data.asArray()?.mapNotNull { element ->
+        val item = element.asObject() ?: return@mapNotNull null
+        val d = item.obj("data") ?: return@mapNotNull null
+        val before = d.str("jsonstring")?.let { json ->
+            try {
+                Json.parseToJsonElement(json)
+            } catch (e: Exception) {
+                null
+            }
+        }.asObject()
+        val links = before?.takeIf { old -> old.keys.any { it.startsWith("link") } }?.let { old ->
+            (1..3).mapNotNull { n ->
+                val url = old.text("link$n")?.trim()
+                if (url.isNullOrEmpty() || !(url.startsWith("http://") || url.startsWith("https://"))) null
+                else AnswerLink(url, old.text("link${n}name")?.trim()?.takeIf { it.isNotEmpty() })
+            }
+        }
+        AnswerRevision(
+            text = before?.text("a")?.trim(),
+            links = links,
+            editor = d.str("editor")?.trim()?.takeIf { it.isNotEmpty() },
+            time = StipsTime.parse(d.str("time")),
+            timeText = item.obj("extra")?.text("hebrew_time")?.trim()?.takeIf { it.isNotEmpty() },
+        )
+    }.orEmpty()
 
     private val hexColor = Regex("#([0-9a-fA-F]{6})\\b")
 

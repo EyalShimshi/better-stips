@@ -44,7 +44,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | v0.10 | Easy reply and reply quotes (F-51, F-52), notifications that open at the new answer or the flowered one (F-53), moderators marked on answers (F-54); seconds only under a minute, no ⟳ beside "New questions" |
 | v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, one notification per chat, notifications that pop up, a status panel with fixes, and a one-time offer to turn them on (F-55); reply quotes keep the answer's text as written (F-52) |
 | v0.12 | Easy reply and quotes in chats (F-56), DM settings (F-57), tapping the open tab goes back to the top (F-58); text with `<`, `>`, `&` or quotes shows as written; #9: chats no longer come back empty after reopening the app |
-| v0.13 | "Unread" bars in questions and chats (F-59, F-60), notices from Stips' team in full (F-61), block screens (F-62), no easy reply on answers below 50 points (F-63), what the credibility points mean and when they'd reach more (F-64), messages need 5 flowers (F-65) |
+| v0.13 | "Unread" bars in questions and chats (F-59, F-60), notices from Stips' team in full (F-61), block screens (F-62), no easy reply on answers below 50 points (F-63), what the credibility points mean and when they'd reach more (F-64), messages need 5 flowers (F-65); #10: an answer's edit history (F-66), tapping the open tab reloads it (F-58), scores in green and red (F-67), a scroll button on threads (F-68) |
 | Later | Per-app language, pinned shortcuts for single questions and chats |
 | Public | Only after Stips' written permission (D-02) |
 
@@ -109,7 +109,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-55 | Phone notifications that arrive (v0.11) | P1 | New answers, flowers, thanks and messages reach the phone within minutes while it's in use (every 1, 2 or 5 minutes; 2 by default), and about every 15 minutes otherwise; they pop up. One notification per chat, with who wrote and what; tapping opens the chat. A status panel in Settings shows the last check and what holds checks back (Android's notification settings, restricted background use, battery saving), with *Check now* and *Send a test*. Signed-in users are offered, once, to turn them on and to let Stips+ run in the background |
 | F-56 | Easy reply in chats (v0.12) | P1 | As on answers: swipe a message to the right to reply; the draft opens with the carets and a bar says to whom. The count is checked again, with new messages fetched, just before sending (Stips can't edit messages). Messages that point up show the one they reply to as a quote; their text stays as written. Chat-only switches |
 | F-57 | DM settings (v0.12) | P1 | A ⚙ at the top of the chats list and of every chat opens the chat options in one sheet: easy reply, quotes, hiding their carets, phone and message notifications, Android's sound settings for messages, the chats widget. Also a page in Settings |
-| F-58 | Back to the top (v0.12) | P2 | Tapping the open tab (Home, Pen pals, Chats, Profile) scrolls it back to the top |
+| F-58 | Back to the top (v0.12) | P2 | Tapping the open tab (Home, Pen pals, Chats, Profile) scrolls it back to the top, and since v0.13 (#10) reloads it at the same time |
 | F-59 | Unread answers (v0.13) | P1 | A notification about new answers opens the question with a thin "N unread answers" bar above the first new one (no glow; a flower notification still glows). A refresh, the user's own answer, or opening the question again removes it |
 | F-60 | Unread messages (v0.13) | P1 | A chat opens with a thin "N unread messages" bar above the first unread message, near the top when they fill the screen; reopening the chat or writing in it removes it |
 | F-61 | Notices from Stips' team (v0.13) | P1 | A removed question or answer, a report's outcome and team notes say who they're from, show the team's words in a box and the credibility points taken; a tap shows them in full with the user's credibility now and, for a removal, how to appeal. Phone notifications are titled "Stips' team" |
@@ -117,6 +117,9 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-63 | Easy reply needs editing (v0.13) | P1 | Below 50 credibility points easy reply on answers is off (Stips allows no editing), and Settings says why; reply quotes and chats' easy reply stay |
 | F-64 | Credibility, explained (v0.13) | P1 | The gauge shows Stips' rating and how fast it rises; a tap shows what the points allow, a slider for "when will the points reach N" (a date, or a range from 90), the milestones ahead, Stips' table, and on one's own profile the senior answerer and moderator goals |
 | F-65 | Messages need 5 flowers (v0.13) | P2 | Below 5 flowers (moderators exempt) a chat shows the site's explanation instead of the composer |
+| F-66 | Edit history (#10, v0.13) | P1 | An edited answer says "· edited" after its time; it and ⋮ → *Edit history* open every version, newest first, with who edited it (the answerer, a moderator, Stips) and when |
+| F-67 | Scores in color (#10, v0.13) | P2 | An answer's score is green above zero and red below |
+| F-68 | Scroll button on threads (#10, v0.13) | P2 | A small round button goes down to the last answer; once the question's header has folded away it turns into "back to the top". Hidden when the thread fits on the screen |
 
 ## 7. Non-functional requirements
 
