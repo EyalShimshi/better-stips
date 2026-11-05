@@ -123,6 +123,8 @@ import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.ThanksMessage
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
+import io.github.eyalshimshi.betterstips.ui.account.ratingName
+import io.github.eyalshimshi.betterstips.ui.account.riseText
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
@@ -146,6 +148,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
+import io.github.eyalshimshi.betterstips.util.CredRules
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.time.ZoneId
@@ -188,6 +191,7 @@ fun UserProfileScreen(
     val showImages = LocalAppSettings.current.showImages
     val expert = LocalAppSettings.current.expertMode
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+    var credibilityOpen by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<ThanksMessage?>(null) }
     val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) vm.uploadPhoto(uri)
@@ -288,7 +292,7 @@ fun UserProfileScreen(
                             onOpenPhoto = if (profile.avatar.fullPhotoUrl() != null && showImages) ({ photoOpen = true }) else null,
                         )
                     }
-                    item(key = "credibility") { CredibilityCard(profile.points) }
+                    item(key = "credibility") { CredibilityCard(profile.points, onClick = { credibilityOpen = true }) }
                     if (isMe) {
                         item(key = "mine") {
                             Column {
@@ -407,6 +411,9 @@ fun UserProfileScreen(
             raw = listOf("item_profile" to profile.raw, "page_data" to state.page?.raw),
             onDismiss = { detailsOpen = false },
         )
+    }
+    if (credibilityOpen && profile != null) {
+        CredibilitySheet(points = profile.points, page = state.page, isMe = isMe, onDismiss = { credibilityOpen = false })
     }
     val target = pendingDelete
     if (target != null) {
@@ -657,31 +664,31 @@ private fun InfoPill(icon: ImageVector, text: String, highlighted: Boolean = fal
     }
 }
 
-/** Stips' "credibility points" (0–100), drawn as a gauge in the site's four bands, tuned to the theme. */
+/**
+ * Stips' "credibility points" (0–100), drawn as a gauge in the site's four bands, tuned to the theme, with Stips'
+ * rating and how fast it rises (v0.13). A tap opens what the points mean and when they'd reach more.
+ */
 @Composable
-private fun CredibilityCard(points: Int) {
+private fun CredibilityCard(points: Int, onClick: () -> Unit) {
     val animate = LocalAppSettings.current.animations
     val value = points.coerceIn(0, 100)
     val sweep = remember { Animatable(0f) }
     LaunchedEffect(value, animate) {
         if (animate) sweep.animateTo(value / 100f, tween(900, easing = FastOutSlowInEasing)) else sweep.snapTo(value / 100f)
     }
-    val band = when {
-        value >= 80 -> 3
-        value >= 50 -> 2
-        value >= 30 -> 1
-        else -> 0
-    }
-    val color = bandColor(listOf(0xFFF50057, 0xFFFDD835, 0xFF3F51B5, 0xFF09C286)[band].toInt())
-    val level = stringResource(listOf(R.string.credibility_low, R.string.credibility_fair, R.string.credibility_good, R.string.credibility_high)[band])
+    val color = bandColor(credibilitySeed(value))
+    val rating = CredRules.rating(value)
+    val level = ratingName(rating)
+    val rises = riseText(rating)
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val title = stringResource(R.string.profile_credibility)
     Card(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$title $value, $level" },
+            .semantics(mergeDescendants = true) { contentDescription = "$title $value, $level. $rises" },
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
     ) {
@@ -721,9 +728,14 @@ private fun CredibilityCard(points: Int) {
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(level, style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = FontWeight.Medium)
                 Text(
-                    stringResource(R.string.profile_credibility_scale),
+                    rises,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.cred_card_more),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -995,7 +1007,7 @@ private fun badgeLabel(code: String, female: Boolean): String? {
 
 /** A vivid accent from a fixed hue, at a tone that reads well on the current light or dark surface. */
 @Composable
-private fun bandColor(seed: Int): Color {
+internal fun bandColor(seed: Int): Color {
     val dark = LocalIsDark.current
     return remember(seed, dark) {
         val lch = ColorMath.toLch(seed)

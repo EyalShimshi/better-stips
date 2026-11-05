@@ -1,11 +1,15 @@
 package io.github.eyalshimshi.betterstips.ui.question
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -158,6 +162,7 @@ import io.github.eyalshimshi.betterstips.data.model.Cover
 import io.github.eyalshimshi.betterstips.data.model.ModeratorRank
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
@@ -171,6 +176,7 @@ import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
+import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.answersText
@@ -186,6 +192,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
 import io.github.eyalshimshi.betterstips.util.AnswerDisplay
 import io.github.eyalshimshi.betterstips.util.AnswerRules
+import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.delay
@@ -304,8 +311,10 @@ fun QuestionScreen(
         val signedIn = session.signedIn
         val me = session.userId
         val expert = settings.expertMode
-        // Easy reply (v0.10): signed in, writing a new answer (not editing one).
-        val canReply = signedIn && settings.easyReply && state.editing == null
+        // Easy reply (v0.10): signed in, writing a new answer (not editing one). It corrects its carets by editing the
+        // answer, which Stips doesn't allow below 50 credibility points, so it's off then; quotes stay (v0.13).
+        val editAllowed = knownCredibility()?.let(CredRules::canEdit) ?: true
+        val canReply = signedIn && settings.easyReply && editAllowed && state.editing == null
         val badgesVersion by container.userBadges.version.collectAsStateWithLifecycle()
         val moderatorOf: (Answer) -> ModeratorBadge? = { answer ->
             val userId = answer.author.userId
@@ -670,18 +679,19 @@ private fun QuestionContent(
         if (answersError != null && state.answers.isEmpty()) add(KEY_ANSWERS_ERROR)
     }
 
-    /** Scrolls [answerId] to just below the folded top bar, and lights it up for a moment (v0.10). */
-    fun jumpTo(answerId: Long) {
+    /** Scrolls [answerId] to just below the folded top bar; [glow] lights it up for a moment (v0.10). */
+    fun jumpTo(answerId: Long, glow: Boolean = true) {
         val index = answers.indexOfFirst { it.id == answerId }
         if (index < 0) return
         scope.launch {
             listState.animateScrollToItem(headerKeys.size + index, -(topBarPx + gapPx).roundToInt())
-            highlight = Highlight(answerId, System.nanoTime())
+            if (glow) highlight = Highlight(answerId, System.nanoTime())
         }
     }
     LaunchedEffect(state.jump) {
         val id = state.jump ?: return@LaunchedEffect
-        jumpTo(id)
+        // New answers open under their "unread" bar, without the glow; a flower still glows (v0.13).
+        jumpTo(id, glow = state.jumpGlow)
         onJumpHandled()
     }
     LaunchedEffect(highlight) {
@@ -769,24 +779,34 @@ private fun QuestionContent(
                 } else {
                     null
                 }
-                AnswerCard(
-                    answer = answer,
-                    signedIn = signedIn,
-                    expert = expert,
-                    menu = answerMenu(answer),
-                    showFlowerButton = canFlower(answer),
-                    flowering = answer.id in state.flowering,
-                    onVote = { direction -> onVote(answer, direction) },
-                    onFlower = { onFlower(answer) },
-                    reply = reply,
-                    stipsOrder = stipsOrder,
-                    isHidden = isHidden,
-                    onJump = { jumpTo(it) },
-                    onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
-                    highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
-                    moderator = moderatorOf(answer),
-                    modifier = Modifier.animateItem(),
-                )
+                Column(Modifier.animateItem()) {
+                    // The new answers a notification led to start under a thin "unread" bar (v0.13).
+                    val unread = state.unread?.takeIf { it.id == answer.id }
+                    AnimatedVisibility(visible = unread != null, enter = EnterTransition.None, exit = shrinkVertically() + fadeOut()) {
+                        val count = remember { unread?.count ?: 0 }
+                        UnreadBar(
+                            LocalContext.current.resources.getQuantityString(R.plurals.question_unread, count, count),
+                            Modifier.padding(horizontal = 12.dp),
+                        )
+                    }
+                    AnswerCard(
+                        answer = answer,
+                        signedIn = signedIn,
+                        expert = expert,
+                        menu = answerMenu(answer),
+                        showFlowerButton = canFlower(answer),
+                        flowering = answer.id in state.flowering,
+                        onVote = { direction -> onVote(answer, direction) },
+                        onFlower = { onFlower(answer) },
+                        reply = reply,
+                        stipsOrder = stipsOrder,
+                        isHidden = isHidden,
+                        onJump = { jumpTo(it) },
+                        onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
+                        highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
+                        moderator = moderatorOf(answer),
+                    )
+                }
             }
             // Load times are a diagnostic, so they only show in expert mode (#8).
             if (expert) {

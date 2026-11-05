@@ -82,6 +82,7 @@ import io.github.eyalshimshi.betterstips.data.ThemeMode
 import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.notify.Notifier
+import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
 import io.github.eyalshimshi.betterstips.ui.chats.ChatSettingsContent
 import io.github.eyalshimshi.betterstips.ui.components.AnonymousModeDialog
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
@@ -94,6 +95,7 @@ import io.github.eyalshimshi.betterstips.ui.notifications.PhoneNotificationsStat
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
+import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.widget.requestPinChatsWidget
 import io.github.eyalshimshi.betterstips.widget.requestPinHotWidget
 import kotlinx.coroutines.CancellationException
@@ -436,13 +438,20 @@ private fun ReadingPage(settings: AppSettings) {
     GroupLabel(stringResource(R.string.settings_replies))
     // Hiding the carets only matters while quotes show what they point at (v0.11).
     val repliesCount = if (settings.replyQuotes) 4 else 3
+    // Easy reply fixes its carets by editing the answer; below 50 credibility points Stips allows no editing (v0.13).
+    val points = knownCredibility()
+    val editLocked = points != null && !CredRules.canEdit(points)
     GroupRow(
         title = stringResource(R.string.settings_easy_reply),
-        summary = stringResource(R.string.settings_easy_reply_summary),
+        summary = if (editLocked) {
+            stringResource(R.string.settings_easy_reply_locked, points ?: 0)
+        } else {
+            stringResource(R.string.settings_easy_reply_summary)
+        },
         index = 0,
         count = repliesCount,
-        onClick = { store.update { it.copy(easyReply = !it.easyReply) } },
-        trailing = { Switch(checked = settings.easyReply, onCheckedChange = null) },
+        onClick = if (editLocked) null else ({ store.update { it.copy(easyReply = !it.easyReply) } }),
+        trailing = { Switch(checked = settings.easyReply && !editLocked, onCheckedChange = null, enabled = !editLocked) },
     )
     GroupRow(
         title = stringResource(R.string.settings_reply_quotes),

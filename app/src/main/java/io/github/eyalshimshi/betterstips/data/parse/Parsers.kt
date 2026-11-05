@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.data.parse
 
 import io.github.eyalshimshi.betterstips.data.api.ApiException
+import io.github.eyalshimshi.betterstips.data.model.AccountBan
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
 import io.github.eyalshimshi.betterstips.data.model.AppUser
@@ -318,19 +319,32 @@ object Parsers {
         )
     }
 
-    /** `user.get_app_user`. Here gender is a word ("male"/"female"), unlike the user object's 1/2. */
+    /**
+     * `user.get_app_user`. Here gender is a word ("male"/"female"), unlike the user object's 1/2. The site reads
+     * `ban {banned, msg, endDateText}` and `moderator` ("regular", "senior", "admin") from it too (v0.13).
+     */
     fun appUser(data: JsonElement?): AppUser? {
         val u = data.asObject()?.obj("appUser") ?: return null
         val id = u.long("id") ?: return null
         val gender = u.str("gender").orEmpty()
+        val ban = u.obj("ban")?.takeIf { it.bool("banned") == true }?.let { b ->
+            AccountBan(
+                message = TextUtils.htmlToPlain(b.str("msg")).ifBlank { null },
+                endsText = b.text("endDateText")?.trim()?.ifBlank { null },
+            )
+        }
         return AppUser(
             id = id,
-            points = u.int("points") ?: 0,
-            flowers = u.int("flowersCount") ?: 0,
+            points = u.int("points"),
+            flowers = u.int("flowersCount"),
             safeFilter = u.bool("safeFilter") ?: true,
             female = gender == "female" || gender == "2",
+            moderator = u.str("moderator")?.trim()?.lowercase()?.takeIf { it in MODERATOR_KINDS },
+            ban = ban,
         )
     }
+
+    private val MODERATOR_KINDS = setOf("regular", "senior", "admin")
 
     /** `smartdata.get` AskAdditionalData: whether the user gets updates on a question. */
     fun followState(data: JsonElement?): Boolean? =

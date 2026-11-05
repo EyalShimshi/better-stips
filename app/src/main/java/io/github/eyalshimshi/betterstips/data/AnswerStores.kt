@@ -26,6 +26,29 @@ class ReadMarks(context: Context) {
     }
 }
 
+/**
+ * The newest message Stips+ showed in each chat (v0.13), so the next visit can mark what came since as unread when
+ * Stips' own count isn't at hand. Keyed by the other person's id; the chats with the oldest marks go first past [MAX].
+ */
+class ChatReadMarks(context: Context) {
+    private val prefs = context.getSharedPreferences("chat_read_marks", Context.MODE_PRIVATE)
+
+    fun newestSeen(userId: Long): Long? = prefs.getLong(userId.toString(), 0L).takeIf { it > 0 }
+
+    fun markSeen(userId: Long, newestMessageId: Long) {
+        if (newestMessageId <= (newestSeen(userId) ?: 0L)) return
+        prefs.edit().putLong(userId.toString(), newestMessageId).apply()
+        val all = prefs.all
+        if (all.size <= MAX) return
+        val drop = all.entries.sortedBy { (it.value as? Long) ?: 0L }.take(all.size - MAX).map { it.key }
+        prefs.edit().apply { drop.forEach { remove(it) } }.apply()
+    }
+
+    private companion object {
+        const val MAX = 300
+    }
+}
+
 /** Which answer each of the user's easy replies points at, so its carets can be corrected after posting (v0.10). */
 class ReplyTargets(context: Context) {
     private val prefs = context.getSharedPreferences("reply_targets", Context.MODE_PRIVATE)

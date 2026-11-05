@@ -2,12 +2,14 @@ package io.github.eyalshimshi.betterstips.ui.chats
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.eyalshimshi.betterstips.data.ChatReadMarks
 import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
+import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
@@ -108,6 +110,11 @@ data class ConversationUiState(
     /** You blocked messages from them: Stips' `userBlocked` on the first page, or the menu. The composer gives way. */
     val blocked: Boolean = false,
     val blockBusy: Boolean = false,
+    /**
+     * The "unread" bar (v0.13): above the first message that was unread when the chat opened, with how many of theirs
+     * follow. Only for this visit; gone once the user writes.
+     */
+    val unread: UnreadMark? = null,
     /** A one-time message for the snackbar. */
     val notice: ChatNotice? = null,
 )
@@ -117,11 +124,19 @@ enum class ChatNotice { Reported, Failed }
 class ConversationViewModel(
     private val repository: StipsRepository,
     private val session: SessionStore,
+    private val readMarks: ChatReadMarks,
     private val userId: Long,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ConversationUiState())
     val state: StateFlow<ConversationUiState> = _state.asStateFlow()
     private var pageRequested = false
+
+    /** Stips' count of unread messages here when the chat opened, from the last chats list; null when unknown (v0.13). */
+    private val unreadOnOpen: Int? = repository.unreadInChat(userId)
+
+    /** The newest message shown here on the last visit, read before this visit marks its own (v0.13). */
+    private val seenBefore: Long? = readMarks.newestSeen(userId)
+    private var unreadMarked = false
 
     val myUserId: Long? get() = session.session.value.userId
 
@@ -135,20 +150,31 @@ class ConversationViewModel(
             launch { loadProfile() }
             try {
                 val first = repository.thread(userId, beforeId = null)
+                val unread = if (unreadMarked) null else ChatRules.firstUnread(first.messages, myUserId, unreadOnOpen, seenBefore)
+                unreadMarked = true
                 _state.update {
                     it.copy(
                         messages = first.messages,
                         blocked = first.blocked,
                         loading = false,
                         canLoadEarlier = first.messages.isNotEmpty(),
+                        unread = unread ?: it.unread,
                     )
                 }
+                // Reading the thread is what marks it read on Stips.
+                repository.chatRead(userId)
+                markSeen()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = e.asApiException()) }
             }
         }
+    }
+
+    /** The newest message shown is the mark for the next visit. */
+    private fun markSeen() {
+        _state.value.messages.lastOrNull()?.let { readMarks.markSeen(userId, it.id) }
     }
 
     /** Who they are and whether they're online. Asked on opening, then every minute while the chat is on screen. */
@@ -170,7 +196,10 @@ class ConversationViewModel(
         val last = _state.value.messages.lastOrNull()?.id ?: 0L
         return try {
             val fresh = repository.newMessages(userId, afterId = last)
-            if (fresh.isNotEmpty()) _state.update { it.copy(messages = ChatRules.merge(it.messages, fresh)) }
+            if (fresh.isNotEmpty()) {
+                _state.update { it.copy(messages = ChatRules.merge(it.messages, fresh)) }
+                markSeen()
+            }
             true
         } catch (e: CancellationException) {
             throw e
@@ -303,7 +332,7 @@ class ConversationViewModel(
                 if (id == null) {
                     // Stips always answers with the new id (the site treats a missing one as a failure); if it ever
                     // doesn't, fetch the message rather than guess an id the next check would duplicate.
-                    _state.update { it.copy(draft = "", draftVersion = it.draftVersion + 1, replyTo = null, sending = false) }
+                    _state.update { it.copy(draft = "", draftVersion = it.draftVersion + 1, replyTo = null, sending = false, unread = null) }
                     pollNew()
                     return@launch
                 }
@@ -315,8 +344,11 @@ class ConversationViewModel(
                         draftVersion = s.draftVersion + 1,
                         replyTo = null,
                         sending = false,
+                        // Writing back reads the chat, as in WhatsApp.
+                        unread = null,
                     )
                 }
+                markSeen()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -351,4 +383,20 @@ object ChatRules {
      */
     fun unseen(messages: List<ChatMessage>, seenUpTo: Long, myId: Long?): Int =
         if (seenUpTo <= 0L) 0 else messages.count { it.id > seenUpTo && it.fromUserId != myId }
+
+    /**
+     * Where the "unread" bar goes when a chat opens (v0.13): above the first of their messages that Stips counted as
+     * unread ([unreadCount], from the chats list), or, without that count, the first of theirs after [lastSeenId] (the
+     * newest one shown on the last visit). With how many of theirs it starts. Null when nothing is unread or known.
+     */
+    fun firstUnread(messages: List<ChatMessage>, myId: Long?, unreadCount: Int?, lastSeenId: Long?): UnreadMark? {
+        if (myId == null) return null
+        val theirs = messages.filter { it.fromUserId != myId }
+        val first = when {
+            unreadCount != null -> if (unreadCount > 0) theirs.takeLast(unreadCount).firstOrNull() else null
+            lastSeenId != null -> theirs.firstOrNull { it.id > lastSeenId }
+            else -> null
+        } ?: return null
+        return UnreadMark(first.id, theirs.count { it.id >= first.id })
+    }
 }

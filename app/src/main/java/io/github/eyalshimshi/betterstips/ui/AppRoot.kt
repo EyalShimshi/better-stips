@@ -58,6 +58,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -97,6 +98,7 @@ import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
+import io.github.eyalshimshi.betterstips.ui.account.BanScreen
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
@@ -120,6 +122,7 @@ import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
 import io.github.eyalshimshi.betterstips.ui.signin.WelcomeScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
+import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.Links
@@ -128,6 +131,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.Locale
@@ -218,6 +222,19 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     LaunchedEffect(signedIn) {
         if (signedIn && welcome) finishWelcome()
     }
+
+    // Stips blocks the account (v0.13): a screen over the app once per visit, and again whenever Stips refuses an
+    // action for it. Its own block when it sends one; else 20–29 credibility points (temporary) or below 20 (for good).
+    val scope = rememberCoroutineScope()
+    val account by container.session.account.collectAsStateWithLifecycle()
+    val bannedSignal by container.session.bannedSignals.collectAsStateWithLifecycle()
+    val ban = if (signedIn) account?.let { CredRules.banState(it.points, it.ban) } else null
+    var banDismissed by rememberSaveable(bannedSignal) { mutableStateOf(false) }
+    var lastBan by remember { mutableStateOf<CredRules.BanState?>(null) }
+    LaunchedEffect(ban) {
+        if (ban != null) lastBan = ban
+    }
+    val banVisible = ban != null && !banDismissed && !welcome
 
     // "Count the seconds" (#8): times under an hour tick every second while the app is on screen.
     val liveTimes = LocalAppSettings.current.liveTimes
@@ -318,11 +335,28 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
             ) {
                 WelcomeScreen(onGuest = ::finishWelcome)
             }
+            AnimatedVisibility(
+                visible = banVisible,
+                enter = if (animate) fadeIn() else EnterTransition.None,
+                exit = if (animate) fadeOut() else ExitTransition.None,
+            ) {
+                (ban ?: lastBan)?.let { shown ->
+                    BanScreen(
+                        state = shown,
+                        points = account?.points,
+                        onContinue = { banDismissed = true },
+                        onSignOut = {
+                            banDismissed = true
+                            scope.launch { container.session.signOut() }
+                        },
+                    )
+                }
+            }
         }
     }
     CrashDialog()
     // Once: phone notifications on, and allowed to run in the background (v0.11).
-    NotificationsPrompt(active = !welcome, snackbar = snackbar)
+    NotificationsPrompt(active = !welcome && !banVisible, snackbar = snackbar)
 }
 
 /** Whether this is the version first installed (not an update): only then does the welcome screen show. */

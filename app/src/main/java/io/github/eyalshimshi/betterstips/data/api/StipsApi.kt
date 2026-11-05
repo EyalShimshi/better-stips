@@ -23,6 +23,13 @@ import java.net.URLEncoder
  */
 class StipsApi(private val client: OkHttpClient) {
 
+    /**
+     * Called when Stips refuses a call because the account is blocked (`API_ERROR_BANNED`, v0.13), with whether it was
+     * a write (an action the user took: writes go by POST) rather than a read.
+     */
+    @Volatile
+    var onBanned: ((write: Boolean) -> Unit)? = null
+
     suspend fun call(
         name: String,
         apiParams: JsonObject? = null,
@@ -58,6 +65,7 @@ class StipsApi(private val client: OkHttpClient) {
             }
             val start = if (e.code == ApiException.BAD_RESPONSE) " (body starts: " + text.take(40).replace(Regex("\\s+"), " ") + ")" else ""
             NetLog.event("api", "$name: ${e.code}$start")
+            if (e.code == ApiException.BANNED) onBanned?.invoke(post)
             throw e
         }
     }

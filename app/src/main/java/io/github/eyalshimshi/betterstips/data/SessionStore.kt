@@ -4,6 +4,7 @@ import android.content.Context
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
+import io.github.eyalshimshi.betterstips.data.model.AppUser
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.data.parse.Parsers
 import io.github.eyalshimshi.betterstips.diag.NetLog
@@ -46,6 +47,22 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
 
     private val mutex = Mutex()
 
+    private val _account = MutableStateFlow<AppUser?>(null)
+
+    /**
+     * The signed-in account as `user.get_app_user` last described it (v0.13): credibility points, flowers, a block by
+     * Stips, moderator. Null until read in this process (on start and after signing in), and when signed out.
+     */
+    val account: StateFlow<AppUser?> = _account.asStateFlow()
+
+    private val _bannedSignals = MutableStateFlow(0)
+
+    /** Counts the actions Stips refused because the account is blocked (`API_ERROR_BANNED`); the block screen shows again on each. */
+    val bannedSignals: StateFlow<Int> = _bannedSignals.asStateFlow()
+
+    @Volatile
+    private var bannedCheckedAt = 0L
+
     /** The token whose server session is live in this process. */
     @Volatile
     private var liveToken: String? = null
@@ -76,6 +93,8 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
         NetLog.event("session", "signed in")
         save(Session(token = token, userId = userId, profile = null, safeFilter = result.safeFilter ?: true))
         refreshProfile()
+        // A blocked account sees why right away (v0.13).
+        refreshAccount()
     }
 
     /**
@@ -124,11 +143,47 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
 
     /** `user.get_app_user` is the one call that fails when the server session is gone; the others return empty data. */
     private suspend fun stillSignedIn(): Boolean = try {
-        Parsers.appUser(api.call("user.get_app_user"))?.id == _session.value.userId
+        val user = Parsers.appUser(api.call("user.get_app_user"))
+        val same = user != null && user.id == _session.value.userId
+        if (same) _account.value = user
+        same
     } catch (e: ApiException) {
         if (e.isTransient) throw e
         NetLog.event("session", "the server session expired (${e.code})")
         false
+    }
+
+    /**
+     * Reads the account again (v0.13): its credibility, flowers and any block. Needs a live server session (Stips
+     * fails this call without one), so it runs after the session is restored or right after signing in. Never throws.
+     */
+    suspend fun refreshAccount(): AppUser? {
+        val userId = _session.value.userId ?: return null
+        val user = try {
+            Parsers.appUser(api.call("user.get_app_user"))
+        } catch (e: ApiException) {
+            NetLog.event("session", "account not read: ${e.code}")
+            null
+        }
+        if (user == null || user.id != userId || _session.value.userId != userId) return null
+        _account.value = user
+        user.ban?.let { NetLog.event("session", "Stips blocks this account" + if (it.temporary) " until ${it.endsText}" else "") }
+        return user
+    }
+
+    /**
+     * Stips refused a call because the account is blocked (`API_ERROR_BANNED`). As the site does, the account is read
+     * again (at most once a minute) for the block's reason and end. A refused action ([write]) shows the block screen
+     * again; a refused read (a background check) doesn't, so it can't keep coming back (v0.13).
+     */
+    suspend fun onBanned(write: Boolean) {
+        if (!_session.value.signedIn) return
+        val now = System.currentTimeMillis()
+        if (now - bannedCheckedAt >= BANNED_RECHECK_MS) {
+            bannedCheckedAt = now
+            refreshAccount()
+        }
+        if (write) _bannedSignals.value += 1
     }
 
     suspend fun refreshProfile() {
@@ -174,6 +229,8 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
         liveToken = null
         confirmedAt = 0L
         loggedInAt = 0L
+        bannedCheckedAt = 0L
+        _account.value = null
         cookies.clear()
         prefs.edit().clear().apply()
         _session.value = Session()
@@ -215,5 +272,8 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
 
         /** Never sign in again more than once in this window, whatever the server says (no sign-in storms). */
         const val RELOGIN_COOLDOWN_MS = 30_000L
+
+        /** A blocked account's refused actions read the account again at most this often. */
+        const val BANNED_RECHECK_MS = 60_000L
     }
 }

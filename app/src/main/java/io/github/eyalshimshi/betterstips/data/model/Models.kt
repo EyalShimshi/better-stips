@@ -264,8 +264,31 @@ data class StipsNotification(
 
 data class UnreadCounts(val messages: Int = 0, val notifications: Int = 0)
 
-/** `user.get_app_user`: the signed-in account. */
-data class AppUser(val id: Long, val points: Int, val flowers: Int, val safeFilter: Boolean, val female: Boolean)
+/** Where the "unread" bar goes (v0.13): above the answer or message [id], the first of [count] unread ones. */
+data class UnreadMark(val id: Long, val count: Int)
+
+/**
+ * Stips blocks the account from activity (`appUser.ban`, v0.13): its own explanation (from HTML) and, for a
+ * temporary block, when it ends, in Stips' words (`endDateText`). Reading stays open, as on the site.
+ */
+data class AccountBan(val message: String?, val endsText: String?) {
+    val temporary: Boolean get() = !endsText.isNullOrBlank()
+}
+
+/** `user.get_app_user`: the signed-in account. Counts are null when Stips leaves them out. */
+data class AppUser(
+    val id: Long,
+    val points: Int?,
+    val flowers: Int?,
+    val safeFilter: Boolean,
+    val female: Boolean,
+    /** Stips' moderators: "regular", "senior" or "admin" (`moderator`, v0.13); null for everyone else. */
+    val moderator: String? = null,
+    /** While Stips blocks the account (`ban.banned`, v0.13). */
+    val ban: AccountBan? = null,
+) {
+    val isModerator: Boolean get() = moderator != null
+}
 
 data class LoginResult(val token: String?, val userId: Long?, val safeFilter: Boolean?)
 

@@ -15,6 +15,7 @@ import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AnswerRules
 import io.github.eyalshimshi.betterstips.util.JumpRules
@@ -62,8 +63,15 @@ data class QuestionUiState(
     val replyTo: Answer? = null,
     /** Bumped to put the cursor in the composer and open the keyboard. */
     val focusComposer: Int = 0,
-    /** An answer to scroll to and light up once: where a notification leads (v0.10). */
+    /** An answer to scroll to once: where a notification leads (v0.10). */
     val jump: Long? = null,
+    /** Whether the jump lights the answer up: a flower on the user's answer does; new answers get [unread] (v0.13). */
+    val jumpGlow: Boolean = false,
+    /**
+     * The "unread" bar above the first of the new answers a notification led to (v0.13). Only for this visit: gone
+     * after a refresh or the user's own answer.
+     */
+    val unread: UnreadMark? = null,
     val posting: Boolean = false,
     val problem: AnswerRules.Problem? = null,
     val postError: ApiException? = null,
@@ -132,6 +140,8 @@ class QuestionViewModel(
     /** Pull to refresh (#8): the question and its answers straight from Stips, never the copy from a list. */
     fun refresh() {
         if (_state.value.refreshing) return
+        // A fresh look reads everything: the "unread" bar goes (v0.13).
+        _state.update { it.copy(unread = null) }
         load(fromList = false)
     }
 
@@ -326,6 +336,8 @@ class QuestionViewModel(
                         draftLink = null,
                         editing = null,
                         replyTo = null,
+                        // Answering reads the question, as writing back reads a chat.
+                        unread = if (editing != null) it.unread else null,
                         message = if (editing != null) QuestionMessage.AnswerEdited else QuestionMessage.AnswerPosted,
                     )
                 }
@@ -477,7 +489,12 @@ class QuestionViewModel(
                 }
             } else {
                 focusPending = null
-                if (target != null) _state.update { it.copy(jump = target) }
+                if (target != null) {
+                    // New answers open under an "unread" bar; a flower lights up the answer that got it (v0.13).
+                    val glow = focus == QuestionFocus.MyFlower
+                    val unread = if (focus is QuestionFocus.NewAnswers) JumpRules.unread(list, target) else null
+                    _state.update { it.copy(jump = target, jumpGlow = glow, unread = unread) }
+                }
             }
         }
         list.maxOfOrNull { it.id }?.let { readMarks.markSeen(questionId, it) }

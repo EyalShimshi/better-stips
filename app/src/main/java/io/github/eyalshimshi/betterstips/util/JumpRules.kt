@@ -2,6 +2,8 @@ package io.github.eyalshimshi.betterstips.util
 
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.data.model.StipsNotification
+import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import java.time.Instant
 
 /** Where a question opens when a notification leads to it (v0.10). Pure. */
@@ -28,6 +30,21 @@ object JumpRules {
             t.isBlank() && ("פרח" in text || "flower" in text.lowercase()) -> QuestionFocus.MyFlower
             else -> null
         }
+    }
+
+    /** As above, for a whole notification: Stips' team's notices (a removal, a report, a note) open at the top (v0.13). */
+    fun focusFor(n: StipsNotification): QuestionFocus? =
+        if (NotificationKinds.fromTeam(NotificationKinds.kind(n))) null else focusFor(n.type, n.text, n.time)
+
+    /**
+     * The "unread" bar for a notification about new answers (v0.13): above the answer it opens at ([targetId]), with
+     * how many answers from there on aren't the user's own. Null when there are none.
+     */
+    fun unread(answers: List<Answer>, targetId: Long): UnreadMark? {
+        val index = answers.indexOfFirst { it.id == targetId }
+        if (index < 0) return null
+        val count = answers.subList(index, answers.size).count { !it.isOwner }
+        return if (count > 0) UnreadMark(targetId, count) else null
     }
 
     /** How many new answers a notification's text announces ("3 תשובות חדשות", "שתי תשובות"), or null. */

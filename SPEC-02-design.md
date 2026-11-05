@@ -123,6 +123,7 @@ flowchart TD
 - **v0.9:** pull down to reload the question and its answers (the spinner comes down below the top bar). The asker's own answers carry a small tertiary pill, "שואל השאלה" / "שואלת השאלה", after the name. Verified accounts (organizations, Stips' own) show a blue ✓ after the name, and their answers a thin blue outline. Answers follow the chosen order (as on Stips, newest, oldest, most votes). In expert mode: an id line under the hero and under each name, *Server details* in the ⋮ menus, and the load time at the end.
 - **v0.10, replies (D-68, D-69):** dragging an answer from left to right slides it after the finger, revealing a ↩ that grows in; past 64 dp a haptic tick, and letting go starts a reply (the card springs back). The composer then shows a bar (start-side primary stripe, ↩, "Replying to Dana", her first line, ✕) and the draft opens with "^^" and a line break, cursor at the end, keyboard up. ⋮ → *Reply* does the same. An answer that points up shows, between its header and its text, one to three quotes: a rounded box tinted with 8 % primary, a 3 dp primary stripe on the start side, the author in primary labelMedium and two lines of their text in bodySmall; a tap scrolls there. The text below stays as written (v0.11): every pointer in it, at the start or further on, is bold primary and tappable. *Hide the carets* (Settings, off by default) leaves out the opening ones that the quotes show.
 - **v0.10, notifications and moderators (D-70, D-71):** opened from a notification, the screen scrolls the first new answer (or the user's flowered one) to just below the folded top bar, and its card breathes: its surface goes to primary container and back twice over two seconds. A moderator's name is followed by a pill in Stips' purple (tonal, 14 % container) with a 12 dp shield: "נאמן סטיפס" / "נאמנת סטיפס", or "נאמן בכיר" / "נאמנה בכירה".
+- **v0.13, the "unread" bar (D-80):** for new answers the breathing gave way to a thin band right above the first new one: full card width, primary container at 85 %, 8 dp corners, "N unread answers" centered in labelMedium semibold. The jump puts the band just under the folded top bar. It folds away (shrinks and fades) after a pull to refresh or the user's own answer. A flower notification still breathes. Below 50 credibility points, swiping and ⋮ → *Reply* are gone (D-85).
 
 ### 5.3 Chats
 
@@ -171,6 +172,8 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 
 **Replies (v0.12, D-75):** as answers (§5.2): dragging a bubble from left to right slides it after the finger with a ↩ growing in on the left; past 56 dp a haptic tick, and letting go starts a reply. Above the box: a bar with a start-side primary stripe, ↩, "Replying to Yael" (or "Replying to your message"), the first line, ✕. A message that points up shows, inside its bubble above the text, a quote: a 3 dp primary stripe, the author ("You" for one's own) in primary labelMedium, two lines in bodySmall, on a 7 % tint of the bubble's text color; quote and text share the wider width. A tap on the quote, or on a pointer in the text, scrolls there, and that bubble breathes toward tertiary container for two seconds. ⚙ in the top bar opens DM settings, as in the list.
 
+**Unread (v0.13, D-81):** the same band as in questions, "N unread messages", sits right above the first message that was unread on opening. When the unread ones fill more than the screen, the chat opens with the band 48 dp below the top and the ↓ badge counting them; otherwise at the newest. Writing a message folds it away; it's gone on the next visit. **Below 5 flowers** (D-87), not a moderator: a bar with a 🌸 and the site's words ("שליחת מסרים פתוחה למשתמשים בעלי 5 פרחים ומעלה. כרגע יש לך N פרחים…") takes the composer's place.
+
 ### 5.5 Profile (everyone's, social-style)
 
 ```
@@ -185,8 +188,9 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 │ ( 💬 Message )   or   ( ✎ Edit bio ) │
 │ ┌──────────────────────────────────┐ │
 │ │   ◜‾‾‾‾◝    Credibility          │ │  semicircle gauge, the site's
-│ │  (  93  )   Excellent            │ │  four bands tuned to the theme,
-│ │             points, out of 100   │ │  fills in reading direction
+│ │  (  93  )   Perfect              │ │  four bands tuned to the theme,
+│ │             +1 every 3–7 days    │ │  fills in reading direction;
+│ │             What it means…       │ │  Stips' rating (v0.13); tap → sheet
 │ └──────────────────────────────────┘ │
 │ Your lists: Pinned · My questions · My answers (· Saved)   │ own profile only
 │ [  Activity  |  Thanks wall  ]       │  sticky tabs
@@ -203,6 +207,8 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 - On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (250 characters).
 - Signed out, the Profile tab is a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
 - **Special accounts (v0.9, D-64):** Stips' gradient background as a 64 dp rounded band behind the top of the photo; the name in Stips' purple when it highlights it, with a blue ✓; an *Organization* (or *Stips' own account*) pill and `custom_rank` pills first among the badges; no age pill or numbers when Stips hides them. In expert mode, "user #id" under the name and *Server details* in the top bar.
+- **Credibility sheet (v0.13, D-86):** tapping the gauge opens a tall sheet: the number in the band's color with "Credibility · Perfect" and its rate; status lines with icons (editing open from 50 or not; blocked days or for good); a card *When will the points reach…* with the target, a slider over the points ahead (it starts at the next milestone) and the day ("Around 3 Mar 2027, in 12 days", or "Between … and …" from 90 up) plus "If no points are taken away"; *Milestones* (30 back to activity, 50 editing, each rating, 100) with their dates; Stips' table with the current rating highlighted; on one's own profile, *Goals*: the senior answerer bar (500 flowers) and the moderator requirements with ✓, ✕ or ? (age, 100 points, 3,000 flowers, a year and a half, a year since the last block); then where it all comes from.
+- **Block screen (v0.13, D-84):** over the whole app, a 🚫 in an error-container circle, the title ("You're blocked from activity for now", "This account is blocked for good" or "Stips has blocked this account"), Stips' reason in a card, "Ends: …" or "About N more days" with the date, the points, the rule in one line, "You can still read…", then *Continue reading* (filled), *Contact Stips* (outlined), *Stips' rules* and *Sign out* (text). Back also continues.
 
 ### 5.6 Sign in
 
@@ -270,6 +276,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 ```
 
 - Rows are uniform (icon, two lines of text, time; a note or removed points on one extra line). New items (Stips' `viewed` flag, or newer than what the app last showed) sit under **New** with a tinted background and a dot; the rest under **Earlier**. Times: today's time, "Yesterday", or the date.
+- **Stips' team (v0.13, D-82):** a removal (⚖ on error container), a report's outcome (⚑) or a note (🛡) starts with who it's from ("Removed by Stips' team", "About your report", "From Stips' team"), takes up to three lines, shows the team's words in a rounded surfaceContainerHigh box (as the site's "system-msg"), and "N credibility points removed" in error. A tap opens a dialog: the text, *The team's words*, the points, "Your credibility now: 61, Reliable. Rises by a point a day.", and for a removal how to appeal, with *Contact Stips*, *Open* (the question or profile) and *Close*.
 - Tapping opens the question or profile. Pull to refresh; older pages load at the end.
 - Opening the list clears the bell's badge (Stips marks them seen, as on the site), and takes the phone's notifications about answers, flowers and thanks out of the shade (v0.11).
 - Phone notifications (v0.11, D-73): two channels that pop up, *Answers and activity* and *Messages*. Up to 5 new items per check, each opening its item in the app; one notification per chat with unread messages (who wrote, the last message, a count), opening the chat. Opening a chat clears its notification.

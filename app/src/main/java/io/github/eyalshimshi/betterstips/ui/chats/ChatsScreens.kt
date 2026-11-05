@@ -26,6 +26,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -150,6 +152,7 @@ import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
 import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
+import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.authorName
@@ -177,6 +180,12 @@ private const val PROFILE_EVERY_POLLS = 20
 private const val JUMP_ANIMATE_LIMIT = 30
 
 private const val REPORT_DETAILS_MAX = 500
+
+/** Room above the "unread" bar when a chat opens at it (v0.13). */
+private val UNREAD_TOP_MARGIN = 48.dp
+
+/** Stips opens messages to users with this many flowers; moderators always (the site's MIN_FLOWERS_TO_SEND_MESSAGE). */
+private const val MIN_FLOWERS_TO_MESSAGE = 5
 
 /** The site's reasons for reporting someone from a chat (`reports.send`, `itemtype: "usermsgs"`, `reason_id`). */
 private val reportReasons = listOf(
@@ -292,7 +301,7 @@ private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
 
 @Composable
 fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
-    val vm = appViewModel { ConversationViewModel(it.repository, it.session, userId) }
+    val vm = appViewModel { ConversationViewModel(it.repository, it.session, it.chatReadMarks, userId) }
     val state by vm.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -317,6 +326,9 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     val youText = stringResource(R.string.chat_you)
     // Easy reply and reply quotes in chats (v0.12): carets count messages in Stips' order, oldest first.
     val canReply = settings.chatEasyReply && !state.blocked
+    // Below 5 flowers Stips doesn't send messages from non-moderators; the site explains instead of sending (v0.13).
+    val account by LocalAppContainer.current.session.account.collectAsStateWithLifecycle()
+    val needFlowers = account?.let { a -> a.flowers?.takeIf { it < MIN_FLOWERS_TO_MESSAGE && !a.isModerator } }
     val positions = remember(state.messages) { state.messages.withIndex().associate { (i, m) -> m.id to i } }
     var highlight by remember { mutableStateOf<ChatHighlight?>(null) }
 
@@ -360,11 +372,32 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
 
     // The newest message the reader has seen at the bottom. Their later ones count on the jump button.
     var seenUpTo by rememberSaveable { mutableLongStateOf(0L) }
+    // Opening with unread messages (v0.13): the chat opens with their "unread" bar near the top when they fill more
+    // than the screen, and at the newest message otherwise. Once per visit.
+    var placedUnread by rememberSaveable { mutableStateOf(false) }
+    val barMarginPx = with(LocalDensity.current) { UNREAD_TOP_MARGIN.toPx() }
     // The list is reversed: the newest message is item 0, at the bottom. Follow a new one when the reader is already
     // there or it's their own; otherwise leave the reading position alone, and the jump button counts it.
     val newest = state.messages.lastOrNull()
     LaunchedEffect(newest?.id) {
         if (newest == null) return@LaunchedEffect
+        val unread = vm.state.value.unread
+        if (!placedUnread && unread != null) {
+            placedUnread = true
+            // Their unread messages count on the jump button until the reader reaches the newest.
+            seenUpTo = maxOf(seenUpTo, unread.id - 1)
+            val position = positions[unread.id]
+            if (position != null) {
+                val item = state.messages.size - 1 - position
+                // The bar's message at the bottom, then back toward the newest until it's near the top. Scrolling
+                // back stops at the newest message, so a few unread ones simply show at the bottom.
+                listState.scrollToItem(item)
+                val size = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == item }?.size ?: 0
+                val viewport = listState.layoutInfo.viewportSize.height
+                listState.scrollBy(-(viewport - size - barMarginPx))
+                return@LaunchedEffect
+            }
+        }
         if (newest.fromUserId == myId || listState.firstVisibleItemIndex <= 1) {
             seenUpTo = maxOf(seenUpTo, newest.id)
             listState.animateScrollToItem(0)
@@ -434,6 +467,8 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
         bottomBar = {
             if (state.blocked) {
                 BlockedBar(name = title, busy = state.blockBusy, onUnblock = { vm.setBlocked(false) })
+            } else if (needFlowers != null) {
+                NeedFlowersBar(needFlowers)
             } else {
                 val replyTo = state.replyTo
                 MessageComposer(
@@ -474,21 +509,34 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                     } else {
                         null
                     }
-                    Bubble(
-                        message = message,
-                        mine = message.fromUserId != null && message.fromUserId == myId,
-                        expanded = message.id in state.expanded,
-                        onClick = { vm.toggleTime(message.id) },
-                        onLongClick = { copyMessage(context, message.text, copiedText) },
-                        reply = reply,
-                        messages = state.messages,
-                        authorOf = { m -> if (m.fromUserId != null && m.fromUserId == myId) youText else title },
-                        onJump = { jumpTo(it) },
-                        onSwipeReply = if (canReply) ({ vm.replyTo(message) }) else null,
-                        highlightKey = highlight?.takeIf { it.messageId == message.id }?.nonce,
-                        // The message drawn above this one is the next item: close together while one person writes.
-                        modifier = Modifier.padding(top = if (ChatRules.continuesRun(message, newestFirst.getOrNull(index + 1))) 2.dp else 10.dp),
-                    )
+                    // The first message that was unread on opening sits under a thin "unread" bar (v0.13).
+                    val unread = state.unread?.takeIf { it.id == message.id }
+                    Column {
+                        AnimatedVisibility(visible = unread != null, enter = EnterTransition.None, exit = shrinkVertically() + fadeOut()) {
+                            val count = remember { unread?.count ?: 0 }
+                            UnreadBar(
+                                LocalContext.current.resources.getQuantityString(R.plurals.chat_unread, count, count),
+                                Modifier.padding(top = 10.dp),
+                            )
+                        }
+                        Bubble(
+                            message = message,
+                            mine = message.fromUserId != null && message.fromUserId == myId,
+                            expanded = message.id in state.expanded,
+                            onClick = { vm.toggleTime(message.id) },
+                            onLongClick = { copyMessage(context, message.text, copiedText) },
+                            reply = reply,
+                            messages = state.messages,
+                            authorOf = { m -> if (m.fromUserId != null && m.fromUserId == myId) youText else title },
+                            onJump = { jumpTo(it) },
+                            onSwipeReply = if (canReply) ({ vm.replyTo(message) }) else null,
+                            highlightKey = highlight?.takeIf { it.messageId == message.id }?.nonce,
+                            // The message drawn above this one is the next item: close together while one person writes.
+                            modifier = Modifier.padding(
+                                top = if (unread == null && ChatRules.continuesRun(message, newestFirst.getOrNull(index + 1))) 2.dp else 10.dp,
+                            ),
+                        )
+                    }
                 }
                 // The first page's spinner has a key of its own: the list keeps its place by the key of the item at the
                 // bottom, and anchored to "start" it would open at the oldest message (and keep loading older ones).
@@ -602,6 +650,38 @@ private fun BlockedBar(name: String, busy: Boolean, onUnblock: () -> Unit) {
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = onUnblock, enabled = !busy) { Text(stringResource(R.string.chat_unblock_action)) }
+        }
+    }
+}
+
+/**
+ * In place of the composer below 5 flowers (v0.13): Stips opens messages to users with 5 flowers or more, and says so
+ * the way the site does.
+ */
+@Composable
+private fun NeedFlowersBar(have: Int) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Icon(
+                Icons.Outlined.LocalFlorist,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(R.string.chat_need_flowers, have),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

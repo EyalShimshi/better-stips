@@ -119,8 +119,10 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
             val block = try {
                 val user = repository.currentAppUser()
                 val allowance = repository.penPalAllowance()
+                // As on the site: 5 flowers, unless the user is a moderator.
+                val flowers = user?.flowers
                 when {
-                    user != null && user.flowers < MIN_FLOWERS -> PostBlock.NeedFlowers(user.flowers)
+                    user != null && flowers != null && flowers < MIN_FLOWERS && !user.isModerator -> PostBlock.NeedFlowers(flowers)
                     !allowance.allowed -> PostBlock.Cooldown(allowance.intervalMinutes, allowance.nextInMinutes)
                     else -> null
                 }

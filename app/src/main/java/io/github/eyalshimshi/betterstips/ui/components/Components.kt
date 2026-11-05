@@ -121,6 +121,32 @@ fun ScrollToTopOnReselect(route: String, listState: LazyListState) {
 @Composable
 fun currentTime(): Instant = LocalNow.current ?: ServerClock.now()
 
+/**
+ * The thin "unread" band above the first unread answer or message, as in WhatsApp (v0.13). The screen drops it on the
+ * next visit or refresh.
+ */
+@Composable
+fun UnreadBar(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f))
+            .padding(horizontal = 12.dp, vertical = 3.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 /** The first letter of the first word, for monograms. */
 fun monogram(text: String): String =
     text.trim().split(' ').firstOrNull { it.any(Char::isLetterOrDigit) }?.firstOrNull(Char::isLetterOrDigit)?.uppercase() ?: "?"

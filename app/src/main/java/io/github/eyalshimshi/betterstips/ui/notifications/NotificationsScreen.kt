@@ -6,7 +6,6 @@ import java.time.ZoneId
 import java.time.LocalDate
 import java.time.Instant
 import io.github.eyalshimshi.betterstips.data.SeenNotifications
-import androidx.compose.material.icons.outlined.Report
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
@@ -29,19 +28,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.AlertDialog
@@ -56,6 +61,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -91,8 +97,12 @@ import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.notify.Notifier
+import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
+import io.github.eyalshimshi.betterstips.ui.account.ratingName
+import io.github.eyalshimshi.betterstips.ui.account.riseText
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
@@ -102,7 +112,10 @@ import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
+import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.JumpRules
+import io.github.eyalshimshi.betterstips.util.NotificationKinds
 import io.github.eyalshimshi.betterstips.util.NotifyRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -254,6 +267,21 @@ private fun NotificationsList(
             onDismiss = { details = null },
         )
     }
+    var notice by remember { mutableStateOf<StipsNotification?>(null) }
+    val points = knownCredibility()
+    notice?.let { item ->
+        TeamNoticeDialog(
+            item = item,
+            points = points,
+            onOpen = targetAction(item, onOpenQuestion, onOpenProfile)?.let { action ->
+                {
+                    notice = null
+                    action()
+                }
+            },
+            onDismiss = { notice = null },
+        )
+    }
     val onDetails: ((StipsNotification) -> Unit)? = if (settings.expertMode) ({ details = it }) else null
     LaunchedEffect(state.page, state.refreshing) {
         if (state.page >= 1 && !state.refreshing) {
@@ -298,8 +326,17 @@ private fun NotificationsList(
                 }
                 else -> {
                     val (fresh, earlier) = state.items.partition { it.id in state.newIds }
+                    // Stips' team's notices (a removal, a report's outcome, a note) open in full here; the rest open
+                    // where they point (v0.13).
                     val open = { item: StipsNotification ->
-                        targetAction(item, onOpenQuestion, onOpenProfile)?.let { action -> { vm.markRead(item.id); action() } }
+                        if (NotificationKinds.fromTeam(NotificationKinds.kind(item))) {
+                            {
+                                vm.markRead(item.id)
+                                notice = item
+                            }
+                        } else {
+                            targetAction(item, onOpenQuestion, onOpenProfile)?.let { action -> { vm.markRead(item.id); action() } }
+                        }
                     }
                     if (fresh.isNotEmpty()) {
                         item(key = "new-label") { SectionLabel(stringResource(R.string.notifications_new)) }
@@ -334,18 +371,20 @@ private fun NotificationsList(
 
 private fun targetAction(item: StipsNotification, onOpenQuestion: (Long, QuestionFocus?) -> Unit, onOpenProfile: (Long) -> Unit): (() -> Unit)? =
     when (val target = item.target) {
-        // New answers open at the first new one, a flower at the answer that got it (v0.10).
-        is NotificationTarget.OpenQuestion -> ({ onOpenQuestion(target.id, JumpRules.focusFor(item.type, item.text, item.time)) })
+        // New answers open at the first new one, a flower at the answer that got it (v0.10); the team's notices at
+        // the top (v0.13).
+        is NotificationTarget.OpenQuestion -> ({ onOpenQuestion(target.id, JumpRules.focusFor(item)) })
         is NotificationTarget.OpenProfile -> ({ onOpenProfile(target.id) })
         null -> null
     }
 
 /** Expert mode's details of a notification: what Stips sent, and where the app opens it (v0.10). */
 private fun notificationFields(item: StipsNotification): List<Pair<String, String>> {
-    val focus = (item.target as? NotificationTarget.OpenQuestion)?.let { JumpRules.focusFor(item.type, item.text, item.time) }
+    val focus = (item.target as? NotificationTarget.OpenQuestion)?.let { JumpRules.focusFor(item) }
     return listOf(
         "id" to item.id.toString(),
         "type" to item.type.ifBlank { "-" },
+        "kind" to NotificationKinds.kind(item).name,
         "target" to when (val target = item.target) {
             is NotificationTarget.OpenQuestion -> "ask ${target.id}"
             is NotificationTarget.OpenProfile -> "profile ${target.id}"
@@ -371,9 +410,14 @@ private fun SectionLabel(text: String) {
     )
 }
 
-/** One notification: the same height and layout for all, two lines at most, new ones highlighted (#4). */
+/**
+ * One notification: the same layout for all, two lines at most, new ones highlighted (#4). Stips' team's notices say
+ * so, and show the team's words in a box under the text, as the site does, and the credibility points taken (v0.13).
+ */
 @Composable
 private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: (() -> Unit)?, onDetails: ((StipsNotification) -> Unit)?) {
+    val kind = remember(item) { NotificationKinds.kind(item) }
+    val team = NotificationKinds.fromTeam(kind)
     val background = if (isNew) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else Color.Transparent
     Row(
         Modifier
@@ -388,39 +432,78 @@ private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: ((
             Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (isNew) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh),
+                .background(
+                    when {
+                        isNew -> MaterialTheme.colorScheme.primary
+                        kind == NotificationKinds.Kind.Removal -> MaterialTheme.colorScheme.errorContainer
+                        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                if (item.pointsRemoved > 0) Icons.Outlined.Report else notificationIcon(item.type),
+                notificationIcon(kind),
                 contentDescription = null,
-                tint = if (isNew) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = when {
+                    isNew -> MaterialTheme.colorScheme.onPrimary
+                    kind == NotificationKinds.Kind.Removal -> MaterialTheme.colorScheme.onErrorContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 modifier = Modifier.size(22.dp),
             )
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
+            if (team) {
+                Text(
+                    stringResource(teamLabel(kind)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (kind == NotificationKinds.Kind.Removal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
             Text(
                 item.text,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 2,
+                maxLines = if (team) 3 else 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val extra = when {
-                item.pointsRemoved > 0 -> stringResource(R.string.notifications_points_removed, item.pointsRemoved)
-                else -> item.note
-            }
-            if (!extra.isNullOrBlank()) {
+            val note = item.note?.takeIf { it.isNotBlank() }
+            if (note != null && team) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            } else if (note != null) {
                 Text(
-                    extra,
+                    note,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (item.pointsRemoved > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (onDetails != null) ExpertLine("${item.type.ifBlank { "-" }} · #${item.id}")
+            if (item.pointsRemoved > 0) {
+                Text(
+                    stringResource(R.string.notifications_points_removed, item.pointsRemoved),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            if (onDetails != null) ExpertLine("${item.type.ifBlank { "-" }} · ${kind.name} · #${item.id}")
         }
         if (onDetails != null) {
             IconButton(onClick = { onDetails(item) }) {
@@ -462,18 +545,91 @@ private fun notificationTime(time: Instant?): String {
     }
 }
 
-/** Stips' notification types are words like "new_ask_ans_registered"; the icon follows the main word. */
-private fun notificationIcon(type: String): ImageVector {
-    val t = type.lowercase()
-    return when {
-        "flower" in t -> Icons.Outlined.LocalFlorist
-        "thank" in t -> Icons.Outlined.VolunteerActivism
-        "ans" in t -> Icons.Outlined.QuestionAnswer
-        "ask" in t || "question" in t -> Icons.AutoMirrored.Outlined.HelpOutline
-        "msg" in t || "message" in t -> Icons.AutoMirrored.Outlined.Chat
-        "badge" in t || "rank" in t -> Icons.Outlined.WorkspacePremium
-        else -> Icons.Outlined.Notifications
-    }
+/** Each kind of notification has its icon; Stips' team's notices have their own (v0.13). */
+private fun notificationIcon(kind: NotificationKinds.Kind): ImageVector = when (kind) {
+    NotificationKinds.Kind.Flower -> Icons.Outlined.LocalFlorist
+    NotificationKinds.Kind.Thanks -> Icons.Outlined.VolunteerActivism
+    NotificationKinds.Kind.Answers -> Icons.Outlined.QuestionAnswer
+    NotificationKinds.Kind.Question -> Icons.AutoMirrored.Outlined.HelpOutline
+    NotificationKinds.Kind.Message -> Icons.AutoMirrored.Outlined.Chat
+    NotificationKinds.Kind.Badge -> Icons.Outlined.WorkspacePremium
+    NotificationKinds.Kind.Removal -> Icons.Outlined.Gavel
+    NotificationKinds.Kind.Report -> Icons.Outlined.Flag
+    NotificationKinds.Kind.TeamNote -> Icons.Outlined.Shield
+    NotificationKinds.Kind.Other -> Icons.Outlined.Notifications
+}
+
+/** Who a team notice is from, and what about. */
+private fun teamLabel(kind: NotificationKinds.Kind): Int = when (kind) {
+    NotificationKinds.Kind.Removal -> R.string.notif_kind_removal
+    NotificationKinds.Kind.Report -> R.string.notif_kind_report
+    else -> R.string.notif_kind_note
+}
+
+/**
+ * A notice from Stips' team in full (v0.13): what happened, the team's reason, the credibility points taken and where
+ * that leaves the user, and for a removal, the way to appeal ("צור קשר", or a senior moderator).
+ */
+@Composable
+private fun TeamNoticeDialog(item: StipsNotification, points: Int?, onOpen: (() -> Unit)?, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val kind = NotificationKinds.kind(item)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(notificationIcon(kind), contentDescription = null) },
+        title = { Text(stringResource(teamLabel(kind))) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(item.text, style = MaterialTheme.typography.bodyLarge)
+                val note = item.note?.takeIf { it.isNotBlank() && it != item.text }
+                if (note != null) {
+                    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(stringResource(R.string.notif_reason), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            Text(note, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+                if (item.pointsRemoved > 0) {
+                    Text(
+                        stringResource(R.string.notifications_points_removed, item.pointsRemoved),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (points != null && kind != NotificationKinds.Kind.Report) {
+                    val rating = CredRules.rating(points)
+                    Text(
+                        stringResource(R.string.notif_points_now, points, ratingName(rating)) + " " + riseText(rating) + ".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (kind == NotificationKinds.Kind.Removal) {
+                    Text(
+                        stringResource(R.string.notif_appeal),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (onOpen != null) {
+                TextButton(onClick = onOpen) { Text(stringResource(R.string.action_open)) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            }
+        },
+        dismissButton = {
+            Row {
+                if (kind == NotificationKinds.Kind.Removal) {
+                    TextButton(onClick = { openInBrowser(context, "$SITE_URL/contact-us") }) { Text(stringResource(R.string.settings_contact)) }
+                }
+                if (onOpen != null) TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            }
+        },
+    )
 }
 
 /**

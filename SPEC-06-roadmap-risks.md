@@ -13,6 +13,7 @@
 | M3.6 v0.10 | Easy reply and reply quotes, notifications that open at the new answer, moderators on answers | Replying in busy threads takes one swipe |
 | M3.7 v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, per-chat notifications that pop up, a status panel and a one-time offer | The owner gets new answers and messages on the phone within minutes |
 | M3.8 v0.12 | Easy reply in chats, DM settings, back to the top, text as written; #9 | Chats work as answers do, and stay signed in |
+| M3.9 v0.13 | "Unread" bars, notices from Stips' team, block screens, credibility explained and projected, the 50-point and 5-flower limits | The app says what Stips' rules mean for the user before they hit them |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes
@@ -36,6 +37,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-11 | A release crashes on launch although it compiles and passes its tests (builds 7–9, #7: R8 removed constructors that a library calls by name) | Low since v0.8 | High | Explicit keep rules and AGP 8's reading of library rules; CI checks those constructors in the APK and opens every build on an emulator before publishing it (D-55) |
 | R-12 | Phone notifications come late or not at all: Stips has no push for other apps, and Android (Samsung's especially) holds background work back to save battery | Medium | Medium | Checks every few minutes while the phone is awake; Android's "run in the background?" asked when turning them on; a status panel that names what's holding them back, with *Check now* and a test (D-72–D-74). Can't be tested on CI's signed-out emulator: the owner's phone is the test |
 | R-13 | A lost session looks like "nothing there": Stips answers account calls without one with empty data, not an error (#9) | Low since v0.12 | High | Cookies from answers to calls older than the latest sign-in are ignored; empty first pages and pull-to-refresh check the session with Stips and sign in again (D-79); a MockWebServer test covers the race |
+| R-14 | The team's notices and blocks can't be seen on a healthy account: their notification types and texts aren't in the site's code, and the block screens need under 30 points or a block (v0.13) | High | Low | Classified by `msgText`, `pointsRemoved` and their words, never by a question title (D-82); unknown points never block (D-83); expert mode shows each notification's type and kind, so a real notice can correct the rules |
 
 ## 4. The permission request
 

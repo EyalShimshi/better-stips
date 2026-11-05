@@ -42,6 +42,7 @@ import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.diag.NetLog
 import io.github.eyalshimshi.betterstips.util.JumpRules
+import io.github.eyalshimshi.betterstips.util.NotificationKinds
 import io.github.eyalshimshi.betterstips.util.NotifyRules
 import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.CancellationException
@@ -416,12 +417,24 @@ object Notifier {
             is NotificationTarget.OpenProfile -> "$SITE_URL/profile/${target.id}"
             null -> null
         }
-        val focus = if (target is NotificationTarget.OpenQuestion) JumpRules.focusFor(notification.type, notification.text, notification.time) else null
+        val focus = if (target is NotificationTarget.OpenQuestion) JumpRules.focusFor(notification) else null
+        // Stips' team's notices say who they're from, with the team's words and the points taken (v0.13).
+        val team = NotificationKinds.fromTeam(NotificationKinds.kind(notification))
+        val title = context.getString(if (team) R.string.notification_team_title else R.string.notification_title)
+        val text = if (team) {
+            listOfNotNull(
+                notification.text.takeIf { it.isNotBlank() },
+                notification.note?.takeIf { it.isNotBlank() && it != notification.text },
+                if (notification.pointsRemoved > 0) context.getString(R.string.notifications_points_removed, notification.pointsRemoved) else null,
+            ).joinToString("\n")
+        } else {
+            notification.text
+        }
         val builder = NotificationCompat.Builder(context, CHANNEL_ACTIVITY)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notification_title))
-            .setContentText(notification.text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(notification.text))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(openApp(context, link, notification.id.toInt(), focus))

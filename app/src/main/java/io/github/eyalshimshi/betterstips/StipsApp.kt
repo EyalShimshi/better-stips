@@ -11,6 +11,7 @@ import coil.memory.MemoryCache
 import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
 import io.github.eyalshimshi.betterstips.data.BlockStore
 import io.github.eyalshimshi.betterstips.data.ChannelsSource
+import io.github.eyalshimshi.betterstips.data.ChatReadMarks
 import io.github.eyalshimshi.betterstips.data.FeedCache
 import io.github.eyalshimshi.betterstips.data.ReadMarks
 import io.github.eyalshimshi.betterstips.data.ReplyTargets
@@ -95,6 +96,7 @@ class AppContainer(private val app: Application) {
     val blocks = BlockStore(app)
     val userBadges = UserBadges(app)
     val readMarks = ReadMarks(app)
+    val chatReadMarks = ChatReadMarks(app)
     val replyTargets = ReplyTargets(app)
     val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks, userBadges)
 
@@ -115,6 +117,8 @@ class AppContainer(private val app: Application) {
     fun start() {
         watchNetwork()
         repository.onFirstPage = { query, list -> if (query == HotWidgetFeed.QUERY) hotWidget.publish(list) }
+        // Stips refused a call because the account is blocked: read why, and show the block screen again (v0.13).
+        api.onBanned = { write -> appScope.launch { session.onBanned(write) } }
         chatsWidget.start()
     }
 
@@ -131,6 +135,8 @@ class AppContainer(private val app: Application) {
             appScope.launch {
                 runCatching { session.ensureSession() }
                 session.refreshProfile()
+                // Credibility, flowers and any block, for the screens that depend on them (v0.13).
+                session.refreshAccount()
             }
         }
     }

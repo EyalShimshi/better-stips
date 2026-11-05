@@ -38,6 +38,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.time.ZonedDateTime
+import java.util.concurrent.ConcurrentHashMap
 
 /** Everything the screens ask of Stips. Requests happen only when the user acts (D-13). */
 class StipsRepository(
@@ -459,6 +460,17 @@ class StipsRepository(
     @Volatile
     var onConversations: ((List<Conversation>) -> Unit)? = null
 
+    /** Unread messages per chat (the other person's id) in the lists Stips sent in this process (v0.13). */
+    private val chatUnread = ConcurrentHashMap<Long, Int>()
+
+    /** How many messages in the chat with [userId] were unread on the last list; null when it wasn't on one. */
+    fun unreadInChat(userId: Long): Int? = chatUnread[userId]
+
+    /** The chat was opened, so its messages are read now (Stips marks them as the thread is read). */
+    fun chatRead(userId: Long) {
+        chatUnread[userId] = 0
+    }
+
     /** [verify] (pulling to refresh) checks the session with Stips first; an empty first page checks it anyway (#9). */
     suspend fun conversations(page: Int, verify: Boolean = false): List<Conversation> {
         val fetch: suspend () -> List<Conversation> = {
@@ -466,6 +478,7 @@ class StipsRepository(
         }
         val first = withSession(verify) { fetch() }
         val list = if (page == 1 && !verify) againIfSessionLost(first, fetch) else first
+        list.forEach { chat -> chat.other.userId?.let { chatUnread[it] = chat.unread } }
         if (page == 1) onConversations?.invoke(list)
         return list
     }

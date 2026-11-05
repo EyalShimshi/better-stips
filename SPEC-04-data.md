@@ -65,7 +65,7 @@
 | Purpose | `name` | Parameters seen |
 |---|---|---|
 | Sign in / restore session | `user.login` | `email`, `password`, `auth_token`, `auth_cookie_password` |
-| Who am I | `user.get_app_user` | — (fails with `API_ERROR_GENERAL` when signed out) |
+| Who am I | `user.get_app_user` | — (fails with `API_ERROR_GENERAL` when signed out). `appUser{id, points, flowersCount, gender ("male"/"female"), safeFilter, moderator ("regular"·"senior"·"admin"), ban{banned, msg (HTML), endDateText}, permissions, phoneNotValidated}`; read for the account since v0.13 (§2.13) |
 | Vote on an answer | `item.vote` | `objType`, `id`, `vote` (1, 0, −1) |
 | Give a flower (best answer) | `item.send_flower` | — |
 | Post an answer | `omniobj` (create) | `objType:"ans"`, `data:{askid, a, name, anonflg, link1, link1name}` |
@@ -86,7 +86,7 @@
 | Answers that got a flower | `objectlist` | `{"method":"ans.flower_for_user","userid":…,"page":1}` | Answers with `extra.parent_item_title` |
 | Thanks wall | `objectlist` | `{"objType":"thanksmsg","userid":…,"page":1}` | 30 per page: `data{id, fromuserid, touserid, msg, time}`, `extra.item_profile` (the writer), `meta.permissions.deleteWithoutMsg` (the wall's owner) |
 | Delete a thanks message | `omniobj` DELETE | `{"objType":"thanksmsg","data":{"id":…}}` | — |
-| Notifications | `notifications.list` | `{"page":1}` | `[{id, contentHtml, msgText, linkPageName ("ask"·"profile"), linkItemId, viewed, time, type}]`; types are words like `new_ask_ans_registered` |
+| Notifications | `notifications.list` | `{"page":1}` | `[{id, contentHtml, msgText, pointsRemoved, linkPageName ("ask"·"profile"), linkItemId, viewed, time, type}]`; types are words like `new_ask_ans_registered`, `new_flower`. The site always shows `contentHtml`, and `msgText` (the team's words) in a box under it, with "הופחתו N נקודות אמינות" when `pointsRemoved` > 0 (§2.13) |
 | Unread counts | `messages.count` | `{}` | `{messagesCount, notificationsCount}` |
 | Pin / unpin | `item.add_pin` | `{"id":…,"minus":false}` (`true` unpins) | The question's `data.user_pinned` is 1 when pinned (−1 when never pinned); pinned list: `ask.user_activity` with `pinned`. *Sent once by mistake during research and undone at once* |
 | Is following | `smartdata.get` | `{"namespace":"ask","unit":"AskAdditionalData","id":…}` | `results.notificationsRegistered` |
@@ -258,6 +258,14 @@ A CI probe read 24 busy questions (26–151 answers each, 1,203 answers) and the
 - **Caret replies:** 213 answers contained "^": 173 opened with a pointer, 25 had one further on, the rest were other carets. Forms seen: runs ("^", "^^^^^", eight at the end of a line), "^6" (straight before the words), "^3" at the end, "4^", pointers after punctuation ("…לגמרי.^^^"), stacked pointers ("^^^", newline, "^^", newline, text) and a second pointer opening a later paragraph. Pointers count the answers above in the order above. Stips+ reads and writes them as D-68 and D-69 describe.
 - **Notifications** (`notifications.list`) link only to the question (`linkPageName: "ask"`, `linkItemId`), never to an answer, and the site opens them at the top. Their texts come from the server, so the count of new answers is read from the text when it says one (D-70).
 
+### 2.13 The account, blocks and credibility (v0.13, from the site's code and Stips' rule book 3.2.0)
+
+- **Blocks:** `appUser.ban.banned` marks a blocked account; `msg` is the reason (HTML) and `endDateText` the end, in Stips' words. The site checks every action first (`runIfAllowed`): a blocked account gets a dialog, "נחסמת זמנית מפעילות" / "סיבת החסימה:" / the reason / "סיום החסימה: " + the end (only the reason when there's no end), and the action doesn't run; reading stays open. A call refused for a block answers `API_ERROR_BANNED`, and the site then reads the app user again. Not seen yet: whether `ban` is left out or `{banned: false}` when not blocked (both are read as not blocked).
+- **Minimum flowers:** sending a message (`MIN_FLOWERS_TO_SEND_MESSAGE`) and posting on pen pals (`MIN_FLOWERS_TO_ADD_PEN_FRIENDS_ITEM`) need 5 flowers, unless the user is a moderator; the site says "{action} למשתמשים בעלי 5 פרחים ומעלה. כרגע יש לך N פרחים. פרחים ניתן לקבל ממשתמשי סטיפס אחרים, בהוקרה על תשובה טובה שנתת להם.".
+- **Credibility points** (the rule book, p. 9, and its table): 0–100. They drop when a moderator removes something that breaks the rules (anonymous posts too), by the moderator's judgment, and rise by themselves: a point every 3–7 days at 90–100 (*Perfect*), every 2 days at 70–89 (*Very reliable*), every day at 20–69 (*Reliable* 60–69, *Okay* 40–59, *Problematic* 30–39, *Harmful* 20–29), never at 0–19 (*Very harmful*). Below 50 questions and answers can't be edited (a moderator can fix a typo); editing is open for 2 days after posting. At 20–29 the account is blocked for 30 − points days ("23 is a week"); below 20, for good. Moderators can also block for 24 hours or more, delete, edit and leave notes.
+- **Notifications** (the rule book, p. 10): new answers, flowers, thanks-wall messages, removals by the team and notes by the team. Their type names aren't in the site's code (only `new_flower`), so Stips+ tells the team's notices apart by `msgText`, `pointsRemoved` and their words (D-82).
+- **Also in the rule book:** the senior answerer badge comes at 500 flowers; moderators are chosen from users aged 15+, with 100 points, 3,000+ flowers, a year and a half on the site and a year since their last block; 10 questions a day; flowers are removed with a deleted question or answer.
+
 ## 3. Data model (in the app)
 
 ```kotlin
@@ -274,6 +282,10 @@ data class Author(val nickname: String, val userId: Long?, val photoStamp: Strin
 sealed interface Cover { data class Stips(val photoId: String) : Cover; data class Unsplash(val small: String, val medium: String, val credit: String) : Cover }
 data class Channel(val id: Int, val name: String, val icon: String, val colors: List<Color>)
 enum class Feed { New, Hot }   // with HotWindow: Now, Today, Week, Month
+// v0.13: the signed-in account; counts Stips leaves out stay null, never 0
+data class AppUser(val id: Long, val points: Int?, val flowers: Int?, val safeFilter: Boolean, val female: Boolean, val moderator: String?, val ban: AccountBan?)
+data class AccountBan(val message: String?, val endsText: String?)   // temporary when endsText is set
+data class UnreadMark(val id: Long, val count: Int)                   // the "unread" bar above an answer or message
 ```
 
 - **The parser is tolerant:** a missing or mistyped field gets a safe default instead of failing the whole list. Ids may arrive as numbers or strings.

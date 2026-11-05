@@ -137,6 +137,13 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 - **The session cookie (#9).** Stips gives any request without a session cookie a new anonymous one. `CookieGenerationStamp` tags each call with the jar's sign-in generation; `StaleCookieGuard` (a network interceptor, so it runs before OkHttp saves cookies) starts a new generation on each `user.login` answer and drops `Set-Cookie` from answers to calls that started in an older one. Keep both in the client (`StipsApp.httpClient`), in that order. Lists that come back empty and pull-to-refresh on chats and notifications check the session with `user.get_app_user` (`ensureSession(verify = true)`) and fetch again if it had to sign in. `SessionCookieRaceTest` replays the race with MockWebServer.
 - **Back to the top:** the bottom bar sends a reselected tab's route through `LocalTabReselects`; a screen joins with `ScrollToTopOnReselect(route, listState)`.
 
+## Credibility, Stips' team and unread bars (v0.13)
+
+- **Stips' rules live in `util/CredRules.kt`** (pure, `RulesV13Test`): the rating table and its rates, editing from 50, blocks under 30 and 20, the projection and the milestones. If Stips changes its rule book, change the numbers there; the profile's gauge and sheet (`ui/user/CredibilitySheet.kt`), the block screen (`ui/account/Account.kt`) and the 50-point gate on easy reply follow. The rating names are strings (`cred_rating_*`).
+- **The account** is `SessionStore.account`, read from `user.get_app_user` after the session is restored (`AppContainer.warmUp`), after signing in, and when `StipsApi.onBanned` fires (`API_ERROR_BANNED`, at most once a minute). Points or flowers it leaves out stay null: never treat them as 0, or every account would look blocked. `knownCredibility()` is the screens' way in.
+- **The team's notices** are told apart in `util/NotificationKinds.kt`. Their types aren't in the site's code, so the rules read `msgText`, `pointsRemoved`, type words and phrases ("נמחק", "הוסר", "דיווחת"); words count only for the team's notices and unknown types, since ordinary notifications quote question titles. When a real notice is labeled wrong, expert mode's { } shows its type and kind: add the type word or phrase and a test.
+- **Unread bars:** questions get theirs from `JumpRules.unread` when a new-answers notification opens them (`QuestionUiState.unread`, dropped on refresh and on posting). Chats get theirs from `ChatRules.firstUnread`: the chats list's `newCount` kept in memory (`StipsRepository.unreadInChat`), else `ChatReadMarks` (the newest message shown per chat). Stips' messages have no read flag; if one appears, prefer it.
+
 ## Data files
 
 | File | What | Rule |
