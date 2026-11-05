@@ -223,6 +223,30 @@ sealed interface NotificationTarget {
     data class OpenProfile(val id: Long) : NotificationTarget
 }
 
+/** Where a question opens when a notification leads to it (v0.10). */
+sealed interface QuestionFocus {
+    /** New answers: [count] of them when the notification says how many, as of [at] (the notification's time). */
+    data class NewAnswers(val count: Int?, val at: Instant?) : QuestionFocus
+
+    /** A flower on one of the user's own answers. */
+    data object MyFlower : QuestionFocus
+}
+
+/** Stips' moderators, "נאמני סטיפס", known from their profile badges (v0.10). */
+enum class ModeratorRank {
+    Moderator,
+    Senior,
+    ;
+
+    companion object {
+        fun of(badges: Collection<String>): ModeratorRank? = when {
+            "senior_moderator" in badges -> Senior
+            "moderator" in badges -> Moderator
+            else -> null
+        }
+    }
+}
+
 data class StipsNotification(
     val id: Long,
     val text: String,
@@ -234,6 +258,8 @@ data class StipsNotification(
     val note: String? = null,
     /** Credibility points a moderator removed (`pointsRemoved`). */
     val pointsRemoved: Int = 0,
+    /** What Stips sent, compact, for expert mode's details. */
+    val raw: String? = null,
 )
 
 data class UnreadCounts(val messages: Int = 0, val notifications: Int = 0)

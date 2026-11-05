@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.QuestionAnswer
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -57,9 +59,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,15 +82,19 @@ import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
+import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
+import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.util.JumpRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -184,7 +192,7 @@ class NotificationsViewModel(
 @Composable
 fun NotificationsScreen(
     onBack: () -> Unit,
-    onOpenQuestion: (Long) -> Unit,
+    onOpenQuestion: (Long, QuestionFocus?) -> Unit,
     onOpenProfile: (Long) -> Unit,
     onSignIn: () -> Unit,
     onSeen: () -> Unit,
@@ -216,7 +224,7 @@ fun NotificationsScreen(
 private fun NotificationsList(
     modifier: Modifier,
     snackbar: SnackbarHostState,
-    onOpenQuestion: (Long) -> Unit,
+    onOpenQuestion: (Long, QuestionFocus?) -> Unit,
     onOpenProfile: (Long) -> Unit,
     onSeen: () -> Unit,
 ) {
@@ -227,6 +235,16 @@ private fun NotificationsList(
     val settings by container.settings.settings.collectAsStateWithLifecycle()
     val toggle = rememberPhoneNotificationsToggle(snackbar)
     val currentOnSeen by rememberUpdatedState(onSeen)
+    var details by remember { mutableStateOf<StipsNotification?>(null) }
+    details?.let { item ->
+        ServerDetailsDialog(
+            title = stringResource(R.string.expert_details),
+            fields = notificationFields(item),
+            raw = listOf("notifications.list" to item.raw),
+            onDismiss = { details = null },
+        )
+    }
+    val onDetails: ((StipsNotification) -> Unit)? = if (settings.expertMode) ({ details = it }) else null
     LaunchedEffect(state.page, state.refreshing) {
         if (state.page >= 1 && !state.refreshing) currentOnSeen()
     }
@@ -271,11 +289,11 @@ private fun NotificationsList(
                     }
                     if (fresh.isNotEmpty()) {
                         item(key = "new-label") { SectionLabel(stringResource(R.string.notifications_new)) }
-                        items(fresh, key = { it.id }) { item -> NotificationRow(item, isNew = true, onClick = open(item)) }
+                        items(fresh, key = { it.id }) { item -> NotificationRow(item, isNew = true, onClick = open(item), onDetails = onDetails) }
                     }
                     if (earlier.isNotEmpty()) {
                         if (fresh.isNotEmpty()) item(key = "earlier-label") { SectionLabel(stringResource(R.string.notifications_earlier)) }
-                        items(earlier, key = { it.id }) { item -> NotificationRow(item, isNew = false, onClick = open(item)) }
+                        items(earlier, key = { it.id }) { item -> NotificationRow(item, isNew = false, onClick = open(item), onDetails = onDetails) }
                     }
                     item(key = "more") {
                         when {
@@ -300,12 +318,34 @@ private fun NotificationsList(
     }
 }
 
-private fun targetAction(item: StipsNotification, onOpenQuestion: (Long) -> Unit, onOpenProfile: (Long) -> Unit): (() -> Unit)? =
+private fun targetAction(item: StipsNotification, onOpenQuestion: (Long, QuestionFocus?) -> Unit, onOpenProfile: (Long) -> Unit): (() -> Unit)? =
     when (val target = item.target) {
-        is NotificationTarget.OpenQuestion -> ({ onOpenQuestion(target.id) })
+        // New answers open at the first new one, a flower at the answer that got it (v0.10).
+        is NotificationTarget.OpenQuestion -> ({ onOpenQuestion(target.id, JumpRules.focusFor(item.type, item.text, item.time)) })
         is NotificationTarget.OpenProfile -> ({ onOpenProfile(target.id) })
         null -> null
     }
+
+/** Expert mode's details of a notification: what Stips sent, and where the app opens it (v0.10). */
+private fun notificationFields(item: StipsNotification): List<Pair<String, String>> {
+    val focus = (item.target as? NotificationTarget.OpenQuestion)?.let { JumpRules.focusFor(item.type, item.text, item.time) }
+    return listOf(
+        "id" to item.id.toString(),
+        "type" to item.type.ifBlank { "-" },
+        "target" to when (val target = item.target) {
+            is NotificationTarget.OpenQuestion -> "ask ${target.id}"
+            is NotificationTarget.OpenProfile -> "profile ${target.id}"
+            null -> "-"
+        },
+        "viewed" to item.viewed.toString(),
+        "time" to (item.time?.toString() ?: "-"),
+        "opens at" to when (focus) {
+            null -> "-"
+            QuestionFocus.MyFlower -> "your answer with a flower"
+            is QuestionFocus.NewAnswers -> "new answers" + (focus.count?.let { " ($it)" } ?: "")
+        },
+    )
+}
 
 @Composable
 private fun SectionLabel(text: String) {
@@ -319,7 +359,7 @@ private fun SectionLabel(text: String) {
 
 /** One notification: the same height and layout for all, two lines at most, new ones highlighted (#4). */
 @Composable
-private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: (() -> Unit)?) {
+private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: (() -> Unit)?, onDetails: ((StipsNotification) -> Unit)?) {
     val background = if (isNew) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else Color.Transparent
     Row(
         Modifier
@@ -365,6 +405,12 @@ private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: ((
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (onDetails != null) ExpertLine("${item.type.ifBlank { "-" }} · #${item.id}")
+        }
+        if (onDetails != null) {
+            IconButton(onClick = { onDetails(item) }) {
+                Icon(Icons.Outlined.Code, contentDescription = stringResource(R.string.expert_details), modifier = Modifier.size(20.dp))
             }
         }
         Spacer(Modifier.width(8.dp))

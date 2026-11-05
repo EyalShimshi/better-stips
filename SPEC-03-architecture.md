@@ -65,16 +65,16 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules). The chats widget: `ChatsWidget`, `ChatsWidgetReceiver`, `RefreshChatsWidget`, `ChatsWidgetFeed` (D-67) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
-| `….util` | Time parsing and relative formatting, answer validation and display order, links and deep links, launcher shortcut actions, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
+| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), links and deep links, launcher shortcut actions, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
 
 - **Single activity**, Compose only, edge-to-edge, `enableOnBackInvokedCallback` for predictive back.
-- **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}`, `user/{id}`, `notifications`, `hot`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`, `settings/{page}`. The start destination is the chosen start tab, read once per launch (D-61). Custom enter/exit and predictive-back transitions (SPEC-02 §4).
+- **Navigation Compose** with string routes: `home`, `chats`, `profile`, `question/{id}?focus=&count=&at=` (where a notification opens it, D-70), `user/{id}`, `notifications`, `hot`, `topic/{name}`, `conversation/{userId}?name=`, `mylist/{kind}`, `saved`, `signin`, `settings`, `settings/{page}`. The start destination is the chosen start tab, read once per launch (D-61). Custom enter/exit and predictive-back transitions (SPEC-02 §4).
 - **App-wide state through composition locals:** `LocalOpenProfile` (any name or avatar opens a profile), `LocalUnreadCounts` (badges) and `LocalNow` (the ticking clock while *Count the seconds* is on, D-65), provided by `AppRoot`, which polls `messages.count` every 10 s while the app is started and signed in (D-25, D-53).
 - **Welcome:** `AppRoot` draws `WelcomeScreen` over the scaffold on a fresh install's first launch, until sign-in or *Continue as a guest* (D-61); the app below stays composed so links can open into it, and is hidden from accessibility meanwhile.
-- **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages, one chat, or the Hot list) that `AppRoot` navigates to once. Stips links come in as the intent's data; launcher shortcuts (`res/xml/shortcuts.xml`, D-57) as its action, mapped by `Shortcuts.link`; the chats widget's rows as the private `…action.CHAT` with a `stipsplus://chat/<userId>?name=` address (unique per chat). Opening Hot or Chats reports the matching shortcut as used (`ShortcutManagerCompat.reportShortcutUsed`).
+- **Deep links:** `MainActivity` turns its intent (launch or `onNewIntent`) into a pending `DeepLink` (question, profile, messages, one chat, or the Hot list) that `AppRoot` navigates to once. Stips links come in as the intent's data; launcher shortcuts (`res/xml/shortcuts.xml`, D-57) as its action, mapped by `Shortcuts.link`; the chats widget's rows as the private `…action.CHAT` with a `stipsplus://chat/<userId>?name=` address (unique per chat); a phone notification's question also carries where to open it (`…extra.FOCUS`, `FOCUS_COUNT`, `FOCUS_AT`, D-70). Opening Hot or Chats reports the matching shortcut as used (`ShortcutManagerCompat.reportShortcutUsed`).
 - **ViewModels** expose `StateFlow<UiState>`; screens collect with `collectAsStateWithLifecycle`. Factories come from `AppContainer` (no DI framework).
 - **Theme** reads `SettingsStore`: dynamic color → else a generated scheme from the accent; dark/light/system; pure black. A `ChannelTheme` wrapper re-themes a subtree with a channel's scheme.
 
@@ -95,6 +95,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `ChatsWidgetFeed` | The chats widget's list: the first page of chats, from `StipsRepository.onConversations` (any screen that loads it). It watches `onUnreadCounts` and, only while a chats widget is placed, asks again when the count changes; also hourly when stale, and on ⟳; within `RateGuard`. Saved to `files/chats_widget.json` with the account's id; cleared on sign-out or another account (D-67) |
 | `ServerClock` | The phone clock's offset from Stips', from answers' `Date` headers; applied only at 2 s or more. Feeds every "how long ago" (D-65) |
 | `HomeSectionsViewModel` | The website-like Home: `feed.get` pages with one `random_order_number` per visit, personal (`userRelated`) then everyone's (`todayItems`) when empty; pages merged by heading (D-59) |
+| `QuestionViewModel` (v0.10) | Easy reply: the reply target, the pointer written into the draft (`ReplyRefs`), its target remembered after posting (`ReplyTargets`), and the after-post correction by edit (D-68). Where a notification opens (`JumpRules`, with the last visit's `ReadMarks`, D-70). A queue of moderator lookups for answerers on screen, paced and capped (D-71) |
+| `ReadMarks`, `ReplyTargets`, `UserBadges` | Small stores in prefs: the newest answer shown per question (500), each easy reply's target (300), people's profile badges with a moderator's gender (3,000, two weeks; `version` redraws the marks) |
 | `SavedStore` | Saved questions (id, title, cover, time) in prefs as JSON |
 | `SettingsStore` | SharedPreferences exposed as `StateFlow` |
 | `Timings` | Records load durations (feed page, question) for the "Loaded in" line and Settings → Diagnostics, both shown only in expert mode (D-62) |
@@ -110,6 +112,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `saved` prefs | Saved questions | App-private |
 | `files/feed-*.json` | Last-seen first page | App-private |
 | `files/chats_widget.json` | The chats widget's copy of your latest chats (D-67) | App-private, excluded from backup, deleted on sign-out |
+| `read_marks`, `reply_targets`, `user_badges` prefs | The newest answer shown per question; easy replies' targets; answerers' badges (v0.10, D-68, D-70, D-71) | App-private; ids and badge names only |
 | `files/crash.txt` | Last crash | App-private, deleted after the dialog |
 | Coil disk cache | Images | App cache dir, 64 MB |
 

@@ -13,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.ui.AppRoot
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.theme.StipsTheme
@@ -62,6 +63,10 @@ class MainActivity : ComponentActivity() {
     }
 
     /** A Stips link (from another app or a phone notification), a launcher shortcut, or a chats widget row. */
-    private fun linkFrom(intent: Intent?): DeepLink? =
-        Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)
+    private fun linkFrom(intent: Intent?): DeepLink? {
+        val link = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)
+        // A phone notification says where to open its question (v0.10).
+        val focus = intent?.let { Notifier.focusFrom(it) }
+        return if (link is DeepLink.Question && focus != null) link.copy(focus = focus) else link
+    }
 }

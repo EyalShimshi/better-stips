@@ -304,6 +304,7 @@ object Parsers {
             target = target,
             note = if (html.isNotBlank()) msg else null,
             pointsRemoved = (n.int("pointsRemoved") ?: 0).coerceAtLeast(0),
+            raw = n.toString(),
         )
     }.orEmpty()
 

@@ -3,18 +3,26 @@ package io.github.eyalshimshi.betterstips.ui.question
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
+import io.github.eyalshimshi.betterstips.data.ReadMarks
+import io.github.eyalshimshi.betterstips.data.ReplyTargets
 import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.SettingsStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.Timings
 import io.github.eyalshimshi.betterstips.data.api.ApiException
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.AnswerLink
 import io.github.eyalshimshi.betterstips.data.model.Question
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AnswerRules
+import io.github.eyalshimshi.betterstips.util.JumpRules
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +31,7 @@ import kotlinx.coroutines.launch
 
 enum class QuestionMessage {
     AnswerPosted, AnswerEdited, AnswerDetached, VoteFailed, ActionFailed, Following, NotFollowing,
-    Reported, Hidden, AnswerDeleted, QuestionEdited, QuestionDetached, FlowerSent,
+    Reported, Hidden, AnswerDeleted, QuestionEdited, QuestionDetached, FlowerSent, ReplyFixed,
 }
 
 data class QuestionUiState(
@@ -50,6 +58,12 @@ data class QuestionUiState(
     val followOnAnswer: Boolean = true,
     /** When set, the composer edits this answer instead of posting a new one. */
     val editing: Answer? = null,
+    /** Easy reply (v0.10): the answer this one replies to; the draft opens with the carets pointing at it. */
+    val replyTo: Answer? = null,
+    /** Bumped to put the cursor in the composer and open the keyboard. */
+    val focusComposer: Int = 0,
+    /** An answer to scroll to and light up once: where a notification leads (v0.10). */
+    val jump: Long? = null,
     val posting: Boolean = false,
     val problem: AnswerRules.Problem? = null,
     val postError: ApiException? = null,
@@ -65,13 +79,31 @@ class QuestionViewModel(
     private val session: SessionStore,
     private val settings: SettingsStore,
     private val anonymousAnswers: AnonymousAnswers,
+    private val readMarks: ReadMarks,
+    private val replyTargets: ReplyTargets,
     private val questionId: Long,
+    focus: QuestionFocus?,
 ) : ViewModel() {
     private val _state = MutableStateFlow(initialState())
     val state: StateFlow<QuestionUiState> = _state.asStateFlow()
 
     /** Once the user flips the anonymous switch, their choice wins over the automatic default. */
     private var anonymousTouched = false
+
+    /** The newest answer shown here on the last visit, read before this visit marks its own (v0.10). */
+    private val seenBefore: Long? = readMarks.newestSeen(questionId)
+
+    /** Where a notification asked to open; cleared once the answers are there to jump to. */
+    private var focusPending: QuestionFocus? = focus
+    private var ownershipRetried = false
+
+    /** Moderator lookups for answerers on screen (v0.10): one at a time, paced, within the request budget. */
+    private val badgeQueue = Channel<Long>(Channel.UNLIMITED)
+    private val badgeAsked = HashSet<Long>()
+    private var badgeLookups = 0
+
+    /** Easy replies already corrected on this visit: each at most once. */
+    private val fixedReplies = HashSet<Long>()
 
     private fun initialState(): QuestionUiState {
         val cached = repository.cachedQuestion(questionId)
@@ -86,6 +118,15 @@ class QuestionViewModel(
 
     init {
         load()
+        viewModelScope.launch {
+            for (userId in badgeQueue) {
+                if (badgeLookups >= MAX_BADGE_LOOKUPS || !repository.userBadges.needsLookup(userId)) continue
+                while (!RateGuard.allowBackground()) delay(BADGE_WAIT_MS)
+                badgeLookups++
+                attempt { repository.lookUpBadges(userId) }
+                delay(BADGE_GAP_MS)
+            }
+        }
     }
 
     /** Pull to refresh (#8): the question and its answers straight from Stips, never the copy from a list. */
@@ -127,6 +168,7 @@ class QuestionViewModel(
                     anonymous = s.anonymous || (!anonymousTouched && answeredAnonymously(answers)),
                 )
             }
+            a.getOrNull()?.let { onAnswersLoaded(it) }
         }
     }
 
@@ -163,7 +205,38 @@ class QuestionViewModel(
     }
 
     fun setDraft(text: String) {
-        _state.update { it.copy(draft = text, problem = null, postError = null) }
+        _state.update {
+            // Deleting the carets by hand ends the reply.
+            val replyTo = if (it.replyTo != null && ReplyRefs.leadingCount(text) == null) null else it.replyTo
+            it.copy(draft = text, replyTo = replyTo, problem = null, postError = null)
+        }
+    }
+
+    /**
+     * Easy reply (v0.10): the draft opens with the carets pointing at [answer], counted in Stips' order from where this
+     * answer will land (the bottom); a pointer the draft already opens with is replaced. Posting counts again, and
+     * corrects the answer afterwards if others came in first.
+     */
+    fun replyTo(answer: Answer) {
+        val s = _state.value
+        if (s.editing != null) return
+        val index = s.answers.indexOfFirst { it.id == answer.id }
+        if (index < 0) return
+        val draft = ReplyRefs.withReply(s.draft, s.answers.size - index)
+        _state.update {
+            it.copy(
+                replyTo = answer,
+                draft = draft,
+                draftVersion = it.draftVersion + 1,
+                focusComposer = it.focusComposer + 1,
+                problem = null,
+                postError = null,
+            )
+        }
+    }
+
+    fun cancelReply() {
+        _state.update { it.copy(replyTo = null, draft = ReplyRefs.withoutReply(it.draft), draftVersion = it.draftVersion + 1) }
     }
 
     fun setAnonymous(anonymous: Boolean) {
@@ -198,6 +271,7 @@ class QuestionViewModel(
         _state.update {
             it.copy(
                 editing = answer,
+                replyTo = null,
                 draft = answer.text,
                 draftVersion = it.draftVersion + 1,
                 draftLink = answer.links.firstOrNull(),
@@ -209,14 +283,20 @@ class QuestionViewModel(
 
     fun cancelEdit() {
         _state.update {
-            it.copy(editing = null, draft = "", draftVersion = it.draftVersion + 1, draftLink = null, problem = null, postError = null)
+            it.copy(editing = null, replyTo = null, draft = "", draftVersion = it.draftVersion + 1, draftLink = null, problem = null, postError = null)
         }
     }
 
     fun post() {
         val current = _state.value
         if (current.posting) return
-        val text = current.draft.trim()
+        val replyTo = current.replyTo.takeIf { current.editing == null }
+        var text = current.draft.trim()
+        if (replyTo != null) {
+            // Counted again: a pull to refresh since the swipe may have brought answers in between.
+            val index = current.answers.indexOfFirst { it.id == replyTo.id }
+            if (index >= 0) text = ReplyRefs.withReply(text, current.answers.size - index)
+        }
         val problem = AnswerRules.check(text)
         if (problem != null) {
             _state.update { it.copy(problem = problem) }
@@ -231,7 +311,8 @@ class QuestionViewModel(
                 } else {
                     // Anonymous mode (#4) makes every answer anonymous while it's on.
                     val anonymous = current.anonymous || settings.settings.value.anonymousModeOn()
-                    repository.postAnswer(questionId, text, anonymous, current.draftLink)
+                    val newId = repository.postAnswer(questionId, text, anonymous, current.draftLink)
+                    if (newId != null && replyTo != null) replyTargets.remember(newId, replyTo.id)
                     if (anonymous) anonymousAnswers.remember(questionId)
                     if (current.followOnAnswer) {
                         attempt { repository.setFollowing(questionId, true) }.onSuccess { _state.update { s -> s.copy(following = true) } }
@@ -244,6 +325,7 @@ class QuestionViewModel(
                         draftVersion = it.draftVersion + 1,
                         draftLink = null,
                         editing = null,
+                        replyTo = null,
                         message = if (editing != null) QuestionMessage.AnswerEdited else QuestionMessage.AnswerPosted,
                     )
                 }
@@ -373,7 +455,69 @@ class QuestionViewModel(
     private suspend fun reloadAnswers() {
         attempt { repository.answers(questionId) }.onSuccess { list ->
             _state.update { s -> s.copy(answers = list, question = s.question?.copy(answerCount = list.size)) }
+            onAnswersLoaded(list)
         }
+    }
+
+    /**
+     * Stips sent the answers (in its order, oldest first): open where a notification pointed, remember what was shown
+     * for the next one, and correct the user's easy replies if answers came in between (v0.10).
+     */
+    private suspend fun onAnswersLoaded(list: List<Answer>) {
+        val focus = focusPending
+        if (focus != null && list.isNotEmpty()) {
+            val target = JumpRules.target(list, focus, seenBefore)
+            if (target == null && focus == QuestionFocus.MyFlower && !ownershipRetried && session.session.value.signedIn) {
+                // Opened cold from a phone notification: the answers may have come before the session, without
+                // "this one's yours". Once more with the session.
+                ownershipRetried = true
+                viewModelScope.launch {
+                    attempt { session.ensureSession() }
+                    reloadAnswers()
+                }
+            } else {
+                focusPending = null
+                if (target != null) _state.update { it.copy(jump = target) }
+            }
+        }
+        list.maxOfOrNull { it.id }?.let { readMarks.markSeen(questionId, it) }
+        fixReplies(list)
+    }
+
+    /**
+     * Easy reply (v0.10): the carets count the answers between the reply and its target, and answers posted while the
+     * user wrote land in between (Stips orders by time). While Stips still lets the user edit, the opening pointer is
+     * corrected, at most once per answer and visit, and only when the user's text still opens with one.
+     */
+    private suspend fun fixReplies(list: List<Answer>) {
+        if (!settings.settings.value.easyReply) return
+        list.forEachIndexed { index, answer ->
+            if (!answer.isOwner || !answer.canEdit || answer.id in fixedReplies) return@forEachIndexed
+            val targetId = replyTargets.target(answer.id) ?: return@forEachIndexed
+            val targetIndex = list.indexOfFirst { it.id == targetId }
+            if (targetIndex !in 0 until index) return@forEachIndexed
+            val written = ReplyRefs.leadingCount(answer.text) ?: return@forEachIndexed
+            val expected = index - targetIndex
+            if (written == expected) return@forEachIndexed
+            fixedReplies += answer.id
+            val text = ReplyRefs.withReply(answer.text, expected)
+            attempt { repository.editAnswer(answer.id, text, answer.links.firstOrNull()) }.onSuccess {
+                updateAnswer(answer.id) { it.copy(text = text) }
+                _state.update { it.copy(message = QuestionMessage.ReplyFixed) }
+            }
+        }
+    }
+
+    /** Authors of the answers on screen (v0.10): looked up in the background when their badges aren't known yet. */
+    fun wantBadges(userIds: Collection<Long>) {
+        if (!settings.settings.value.moderatorBadges) return
+        for (id in userIds) {
+            if (badgeAsked.add(id) && repository.userBadges.needsLookup(id)) badgeQueue.trySend(id)
+        }
+    }
+
+    fun consumeJump() {
+        _state.update { it.copy(jump = null) }
     }
 
     private fun updateAnswer(id: Long, change: (Answer) -> Answer) {
@@ -382,6 +526,11 @@ class QuestionViewModel(
 
     private companion object {
         const val RECENT_MS = 3 * 60_000L
+
+        /** At most this many moderator lookups per visit; past it, only marks already known show (v0.10). */
+        const val MAX_BADGE_LOOKUPS = 30
+        const val BADGE_GAP_MS = 1_500L
+        const val BADGE_WAIT_MS = 2_000L
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {

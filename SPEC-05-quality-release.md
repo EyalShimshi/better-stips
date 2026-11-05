@@ -10,7 +10,8 @@
 | Validation | The site's repeated-letter rule; length limits |
 | Colors | Scheme generator: tones land within ±2 of target, text/background contrast ≥ 4.5:1, grey seeds stay calm |
 | Data files | `assets/channels.json`: parses, unique ids, non-empty names, valid colors; `res/xml/shortcuts.xml` matches the actions MainActivity handles |
-| v0.9 rules (`ParsersV9Test`, `RulesV9Test`) | Special accounts (Net Knights, Sahar volunteers, the system account, anonymous answers), profile backgrounds, hidden age and numbers, custom badges; `feed.get` sections merged by heading and paged without repeats; the home feed's order number; the order of answers and the asker's label; chat links from the widget; the chats widget's list, its saved copy and clock times; expert mode's id lines and JSON |
+| v0.9 rules (`ParsersV9Test`, `RulesV9Test`) | Special accounts (Net Knights, Sahar volunteers, the system account, anonymous answers), profile backgrounds, hidden age and numbers, custom badges; `feed.get` sections merged by heading and paged without repeats; the home feed's order number; the order of answers and the asker's label; chat links from the widget; the chats widget's list, its saved copy and clock times; expert mode's id lines and JSON; seconds only under a minute |
+| v0.10 rules (`RulesV10Test`) | Caret pointers in the forms the probe found (runs, "4^", "4 ^", "^4", stacked, after punctuation, at the end; not smileys, maths or carets inside words), writing and correcting the opening pointer, resolving pointers to answers and quotes; reading notifications (type, count in Hebrew and English), where they open (count back from their time, the last visit, the user's own answers skipped, flowers), the route values; moderator ranks and the badge store's format |
 
 **On the built APK (CI, before every release, D-55):**
 

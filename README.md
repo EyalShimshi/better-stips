@@ -4,15 +4,17 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.9)
+## Features (v0.10)
 
-- **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it); with Live off, ⟳ beside "New questions" reloads them. Search finds topics and people.
+- **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it); pull down to reload. Search finds topics and people.
 - **Home your way** (Settings → Home and reading): the default, a layout **like the website** (hot questions, then today's questions by topic), or **new questions only**; 3, 5 or 10 hot cards, from now, today or this week; the channel chips on or off; which tab the app opens on.
 - **Home-screen widgets:** "Hot right now" shows the hottest questions, and **Chats** shows your latest chats with unread counts. Tap a question or a chat to open it, or ⟳ to refresh. Add them from your launcher's widgets, or from Settings → Notifications and widgets.
 - **Launcher shortcuts:** touch and hold the app icon for **Hot** and **Chats**.
 - **Ask a question** in three steps, like the site: the question (anonymous with your own nickname, and a link if you like), its tags (suggested by Stips), and a cover photo from Stips' gallery.
-- **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, a header that folds into a small title bar as you scroll, and pull down to reload. The asker's own answers say **"שואל השאלה"**, even when anonymous. Organizations and Stips' own account have a **blue check**. Answers in Stips' order, newest, oldest or by votes.
-- **Times to the second** under an hour ("5 min 12 s"), set by Stips' clock; turn on *Count the seconds* to watch them tick.
+- **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, a header that folds into a small title bar as you scroll, and pull down to reload. The asker's own answers say **"שואל השאלה"**, even when anonymous. Organizations and Stips' own account have a **blue check**, and moderators a **"נאמן סטיפס"** badge. Answers in Stips' order, newest, oldest or by votes.
+- **Replies, Stips style:** swipe an answer to the right to reply to it. Stips+ starts your answer with the carets that point to it (^^, or 4^ from four up) and fixes them after posting if other answers came in first. Answers that point up show the answer they reply to as a quote; tap it to go there.
+- **Notifications open in place:** new answers open at the first new one, a flower at your answer that got it, and that answer lights up for a moment.
+- **Times to the second** under a minute ("12 s"), set by Stips' clock; turn on *Count the seconds* to watch them tick.
 - **Answer** (anonymously too, with one link), **edit**, **delete** or **detach** your answers; **vote**, **pin**, **get updates**. If you answered a question anonymously, your next answer there starts anonymous. As the asker, **send flowers** to good answers.
 - **Anonymous mode** (the masks on Home): everything you post goes out anonymously for 30 minutes, a few hours, or until you turn it off.
 - **Report and hide:** report a question, answer or pen-pal post to Stips' moderators; hide an item or everything from one user (Settings → Privacy and safety → Hidden content brings it all back).
@@ -59,6 +61,7 @@
 | **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Notifications and widgets) | Under 1 MB a day |
 | **Home-screen widget** | When Android wakes it (hourly), only if its list is over 30 minutes old; nothing extra when the app loaded the same list recently. Only if you add the widget | About 9 KB each, at most 0.2 MB a day |
 | **Chats widget** | When your unread count changes (checked by the app while it's open, or by phone notifications), or hourly when its list is over 30 minutes old; nothing extra when the Chats screen loaded the list. Only if you add the widget | A few KB each |
+| **Moderator badges** | While a question is open: the profile badges of people whose answers are on screen, once every two weeks per person, at most 30 per question and one every 1.5 seconds (turn off: Settings → Home and reading) | About 1–2 KB each |
 
 **Stips' request limit:** Stips stops answering an address after about 100 requests that don't come from its own site, for 20 minutes or more. Requests from the site and the official app carry the site's Referer and aren't limited that way, even from an address Stips is refusing; Stips+ sends the same Referer, and still identifies itself honestly. It also keeps to about the official app's pace: 40 requests at once, then 30 a minute, and the checks above wait while you're busy. If Stips stops answering anyway, a banner counts down, nothing is sent except one try a minute, and everything resumes as soon as Stips answers.
 

@@ -32,7 +32,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -182,18 +184,18 @@ fun channelLabel(channel: Channel): String {
     return if (hebrewUi) channel.name else channel.nameEn ?: channel.name
 }
 
-/** "5 min 12 s" under an hour (#8), "לפני 3 שעות", or a date. */
+/** "12 s" under a minute (#8), then "לפני 5 דק׳", "לפני 3 שעות", or a date. */
 @Composable
 fun agoText(instant: Instant?): String {
     if (instant == null) return ""
     val resources = LocalContext.current.resources
     val now = currentTime()
-    val recent = StipsTime.underAnHour(instant, now)
-    if (recent != null) {
-        return when {
-            recent.minutes == 0 && recent.seconds == 0 -> stringResource(R.string.time_just_now)
-            recent.minutes == 0 -> resources.getQuantityString(R.plurals.time_seconds, recent.seconds, recent.seconds)
-            else -> stringResource(R.string.time_minutes_seconds, recent.minutes, recent.seconds)
+    val seconds = StipsTime.secondsAgo(instant, now)
+    if (seconds != null) {
+        return if (seconds == 0) {
+            stringResource(R.string.time_just_now)
+        } else {
+            resources.getQuantityString(R.plurals.time_seconds, seconds, seconds)
         }
     }
     return when (val ago = StipsTime.ago(instant, now)) {
@@ -343,18 +345,14 @@ private fun MetaItem(icon: ImageVector, text: String, color: Color) {
     }
 }
 
-/** "5m", "3h", "2d" (Hebrew: "5 דק׳"…), or a short date: for tight rows. Under an hour, with seconds (#8). */
+/** "5m", "3h", "2d" (Hebrew: "5 דק׳"…), or a short date: for tight rows. Under a minute, in seconds (#8). */
 @Composable
 fun shortAgoText(instant: Instant?): String {
     if (instant == null) return ""
     val now = currentTime()
-    val recent = StipsTime.underAnHour(instant, now)
-    if (recent != null) {
-        return when {
-            recent.minutes == 0 && recent.seconds == 0 -> stringResource(R.string.time_short_now)
-            recent.minutes == 0 -> stringResource(R.string.time_short_seconds, recent.seconds)
-            else -> stringResource(R.string.time_short_minutes_seconds, recent.minutes, recent.seconds)
-        }
+    val seconds = StipsTime.secondsAgo(instant, now)
+    if (seconds != null) {
+        return if (seconds == 0) stringResource(R.string.time_short_now) else stringResource(R.string.time_short_seconds, seconds)
     }
     return when (val ago = StipsTime.ago(instant, now)) {
         StipsTime.Ago.JustNow -> stringResource(R.string.time_short_now)
@@ -365,7 +363,10 @@ fun shortAgoText(instant: Instant?): String {
     }
 }
 
-/** Text with tappable links; long-press selects and copies (F-06). */
+/** A span of text that leads to another item (a reply's caret pointer, v0.10): [id] is what [LinkifiedText] reports. */
+data class TextTarget(val range: IntRange, val id: Long)
+
+/** Text with tappable links; long-press selects and copies (F-06). [targets] are tappable spans reported to [onTarget]. */
 @Composable
 fun LinkifiedText(
     text: String,
@@ -375,16 +376,37 @@ fun LinkifiedText(
     onOverflow: ((Boolean) -> Unit)? = null,
     /** False where taps and long-presses belong to the container (chat bubbles); links still open. */
     selectable: Boolean = true,
+    targets: List<TextTarget> = emptyList(),
+    onTarget: (Long) -> Unit = {},
 ) {
     val linkColor = MaterialTheme.colorScheme.primary
-    val annotated = remember(text, linkColor) {
+    val currentOnTarget by rememberUpdatedState(onTarget)
+    val annotated = remember(text, linkColor, targets) {
+        val urls = Links.find(text)
+        // Pointers inside a link stay part of the link.
+        val kept = targets.filter { t ->
+            t.range.first >= 0 && t.range.last < text.length && urls.none { it.first <= t.range.last && t.range.first <= it.last }
+        }
+        val spans: List<Pair<IntRange, TextTarget?>> =
+            (urls.map { range -> Pair<IntRange, TextTarget?>(range, null) } + kept.map { Pair<IntRange, TextTarget?>(it.range, it) })
+                .sortedBy { it.first.first }
         buildAnnotatedString {
             var last = 0
-            for (range in Links.find(text)) {
+            for ((range, target) in spans) {
+                if (range.first < last) continue
                 append(text.substring(last, range.first))
-                val url = text.substring(range)
-                withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)))) {
-                    append(url)
+                val piece = text.substring(range)
+                if (target == null) {
+                    withLink(LinkAnnotation.Url(piece, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)))) {
+                        append(piece)
+                    }
+                } else {
+                    val link = LinkAnnotation.Clickable(
+                        tag = "target:" + target.id,
+                        styles = TextLinkStyles(SpanStyle(color = linkColor, fontWeight = FontWeight.Bold)),
+                        linkInteractionListener = { currentOnTarget(target.id) },
+                    )
+                    withLink(link) { append(piece) }
                 }
                 last = range.last + 1
             }

@@ -123,6 +123,12 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 
 `feed.get` (SPEC-04 §2.11) is the site's home. If its sections stop loading, open `https://stips.co.il/` in a browser's developer tools, find the `feed.get` call and compare its parameters (`random_order_number`, `feed_type`) with `StipsRepository.homeSections`. Organizations without a Stips flag are listed in `Organizations.KNOWN_USER_IDS` (`data/model/Models.kt`).
 
+## Replies, notifications and moderators (v0.10)
+
+- **Caret pointers** are read and written in one place, `util/ReplyRefs.kt`, tested on real answers in `RulesV10Test`. If people start writing pointers another way, add the form there with an example. Counting relies on Stips listing answers oldest first (SPEC-04 §2.12).
+- **Where a notification opens** is decided in `util/JumpRules.kt`. Stips' notification texts aren't in the site's code, so the "N new answers" count is a guess at their wording. With expert mode on, { } on a notification shows its type, its raw JSON and where the app opens it; fix the patterns there when a text is read wrong.
+- **Moderator marks** come from people's profile badges (`profile.page_data`), cached in the `user_badges` prefs for two weeks. If the marks cost too many requests, lower `MAX_BADGE_LOOKUPS` in `QuestionViewModel`, or turn the setting's default off.
+
 ## Data files
 
 | File | What | Rule |

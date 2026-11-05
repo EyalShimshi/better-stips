@@ -52,13 +52,15 @@ class RulesV9Test {
     }
 
     @Test
-    fun underAnHour_countsMinutesAndSeconds() {
+    fun secondsAgo_onlyUnderAMinute() {
         val now = Instant.parse("2026-11-05T12:00:00Z")
-        assertEquals(StipsTime.MinutesSeconds(0, 0), StipsTime.underAnHour(now, now))
-        assertEquals(StipsTime.MinutesSeconds(1, 15), StipsTime.underAnHour(now.minusSeconds(75), now))
-        assertEquals(StipsTime.MinutesSeconds(59, 59), StipsTime.underAnHour(now.minusSeconds(3_599), now))
-        assertNull(StipsTime.underAnHour(now.minusSeconds(3_600), now))
-        assertEquals("a little in the future counts as now", StipsTime.MinutesSeconds(0, 0), StipsTime.underAnHour(now.plusSeconds(4), now))
+        assertEquals(0, StipsTime.secondsAgo(now, now))
+        assertEquals(12, StipsTime.secondsAgo(now.minusSeconds(12), now))
+        assertEquals(59, StipsTime.secondsAgo(now.minusSeconds(59), now))
+        assertNull("from a minute on, times read in minutes", StipsTime.secondsAgo(now.minusSeconds(60), now))
+        assertNull(StipsTime.secondsAgo(now.minusSeconds(75), now))
+        assertEquals("a little in the future counts as now", 0, StipsTime.secondsAgo(now.plusSeconds(4), now))
+        assertEquals(StipsTime.Ago.Minutes(1), StipsTime.ago(now.minusSeconds(75), now))
     }
 
     @Test

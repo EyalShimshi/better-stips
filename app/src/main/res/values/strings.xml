@@ -499,7 +499,6 @@
     <string name="shortcut_chats_long">Your chats</string>
     <!-- v0.9 (#8) -->
     <string name="action_copy">Copy</string>
-    <string name="refresh_new">Refresh new questions</string>
     <string name="hot_today">Hot today</string>
     <string name="hot_week">Hot this week</string>
     <string name="hot_month">Hot this month</string>
@@ -507,9 +506,7 @@
         <item quantity="one">%d s</item>
         <item quantity="other">%d s</item>
     </plurals>
-    <string name="time_minutes_seconds">%1$d min %2$d s</string>
     <string name="time_short_seconds">%1$ds</string>
-    <string name="time_short_minutes_seconds">%1$dm %2$02ds</string>
     <string name="asker_label">Asker</string>
     <string name="asker_label_female">Asker</string>
     <string name="verified_organization">Organization</string>
@@ -523,7 +520,7 @@
     <string name="settings_account_summary">Profile, safe mode, password, signing out</string>
     <string name="settings_sign_in_summary">To answer, ask, chat and get notifications</string>
     <string name="settings_reading">Home and reading</string>
-    <string name="settings_reading_summary">Home\'s layout, hot questions, order of answers, times</string>
+    <string name="settings_reading_summary">Home\'s layout, hot questions, answers and replies, times</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_appearance_summary">Colors, theme, images, animations</string>
     <string name="settings_notifications_widgets">Notifications and widgets</string>
@@ -559,7 +556,7 @@
     <string name="answers_order_top">Most votes first</string>
     <string name="settings_times">Times</string>
     <string name="settings_live_times">Count the seconds</string>
-    <string name="settings_live_times_summary">Times under an hour show seconds and tick every second (\"5 min 12 s\"), from the phone\'s clock. No extra data.</string>
+    <string name="settings_live_times_summary">Times tick every second while you look: \"12 s\" under a minute, then \"1 min\". From the phone\'s clock; no extra data.</string>
     <string name="settings_widgets">Home-screen widgets</string>
     <string name="settings_widget_chats">Chats widget</string>
     <string name="settings_widget_chats_summary">Your chats and unread messages on your home screen</string>
@@ -570,4 +567,18 @@
     <string name="widget_chats_empty">No chats yet. Tap to check again.</string>
     <string name="widget_chats_failed">Couldn\'t load your chats. Tap to try again.</string>
     <string name="widget_chat_you">You: %1$s</string>
+    <!-- v0.10 -->
+    <string name="settings_replies">Answers and replies</string>
+    <string name="settings_easy_reply">Easy reply</string>
+    <string name="settings_easy_reply_summary">Swipe an answer to the right to reply to it. Stips+ starts your answer with the carets (^^) that point to it, and fixes them after posting if other answers came in first.</string>
+    <string name="settings_reply_quotes">Show what answers reply to</string>
+    <string name="settings_reply_quotes_summary">Answers that point up with carets (^^, 4^) show the answer they reply to. Tap it to go there.</string>
+    <string name="settings_moderator_badges">Moderator badges on answers</string>
+    <string name="settings_moderator_badges_summary">Shows נאמן סטיפס by moderators\' names. Each person who answers is checked once every two weeks, in the background.</string>
+    <string name="action_reply">Reply</string>
+    <string name="reply_to">Replying to %1$s</string>
+    <string name="reply_cancel">Cancel the reply</string>
+    <string name="reply_hidden">A hidden answer</string>
+    <string name="reply_jump">Go to the answer it replies to</string>
+    <string name="reply_fixed">Your reply was updated: other answers came in first.</string>
 </resources>

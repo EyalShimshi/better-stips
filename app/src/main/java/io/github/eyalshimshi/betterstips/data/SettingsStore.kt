@@ -53,6 +53,12 @@ data class AppSettings(
     val showChannelChips: Boolean = true,
     val startTab: StartTab = StartTab.Home,
     val answersOrder: AnswersOrder = AnswersOrder.AsOnStips,
+    /** Swipe an answer to the right to reply to it with Stips' carets (v0.10). */
+    val easyReply: Boolean = true,
+    /** Answers that point up with carets show the answer they reply to (v0.10). */
+    val replyQuotes: Boolean = true,
+    /** "נאמן סטיפס" by moderators' names on answers; each answerer is looked up once every two weeks (v0.10). */
+    val moderatorBadges: Boolean = true,
     /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
     val onboarded: Boolean = false,
 ) {
@@ -125,6 +131,9 @@ class SettingsStore(context: Context) {
             .putBoolean("showChannelChips", next.showChannelChips)
             .putString("startTab", next.startTab.name)
             .putString("answersOrder", next.answersOrder.name)
+            .putBoolean("easyReply", next.easyReply)
+            .putBoolean("replyQuotes", next.replyQuotes)
+            .putBoolean("moderatorBadges", next.moderatorBadges)
             .putBoolean("onboarded", next.onboarded)
             .apply()
     }
@@ -152,6 +161,9 @@ class SettingsStore(context: Context) {
             showChannelChips = prefs.getBoolean("showChannelChips", defaults.showChannelChips),
             startTab = enumOr(prefs.getString("startTab", null), defaults.startTab),
             answersOrder = enumOr(prefs.getString("answersOrder", null), defaults.answersOrder),
+            easyReply = prefs.getBoolean("easyReply", defaults.easyReply),
+            replyQuotes = prefs.getBoolean("replyQuotes", defaults.replyQuotes),
+            moderatorBadges = prefs.getBoolean("moderatorBadges", defaults.moderatorBadges),
             onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
         )
     }

@@ -12,12 +12,15 @@ import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
 import io.github.eyalshimshi.betterstips.data.BlockStore
 import io.github.eyalshimshi.betterstips.data.ChannelsSource
 import io.github.eyalshimshi.betterstips.data.FeedCache
+import io.github.eyalshimshi.betterstips.data.ReadMarks
+import io.github.eyalshimshi.betterstips.data.ReplyTargets
 import io.github.eyalshimshi.betterstips.data.SavedStore
 import io.github.eyalshimshi.betterstips.data.SeenNotifications
 import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.SettingsStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.Timings
+import io.github.eyalshimshi.betterstips.data.UserBadges
 import io.github.eyalshimshi.betterstips.data.api.NetLogListener
 import io.github.eyalshimshi.betterstips.data.api.SessionCookieJar
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
@@ -85,7 +88,10 @@ class AppContainer(private val app: Application) {
     val timings = Timings()
     val channels = ChannelsSource(app, api)
     val blocks = BlockStore(app)
-    val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks)
+    val userBadges = UserBadges(app)
+    val readMarks = ReadMarks(app)
+    val replyTargets = ReplyTargets(app)
+    val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks, userBadges)
 
     /** The "Hot right now" widget's list (D-51). */
     val hotWidget = HotWidgetFeed(app, repository, appScope)

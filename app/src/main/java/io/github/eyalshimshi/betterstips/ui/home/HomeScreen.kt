@@ -42,14 +42,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -274,8 +272,6 @@ fun HomeScreen(
                     NewHeader(
                         live = settings.autoRefreshNew,
                         seconds = settings.liveIntervalSeconds,
-                        refreshing = state.refreshing,
-                        onRefresh = { feedVm.refresh() },
                         onToggleLive = { container.settings.update { s -> s.copy(autoRefreshNew = !s.autoRefreshNew) } },
                         onLiveOptions = { liveSheet = true },
                     )
@@ -487,19 +483,9 @@ private fun HotCard(question: Question, rank: Int, seed: Int?, onClick: () -> Un
     }
 }
 
-/**
- * "New questions", a small refresh button while Live is off (#8), and the Live chip: tap turns Live on or off,
- * long-press sets how often it checks.
- */
+/** "New questions" and the Live chip: tap turns Live on or off, long-press sets how often it checks. */
 @Composable
-private fun NewHeader(
-    live: Boolean,
-    seconds: Int,
-    refreshing: Boolean,
-    onRefresh: () -> Unit,
-    onToggleLive: () -> Unit,
-    onLiveOptions: () -> Unit,
-) {
+private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onLiveOptions: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     Row(
         Modifier
@@ -507,24 +493,7 @@ private fun NewHeader(
             .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f, fill = false))
-        if (!live) {
-            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                if (refreshing) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    IconButton(onClick = onRefresh) {
-                        Icon(
-                            Icons.Filled.Refresh,
-                            contentDescription = stringResource(R.string.refresh_new),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.weight(1f))
+        SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f))
         val label = if (live) stringResource(R.string.live_with_rate, seconds) else stringResource(R.string.live)
         val optionsLabel = stringResource(R.string.live_options)
         Surface(

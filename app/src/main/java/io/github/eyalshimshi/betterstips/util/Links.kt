@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.util
 
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -41,7 +42,8 @@ object Links {
 
 /** A place in the app that a link, a phone notification or a launcher shortcut opens. */
 sealed interface DeepLink {
-    data class Question(val id: Long) : DeepLink
+    /** A question; [focus] says where to open it when a notification leads there (v0.10). */
+    data class Question(val id: Long, val focus: QuestionFocus? = null) : DeepLink
 
     data class Profile(val id: Long) : DeepLink
 

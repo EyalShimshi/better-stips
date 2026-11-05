@@ -17,6 +17,7 @@ import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
 import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
 import io.github.eyalshimshi.betterstips.data.model.HomeSection
+import io.github.eyalshimshi.betterstips.data.model.ModeratorRank
 import io.github.eyalshimshi.betterstips.data.model.PenPalAllowance
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
@@ -46,6 +47,8 @@ class StipsRepository(
     val channels: ChannelsSource,
     val timings: Timings,
     val blocks: BlockStore,
+    /** Who's a moderator, for the mark on answers (v0.10); filled by profile visits and [lookUpBadges]. */
+    val userBadges: UserBadges,
 ) {
     private val questionCache = object : LinkedHashMap<Long, Question>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Question>?): Boolean = size > 300
@@ -294,12 +297,27 @@ class StipsRepository(
                 putJsonObject("data") { put("id", userId) }
             },
         )
-        return Parsers.profile(data) ?: throw ApiException(ApiException.BAD_RESPONSE)
+        val profile = Parsers.profile(data) ?: throw ApiException(ApiException.BAD_RESPONSE)
+        userBadges.recordGender(userId, profile.female)
+        return profile
     }
 
-    suspend fun profilePage(userId: Long): ProfilePage =
-        Parsers.profilePage(api.call("profile.page_data", buildJsonObject { put("userid", userId) }))
+    suspend fun profilePage(userId: Long): ProfilePage {
+        val page = Parsers.profilePage(api.call("profile.page_data", buildJsonObject { put("userid", userId) }))
             ?: throw ApiException(ApiException.BAD_RESPONSE)
+        userBadges.record(userId, page.badges)
+        return page
+    }
+
+    /**
+     * Whether [userId] is one of Stips' moderators, for the "נאמן סטיפס" mark on answers (v0.10): their profile's badges
+     * (one `profile.page_data`), and for a moderator also their profile, for the grammatical gender. Answers don't
+     * carry badges (SPEC-04 §2.12).
+     */
+    suspend fun lookUpBadges(userId: Long) {
+        val page = profilePage(userId)
+        if (ModeratorRank.of(page.badges) != null && userBadges.entry(userId)?.female == null) userProfile(userId)
+    }
 
     suspend fun chart(userId: Long, action: ChartAction): List<ChartPoint> = Parsers.chart(
         api.call(
@@ -352,11 +370,11 @@ class StipsRepository(
         Parsers.notifications(api.call("notifications.list", buildJsonObject { put("page", page) }))
     }
 
-    /** Unread chats and notifications. Tiny response; safe to ask every minute while the app is open. */
     /** Told about every unread count Stips sends (the app's 10 s check, the background check), for the chats widget (#8). */
     @Volatile
     var onUnreadCounts: ((UnreadCounts) -> Unit)? = null
 
+    /** Unread chats and notifications. Tiny response; safe to ask every 10 seconds while the app is open. */
     suspend fun unreadCounts(): UnreadCounts = withSession {
         Parsers.unreadCounts(api.call("messages.count", buildJsonObject { }))
     }.also { counts -> onUnreadCounts?.invoke(counts) }

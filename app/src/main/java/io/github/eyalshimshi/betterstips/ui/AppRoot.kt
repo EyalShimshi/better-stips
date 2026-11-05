@@ -92,6 +92,7 @@ import io.github.eyalshimshi.betterstips.data.StartTab
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.MyList
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
@@ -118,6 +119,7 @@ import io.github.eyalshimshi.betterstips.ui.signin.WelcomeScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
 import io.github.eyalshimshi.betterstips.util.DeepLink
+import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.CancellationException
@@ -131,7 +133,7 @@ object Routes {
     const val HOME = "home"
     const val CHATS = "chats"
     const val PROFILE = "profile"
-    const val QUESTION = "question/{id}"
+    const val QUESTION = "question/{id}?focus={focus}&count={count}&at={at}"
     const val TOPIC = "topic/{name}"
     const val CONVERSATION = "conversation/{userId}?name={name}"
     const val MY_LIST = "mylist/{kind}"
@@ -146,7 +148,13 @@ object Routes {
     const val PENPALS = "penpals"
     const val ASK = "ask?channel={channel}"
 
-    fun question(id: Long) = "question/$id"
+    /** A question; from a notification, with where to open it (v0.10). */
+    fun question(id: Long, focus: QuestionFocus? = null): String =
+        if (focus == null) {
+            "question/$id"
+        } else {
+            "question/$id?focus=${JumpRules.kind(focus)}&count=${JumpRules.count(focus)}&at=${JumpRules.at(focus)}"
+        }
     fun topic(name: String) = "topic/" + Uri.encode(name)
     fun conversation(userId: Long, name: String) = "conversation/$userId?name=" + Uri.encode(name)
     fun myList(kind: MyList) = "mylist/" + kind.name
@@ -328,7 +336,7 @@ private suspend fun fetchCounts(container: AppContainer): UnreadCounts? = try {
 
 private fun openLink(navController: NavHostController, link: DeepLink) {
     when (link) {
-        is DeepLink.Question -> navController.navigate(Routes.question(link.id))
+        is DeepLink.Question -> navController.navigate(Routes.question(link.id, link.focus))
         is DeepLink.Profile -> navController.navigate(Routes.user(link.id))
         DeepLink.Messages -> navigateToTab(navController, Routes.CHATS)
         is DeepLink.Conversation -> navController.navigate(Routes.conversation(link.userId, link.name))
@@ -555,12 +563,31 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
                 onOpenConversation = ::openConversation,
             )
         }
-        composable(Routes.QUESTION, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
+        composable(
+            Routes.QUESTION,
+            arguments = listOf(
+                navArgument("id") { type = NavType.LongType },
+                navArgument("focus") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("count") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+                navArgument("at") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                },
+            ),
+        ) { entry ->
+            val args = entry.arguments
             QuestionScreen(
-                questionId = entry.arguments?.getLong("id") ?: 0L,
+                questionId = args?.getLong("id") ?: 0L,
                 onBack = ::back,
                 onOpenTopic = ::openTopic,
                 onSignIn = ::signIn,
+                focus = JumpRules.decode(args?.getString("focus"), args?.getInt("count") ?: -1, args?.getLong("at") ?: -1L),
             )
         }
         composable(Routes.USER, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entry ->
@@ -577,7 +604,7 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
         composable(Routes.NOTIFICATIONS) {
             NotificationsScreen(
                 onBack = ::back,
-                onOpenQuestion = ::openQuestion,
+                onOpenQuestion = { id, focus -> navController.navigate(Routes.question(id, focus)) },
                 onOpenProfile = ::openUser,
                 onSignIn = ::signIn,
                 onSeen = onNotificationsSeen,

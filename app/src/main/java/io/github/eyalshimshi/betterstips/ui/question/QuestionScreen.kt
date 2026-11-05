@@ -1,18 +1,31 @@
 package io.github.eyalshimshi.betterstips.ui.question
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.absolutePadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +49,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -46,6 +60,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Delete
@@ -88,11 +103,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,6 +121,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -111,8 +132,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
@@ -122,6 +145,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -131,7 +155,9 @@ import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.Cover
+import io.github.eyalshimshi.betterstips.data.model.ModeratorRank
 import io.github.eyalshimshi.betterstips.data.model.Question
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
@@ -144,23 +170,31 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
+import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
+import io.github.eyalshimshi.betterstips.ui.components.authorName
 import io.github.eyalshimshi.betterstips.ui.components.channelLabel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
 import io.github.eyalshimshi.betterstips.ui.components.shareText
+import io.github.eyalshimshi.betterstips.ui.components.specialNameColor
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
 import io.github.eyalshimshi.betterstips.util.AnswerDisplay
 import io.github.eyalshimshi.betterstips.util.AnswerRules
 import io.github.eyalshimshi.betterstips.util.Links
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /** What a dialog on the question screen is about. */
 private sealed interface PendingAction {
@@ -193,9 +227,12 @@ fun QuestionScreen(
     onBack: () -> Unit,
     onOpenTopic: (String) -> Unit,
     onSignIn: () -> Unit,
+    focus: QuestionFocus? = null,
 ) {
     val container = LocalAppContainer.current
-    val vm = appViewModel { QuestionViewModel(it.repository, it.session, it.settings, it.anonymousAnswers, questionId) }
+    val vm = appViewModel {
+        QuestionViewModel(it.repository, it.session, it.settings, it.anonymousAnswers, it.readMarks, it.replyTargets, questionId, focus)
+    }
     val state by vm.state.collectAsStateWithLifecycle()
     val session by container.session.session.collectAsStateWithLifecycle()
     val settings by container.settings.settings.collectAsStateWithLifecycle()
@@ -227,6 +264,7 @@ fun QuestionScreen(
             QuestionMessage.QuestionEdited to stringResource(R.string.question_edited),
             QuestionMessage.QuestionDetached to stringResource(R.string.question_detached),
             QuestionMessage.FlowerSent to stringResource(R.string.flower_sent),
+            QuestionMessage.ReplyFixed to stringResource(R.string.reply_fixed),
         )
         LaunchedEffect(state.message) {
             val message = state.message ?: return@LaunchedEffect
@@ -266,12 +304,24 @@ fun QuestionScreen(
         val signedIn = session.signedIn
         val me = session.userId
         val expert = settings.expertMode
+        // Easy reply (v0.10): signed in, writing a new answer (not editing one).
+        val canReply = signedIn && settings.easyReply && state.editing == null
+        val badgesVersion by container.userBadges.version.collectAsStateWithLifecycle()
+        val moderatorOf: (Answer) -> ModeratorBadge? = { answer ->
+            val userId = answer.author.userId
+            // Reading the version makes the cards draw marks found after they appeared.
+            val known = badgesVersion >= 0 && settings.moderatorBadges
+            val entry = if (known && userId != null && !answer.author.anonymous) container.userBadges.entry(userId) else null
+            entry?.let { e -> e.moderator?.let { ModeratorBadge(it, e.female == true) } }
+        }
+        val isHidden: (Answer) -> Boolean = { container.blocks.isBlocked("ans", it.id, it.author.userId) }
 
         fun requireSignIn(action: () -> Unit) {
             if (signedIn) action() else onSignIn()
         }
 
-        // The ⋮ menu of an answer: your own answers can be edited, detached or deleted; others reported or hidden.
+        // The ⋮ menu of an answer: reply; your own answers can be edited, detached or deleted; others reported or hidden.
+        val replyLabel = stringResource(R.string.action_reply)
         val editLabel = stringResource(R.string.edit_answer)
         val detachLabel = stringResource(R.string.detach_answer)
         val deleteLabel = stringResource(R.string.delete_answer)
@@ -281,6 +331,7 @@ fun QuestionScreen(
         val detailsLabel = stringResource(R.string.expert_details)
         val answerMenu: (Answer) -> List<MenuEntry> = { answer ->
             buildList {
+                if (canReply) add(MenuEntry(replyLabel, Icons.AutoMirrored.Filled.Reply) { vm.replyTo(answer) })
                 if (answer.isOwner) {
                     if (answer.canEdit) add(MenuEntry(editLabel, Icons.Filled.Edit) { vm.startEdit(answer) })
                     if (!answer.author.anonymous) add(MenuEntry(detachLabel, Icons.Outlined.PersonOff) { pending = PendingAction.DetachAnswer(answer) })
@@ -311,6 +362,7 @@ fun QuestionScreen(
                         onAddLink = { showLinkDialog = true },
                         onRemoveLink = vm::removeLink,
                         onCancelEdit = vm::cancelEdit,
+                        onCancelReply = vm::cancelReply,
                         onSend = vm::post,
                         onSignIn = onSignIn,
                     )
@@ -360,6 +412,7 @@ fun QuestionScreen(
                         expert = expert,
                         listState = listState,
                         collapse = collapse,
+                        topBarPx = barPx,
                         onHeroHeight = { heroHeight = it },
                         onOpenTopic = onOpenTopic,
                         onVote = { answer, direction ->
@@ -374,6 +427,12 @@ fun QuestionScreen(
                             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                             vm.sendFlower(answer)
                         },
+                        replyQuotes = settings.replyQuotes,
+                        onReply = if (canReply) vm::replyTo else null,
+                        isHidden = isHidden,
+                        moderatorOf = moderatorOf,
+                        onVisibleAuthors = vm::wantBadges,
+                        onJumpHandled = vm::consumeJump,
                     )
                 }
                 QuestionTopBar(
@@ -556,6 +615,18 @@ private fun canSendFlower(question: Question, answer: Answer, floweredCount: Int
 private const val MAX_FLOWERS = 5
 private const val FLOWER_DAYS = 14L
 
+/** A card to light up after a jump; [nonce] tells repeated jumps to the same answer apart. */
+private data class Highlight(val answerId: Long, val nonce: Long)
+
+/** The mark by a moderator's name on their answers (v0.10). */
+private data class ModeratorBadge(val rank: ModeratorRank, val female: Boolean)
+
+/** How long a jumped-to answer glows (v0.10). */
+private const val HIGHLIGHT_MS = 2_000L
+
+/** Answers just below the screen whose authors are looked up too, so marks are ready when they scroll in. */
+private const val LOOKAHEAD = 3
+
 @Composable
 private fun QuestionContent(
     question: Question,
@@ -566,6 +637,7 @@ private fun QuestionContent(
     expert: Boolean,
     listState: LazyListState,
     collapse: Float,
+    topBarPx: Float,
     onHeroHeight: (Int) -> Unit,
     onOpenTopic: (String) -> Unit,
     onVote: (Answer, Int) -> Unit,
@@ -574,7 +646,63 @@ private fun QuestionContent(
     answerMenu: (Answer) -> List<MenuEntry>,
     canFlower: (Answer) -> Boolean,
     onFlower: (Answer) -> Unit,
+    replyQuotes: Boolean,
+    onReply: ((Answer) -> Unit)?,
+    isHidden: (Answer) -> Boolean,
+    moderatorOf: (Answer) -> ModeratorBadge?,
+    onVisibleAuthors: (Collection<Long>) -> Unit,
+    onJumpHandled: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
+    var highlight by remember { mutableStateOf<Highlight?>(null) }
+    // Carets count in Stips' order (oldest first), whatever order the answers are shown in (v0.10).
+    val stipsOrder = state.answers
+    val positions = remember(stipsOrder) { stipsOrder.withIndex().associate { (i, a) -> a.id to i } }
+    val answersError = state.answersError
+    val headerKeys = buildList {
+        add(KEY_HERO)
+        if (expert) add(KEY_EXPERT)
+        if (question.body.isNotBlank()) add(KEY_BODY)
+        add(KEY_ANSWERS_HEADER)
+        if (answersError != null && state.answers.isEmpty()) add(KEY_ANSWERS_ERROR)
+    }
+
+    /** Scrolls [answerId] to just below the folded top bar, and lights it up for a moment (v0.10). */
+    fun jumpTo(answerId: Long) {
+        val index = answers.indexOfFirst { it.id == answerId }
+        if (index < 0) return
+        scope.launch {
+            listState.animateScrollToItem(headerKeys.size + index, -(topBarPx + gapPx).roundToInt())
+            highlight = Highlight(answerId, System.nanoTime())
+        }
+    }
+    LaunchedEffect(state.jump) {
+        val id = state.jump ?: return@LaunchedEffect
+        jumpTo(id)
+        onJumpHandled()
+    }
+    LaunchedEffect(highlight) {
+        if (highlight == null) return@LaunchedEffect
+        delay(HIGHLIGHT_MS + 200)
+        highlight = null
+    }
+    // Moderator marks (v0.10): the authors of the answers on screen, and of the next few, are looked up when unknown.
+    val currentAnswers by rememberUpdatedState(answers)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Long } }
+            .distinctUntilChanged()
+            .collect { visible ->
+                val list = currentAnswers
+                val last = visible.lastOrNull()?.let { id -> list.indexOfFirst { it.id == id } } ?: -1
+                val ahead = if (last >= 0) list.subList(last + 1, minOf(list.size, last + 1 + LOOKAHEAD)).map { it.id } else emptyList()
+                val authors = (visible + ahead).mapNotNull { id ->
+                    list.firstOrNull { it.id == id }?.author?.takeUnless { it.anonymous }?.userId
+                }
+                if (authors.isNotEmpty()) onVisibleAuthors(authors)
+            }
+    }
+
     val pullState = rememberPullToRefreshState()
     // The hero runs under the see-through top bar, so the spinner comes down below the bar, not behind it (#8).
     PullToRefreshBox(
@@ -598,47 +726,43 @@ private fun QuestionContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            item(key = "hero") {
-                QuestionHero(
-                    question = question,
-                    channel = channel,
-                    answerCount = maxOf(question.answerCount, state.answers.size),
-                    pinCount = state.pinCount,
-                    collapse = collapse,
-                    onOpenTopic = onOpenTopic,
-                    modifier = Modifier.onSizeChanged { onHeroHeight(it.height) },
-                )
-            }
-            if (expert) {
-                item(key = "expert") {
-                    ExpertLine(
-                        ExpertFields.questionLine(question),
-                        Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                    )
+            headerKeys.forEach { key ->
+                item(key = key) {
+                    when (key) {
+                        KEY_HERO -> QuestionHero(
+                            question = question,
+                            channel = channel,
+                            answerCount = maxOf(question.answerCount, state.answers.size),
+                            pinCount = state.pinCount,
+                            collapse = collapse,
+                            onOpenTopic = onOpenTopic,
+                            modifier = Modifier.onSizeChanged { onHeroHeight(it.height) },
+                        )
+                        KEY_EXPERT -> ExpertLine(
+                            ExpertFields.questionLine(question),
+                            Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                        )
+                        KEY_BODY -> QuestionBody(question.body)
+                        KEY_ANSWERS_HEADER -> Row(
+                            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                answersText(maxOf(question.answerCount, state.answers.size)),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (state.loading && !state.refreshing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        }
+                        KEY_ANSWERS_ERROR -> answersError?.let { ErrorCard(it, onRetry) }
+                        else -> Unit
+                    }
                 }
-            }
-            if (question.body.isNotBlank()) {
-                item(key = "body") { QuestionBody(question.body) }
-            }
-            item(key = "answers-header") {
-                Row(
-                    Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        answersText(maxOf(question.answerCount, state.answers.size)),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (state.loading && !state.refreshing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                }
-            }
-            val answersError = state.answersError
-            if (answersError != null && state.answers.isEmpty()) {
-                item(key = "answers-error") { ErrorCard(answersError, onRetry) }
             }
             items(answers, key = { it.id }) { answer ->
+                val position = positions[answer.id]
+                val reply = if (replyQuotes && position != null) remember(answer.text, position) { ReplyRefs.resolve(answer.text, position) } else null
                 AnswerCard(
                     answer = answer,
                     signedIn = signedIn,
@@ -648,6 +772,13 @@ private fun QuestionContent(
                     flowering = answer.id in state.flowering,
                     onVote = { direction -> onVote(answer, direction) },
                     onFlower = { onFlower(answer) },
+                    reply = reply,
+                    stipsOrder = stipsOrder,
+                    isHidden = isHidden,
+                    onJump = { jumpTo(it) },
+                    onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
+                    highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
+                    moderator = moderatorOf(answer),
                     modifier = Modifier.animateItem(),
                 )
             }
@@ -662,6 +793,12 @@ private fun QuestionContent(
         }
     }
 }
+
+private const val KEY_HERO = "hero"
+private const val KEY_EXPERT = "expert"
+private const val KEY_BODY = "body"
+private const val KEY_ANSWERS_HEADER = "answers-header"
+private const val KEY_ANSWERS_ERROR = "answers-error"
 
 /**
  * The cover as a background that fades into the page; the title sits on the fade. The photo drifts slower than the
@@ -939,6 +1076,10 @@ private fun ActionMenuButton(entries: List<MenuEntry>, description: String, coll
     }
 }
 
+/** How far an answer is dragged to reply to it (easy reply, v0.10), and how far it can go. */
+private val SWIPE_THRESHOLD = 64.dp
+private val SWIPE_MAX = 104.dp
+
 @Composable
 private fun AnswerCard(
     answer: Answer,
@@ -949,101 +1090,273 @@ private fun AnswerCard(
     flowering: Boolean,
     onVote: (Int) -> Unit,
     onFlower: () -> Unit,
+    reply: ReplyRefs.Resolved?,
+    stipsOrder: List<Answer>,
+    isHidden: (Answer) -> Boolean,
+    onJump: (Long) -> Unit,
+    onSwipeReply: (() -> Unit)?,
+    highlightKey: Long?,
+    moderator: ModeratorBadge?,
     modifier: Modifier = Modifier,
 ) {
     val uriHandler = LocalUriHandler.current
+    val haptics = LocalHapticFeedback.current
+    val animations = LocalAppSettings.current.animations
+    val density = LocalDensity.current
+    val threshold = with(density) { SWIPE_THRESHOLD.toPx() }
+    val maxDrag = with(density) { SWIPE_MAX.toPx() }
+
+    // A jump lights the card up: two slow breaths over two seconds, then back to normal (v0.10).
+    val glow = remember { Animatable(0f) }
+    LaunchedEffect(highlightKey) {
+        if (highlightKey == null) return@LaunchedEffect
+        if (animations) {
+            glow.snapTo(0f)
+            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
+            glow.animateTo(0.35f, tween(450, easing = FastOutSlowInEasing))
+            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
+            glow.animateTo(0f, tween(850, easing = FastOutSlowInEasing))
+        } else {
+            glow.snapTo(1f)
+            delay(HIGHLIGHT_MS)
+            glow.snapTo(0f)
+        }
+    }
+
+    // Easy reply (v0.10): dragging the card from left to right (in Hebrew too) past the line replies to it.
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var armed by remember { mutableStateOf(false) }
+    val currentOnSwipeReply by rememberUpdatedState(onSwipeReply)
+    val dragState = rememberDraggableState { delta ->
+        val resisted = if (dragX >= threshold) delta * 0.3f else delta
+        dragX = (dragX + resisted).coerceIn(0f, maxDrag)
+        val nowArmed = dragX >= threshold
+        if (nowArmed != armed) {
+            armed = nowArmed
+            if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+        }
+    }
+    val replyLabel = stringResource(R.string.action_reply)
+
     // Organizations and Stips' own system answers get a thin blue outline next to their blue checkmark (#8).
     val border = if (answer.author.verified) BorderStroke(1.dp, VerifiedBlue.copy(alpha = 0.5f)) else null
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = border,
-        modifier = modifier
+    val container = lerp(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.colorScheme.primaryContainer, glow.value)
+    Box(
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .draggable(
+                state = dragState,
+                orientation = Orientation.Horizontal,
+                enabled = onSwipeReply != null,
+                onDragStopped = {
+                    if (dragX >= threshold) currentOnSwipeReply?.invoke()
+                    armed = false
+                    animate(dragX, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> dragX = value }
+                },
+            ),
     ) {
-        Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(answer.author, 28.dp)
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AuthorName(answer.author, MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
-                        if (answer.byAsker) {
-                            Spacer(Modifier.width(6.dp))
-                            AskerLabel(female = AnswerDisplay.askerIsFemale(answer))
-                        }
-                    }
-                    val ago = agoText(answer.postedAt)
-                    if (ago.isNotBlank()) {
-                        Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (expert) ExpertLine(ExpertFields.answerLine(answer))
-                }
-                if (answer.flowered) {
-                    Icon(
-                        Icons.Filled.LocalFlorist,
-                        contentDescription = stringResource(R.string.flower_cd),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
-                }
-                ActionMenuButton(entries = menu, description = stringResource(R.string.answer_actions))
-            }
-            LinkifiedText(
-                answer.text,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 6.dp, end = 10.dp),
+        if (onSwipeReply != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.Reply,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(AbsoluteAlignment.CenterLeft)
+                    .absolutePadding(left = 12.dp)
+                    .size(24.dp)
+                    .graphicsLayer {
+                        val progress = (dragX / threshold).coerceIn(0f, 1f)
+                        alpha = progress
+                        scaleX = 0.6f + 0.4f * progress
+                        scaleY = 0.6f + 0.4f * progress
+                    },
             )
-            answer.links.forEach { link ->
-                Row(
-                    Modifier
-                        .padding(top = 6.dp, end = 10.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { uriHandler.openUri(link.url) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        link.title ?: Links.host(link.url),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { onVote(1) }, enabled = signedIn) {
-                    Icon(
-                        Icons.Filled.KeyboardArrowUp,
-                        contentDescription = stringResource(R.string.vote_up),
-                        tint = if (answer.userVote == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(answer.score.toString(), style = MaterialTheme.typography.labelLarge)
-                IconButton(onClick = { onVote(-1) }, enabled = signedIn) {
-                    Icon(
-                        Icons.Filled.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.vote_down),
-                        tint = if (answer.userVote == -1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                if (showFlowerButton) {
-                    TextButton(onClick = onFlower, enabled = !flowering) {
-                        if (flowering) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Outlined.LocalFlorist, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = container),
+            border = border,
+            modifier = Modifier
+                .fillMaxWidth()
+                .absoluteOffset { IntOffset(dragX.roundToInt(), 0) }
+                .semantics {
+                    val action = onSwipeReply
+                    if (action != null) {
+                        customActions = listOf(
+                            CustomAccessibilityAction(replyLabel) {
+                                action()
+                                true
+                            },
+                        )
+                    }
+                },
+        ) {
+            Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(answer.author, 28.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AuthorName(answer.author, MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+                            if (moderator != null) {
+                                Spacer(Modifier.width(6.dp))
+                                ModeratorPill(moderator)
+                            }
+                            if (answer.byAsker) {
+                                Spacer(Modifier.width(6.dp))
+                                AskerLabel(female = AnswerDisplay.askerIsFemale(answer))
+                            }
                         }
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.send_flower))
+                        val ago = agoText(answer.postedAt)
+                        if (ago.isNotBlank()) {
+                            Text(ago, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (expert) ExpertLine(ExpertFields.answerLine(answer))
+                    }
+                    if (answer.flowered) {
+                        Icon(
+                            Icons.Filled.LocalFlorist,
+                            contentDescription = stringResource(R.string.flower_cd),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp),
+                        )
+                    }
+                    ActionMenuButton(entries = menu, description = stringResource(R.string.answer_actions))
+                }
+                // What this answer replies to, like a quoted message (v0.10). A tap goes there.
+                val quoted = reply?.targets?.mapNotNull { stipsOrder.getOrNull(it) }.orEmpty()
+                if (quoted.isNotEmpty()) {
+                    Column(
+                        Modifier.padding(top = 8.dp, end = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        quoted.forEach { target -> ReplyQuote(target, hidden = isHidden(target), onClick = { onJump(target.id) }) }
+                    }
+                }
+                val inBody = remember(reply, stipsOrder) {
+                    reply?.inBody?.mapNotNull { (range, index) -> stipsOrder.getOrNull(index)?.let { TextTarget(range, it.id) } }.orEmpty()
+                }
+                LinkifiedText(
+                    reply?.body ?: answer.text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 6.dp, end = 10.dp),
+                    targets = inBody,
+                    onTarget = onJump,
+                )
+                answer.links.forEach { link ->
+                    Row(
+                        Modifier
+                            .padding(top = 6.dp, end = 10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { uriHandler.openUri(link.url) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Outlined.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            link.title ?: Links.host(link.url),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { onVote(1) }, enabled = signedIn) {
+                        Icon(
+                            Icons.Filled.KeyboardArrowUp,
+                            contentDescription = stringResource(R.string.vote_up),
+                            tint = if (answer.userVote == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(answer.score.toString(), style = MaterialTheme.typography.labelLarge)
+                    IconButton(onClick = { onVote(-1) }, enabled = signedIn) {
+                        Icon(
+                            Icons.Filled.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.vote_down),
+                            tint = if (answer.userVote == -1) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (showFlowerButton) {
+                        TextButton(onClick = onFlower, enabled = !flowering) {
+                            if (flowering) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Outlined.LocalFlorist, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.send_flower))
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+/** The answer a reply points at, as a quoted message: its author and its first lines; a tap goes there (v0.10). */
+@Composable
+private fun ReplyQuote(target: Answer, hidden: Boolean, onClick: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.primary
+    val jumpLabel = stringResource(R.string.reply_jump)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(10.dp))
+            .background(accent.copy(alpha = 0.08f))
+            .clickable(enabled = !hidden, onClickLabel = jumpLabel, onClick = onClick),
+    ) {
+        Box(
+            Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(accent),
+        )
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 5.dp)) {
+            Text(
+                if (hidden) stringResource(R.string.reply_hidden) else authorName(target.author),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!hidden) {
+                Text(
+                    ReplyRefs.snippet(target.text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** "נאמן סטיפס" by a moderator's name, as on their profile: a shield in Stips' purple (v0.10). */
+@Composable
+private fun ModeratorPill(badge: ModeratorBadge) {
+    val purple = specialNameColor()
+    val label = stringResource(
+        when (badge.rank) {
+            ModeratorRank.Moderator -> if (badge.female) R.string.badge_moderator_f else R.string.badge_moderator_m
+            ModeratorRank.Senior -> if (badge.female) R.string.badge_senior_moderator_f else R.string.badge_senior_moderator_m
+        },
+    )
+    Surface(shape = RoundedCornerShape(50), color = purple.copy(alpha = 0.14f), contentColor = purple) {
+        Row(
+            Modifier.padding(start = 6.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Shield, contentDescription = null, modifier = Modifier.size(12.dp))
+            Spacer(Modifier.width(3.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
 }
@@ -1066,6 +1379,60 @@ private fun AskerLabel(female: Boolean) {
     }
 }
 
+/** Above the composer while replying (v0.10): who to, their first line, and ✕ to stop replying. */
+@Composable
+private fun ReplyBar(replyTo: Answer, onCancel: () -> Unit) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 4.dp)
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(12.dp))
+            .background(accent.copy(alpha = 0.08f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(accent),
+        )
+        Icon(
+            Icons.AutoMirrored.Filled.Reply,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .size(18.dp),
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Text(
+                stringResource(R.string.reply_to, authorName(replyTo.author)),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                ReplyRefs.snippet(replyTo.text),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onCancel) {
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.reply_cancel), modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
 /**
  * Writing an answer. The options fit in one compact row (no sideways scrolling, #4); editing puts the cursor at
  * the end of your text and opens the keyboard.
@@ -1081,6 +1448,7 @@ private fun Composer(
     onAddLink: () -> Unit,
     onRemoveLink: () -> Unit,
     onCancelEdit: () -> Unit,
+    onCancelReply: () -> Unit,
     onSend: () -> Unit,
     onSignIn: () -> Unit,
 ) {
@@ -1112,6 +1480,15 @@ private fun Composer(
                         keyboard?.show()
                     }
                 }
+                // Easy reply (v0.10): a swipe starts a reply, so the cursor goes to the text and the keyboard opens.
+                LaunchedEffect(state.focusComposer) {
+                    if (state.focusComposer > 0) {
+                        focusRequester.requestFocus()
+                        keyboard?.show()
+                    }
+                }
+                val replyTo = state.replyTo
+                if (replyTo != null && editing == null) ReplyBar(replyTo, onCancelReply)
                 if (editing != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))

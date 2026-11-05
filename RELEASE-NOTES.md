@@ -1,43 +1,35 @@
-## Stips+ 0.9: Home your way, a chats widget, and who's who
-
-Everything from issue #8, plus the chats widget from the last round's options.
+## Stips+ 0.10: easy reply, reply quotes, and notifications that open in place
 
 **What's new**
-- **Home your way** (Settings → Home and reading): keep today's layout (the default), switch to one **like the website** (hot questions, then today's questions in sections by topic; tap a topic's heading to open it), or **new questions only**. Also: 3, 5 or 10 hot cards, hot from *now*, *today* or *this week*, the channel chips on or off, and which tab the app opens on.
-- **Refresh by hand:** with Live off, a small ⟳ sits beside "New questions". On a question, pull down to reload it and its answers.
-- **Who's who:** the asker's own answers say **"שואל השאלה"** ("שואלת השאלה" for "אנונימית"), even when they asked anonymously. Organizations (like מתנדבי עמותת סהר and אבירי הרשת) and Stips' own account get a **blue check**, and their answers a thin blue outline. Profiles of special accounts show Stips' colors and badges, and hide age and numbers where Stips does.
-- **Times to the second:** under an hour, times read "5 min 12 s", set by Stips' clock (a phone that's off by a few seconds is corrected). Turn on *Count the seconds* to watch them tick.
-- **A welcome screen** on the first launch after installing: sign in, or *Continue as a guest*. It doesn't appear after updates, so you won't see it on your phone unless you reinstall.
-- **Expert mode** (bottom of Settings): off, the network log and load times are hidden. On: ids under questions, answers and profiles, ⋮ → *Server details* (everything Stips sent, copyable), load times, and *Diagnostics*.
-- **Settings in pages:** Account, Home and reading (also *Order of answers*: as on Stips, newest, oldest, most votes), Appearance, Notifications and widgets, Privacy and safety, Stips, About.
-- **Chats widget:** your latest chats on the home screen, with the last message, its time and an unread badge; the title counts unread. Tap a chat to open it.
+- **Easy reply:** swipe an answer from left to right (also ⋮ → *Reply*). Your draft starts with the carets that point to it, then a new line: "^", "^^", "^^^", and from four up a number, "4^". A bar above the box says who you're replying to; ✕ cancels. After you send, the app reloads the answers. If others came in while you wrote, it edits your answer so the carets point to the right one. A short message tells you when that happens. You can turn it off in Settings → Home and reading.
+- **Reply quotes:** any answer that points up with carets now shows the answer it replies to, as a quote like in WhatsApp: the author and the first two lines. Tap the quote to go there; the answer lights up. This works for everyone's answers and every way people write it: "^^" on its own line, "^^text", "4^", "^4", stacked lines replying to two answers, or a caret later in the text (that one is bold and tappable).
+- **Notifications open in place:** a notification about new answers opens the question at the first new one (the third from the bottom when there are three). A flower opens it at your answer that got the flower. The answer breathes for two seconds, then goes back to normal. This works from the bell and from phone notifications.
+- **"נאמן סטיפס" on answers:** moderators have a purple shield badge by their name, as on their profiles ("נאמנת סטיפס", "נאמן בכיר"…).
+- **Smaller changes:** the ⟳ beside "שאלות חדשות" is gone, since pulling down does the same. Seconds now show only in the first minute ("לפני 12 שניות"), then minutes as before.
 
 **Fixed**
-- #8 Feature additions: all ten asks.
+- Your requests in chat after 0.9: everything listed above.
 
 **To ship**
-- Commit "Home layouts, welcome, expert mode, who's who, seconds, settings pages and a chats widget (v0.9)" with "Fixes #8", and a CI fix so the release check opens each build over the newest earlier release (it had picked build 6 over build 11). Both pushed by the agent; this release is their build.
+- Commit "Easy reply, reply quotes, notifications that open in place, moderator badges (v0.10)", pushed by the agent; this release is its build.
 
 **To test**
-1. Install over 0.8 and open the app: it opens to Home as before (no welcome screen on an update).
-2. Home: turn Live off; a ⟳ appears beside "New questions" and reloads them.
-3. Settings → Home and reading → *Like the website*. Home shows the hot cards, then sections such as "#מתמטיקה ›"; tap one to open the topic, scroll down for more. Try *New only* and the hot-card count, then switch back.
-4. Open a question, pull down from the top: a spinner comes down under the top bar and the answers reload.
-5. Find an answer by the asker (questions where the asker replied): the pill "שואל השאלה" sits after the name. Open profile 253000 (אבירי הרשת): a gradient band, a purple name with a blue ✓, the *מגן מקוון* badge, no age and no numbers.
-6. Settings → Home and reading → *Count the seconds*: times under an hour tick every second.
-7. Settings → For experts → *Expert mode*: questions and answers show ids; ⋮ → *Server details* shows Stips' JSON; *Diagnostics* appears in Settings.
-8. Settings → Notifications and widgets → *Chats widget* (or long-press the home screen → Widgets → Stips+). It lists your chats; send yourself a message from the site and, with the app open, the widget updates within about 10 seconds.
-9. Settings → Home and reading → *Open the app on* → Chats. Close the app fully and open it: it starts on Chats.
+1. Install over 0.9. Home: the ⟳ next to "שאלות חדשות" is gone, and a brand-new question says "לפני 12 שניות" and then "לפני דקה".
+2. Open a busy question and drag an answer to the right. A ↩ appears, and the phone ticks once you've pulled far enough. Let go: the box opens with "^^" (or whatever count fits) on the first line and the keyboard up. Write something and send.
+3. If answers came in while you wrote, a message says your reply was updated; the carets on your answer now point to the right one.
+4. Scroll through answers that start with "^" or "^^": each shows a quote of the answer it replies to. Tap a quote: the list jumps there and that answer lights up.
+5. Open the bell and tap "new answers" on one of your questions: it opens at the first new answer, which breathes. Do the same with a flower notification.
+6. Look for a moderator answering anywhere: the purple "נאמן סטיפס" badge sits by the name. Badges are looked up the first time each person shows up, so one may appear a second or two after the answer.
 
 **Heads-up**
-- Nothing was tested on a real phone. The emulator is signed out, so the chats widget's list, verified accounts in answers and the asker's label were checked in code and unit tests only.
-- The website-like layout asks Stips for your personal mix when you're signed in, and today's mix otherwise, as the site does.
-- The chats widget keeps a copy of your latest chats on the phone for the widget to show. It's left out of backups and deleted when you sign out. While it's placed, it may make a request when your unread count changes.
-- The blue check for מתנדבי עמותת סהר comes from a list inside the app: Stips doesn't flag that account. Tell me about others to add.
+- **Where notifications open is partly a guess.** Stips sends only the question with a notification, and its texts are written on Stips' server, so I couldn't see one. The app reads a count from the text ("3 תשובות חדשות"), and otherwise uses the newest answer it showed you there last time. If a notification opens at the wrong answer: Settings → For experts → Expert mode, then the { } button on that notification. Send me what it shows and I'll fit the rule to the real text.
+- **The moderator badge costs requests.** Stips doesn't mark moderators on answers, so the app reads each answerer's profile badges once every two weeks. That's at most 30 lookups per question you open, one every 1.5 seconds, and only when the request budget has room. It can be turned off in Settings → Home and reading.
+- **The caret correction edits your answer**, and Stips keeps the previous version in the answer's history (like any edit). It only happens while Stips still lets you edit, and only if your answer still starts with carets.
+- Nothing was tested on a real phone. On the emulator the app is signed out, so easy reply, the correction and the notification jumps were checked only in code and unit tests. The caret reading was tested on real answers (213 with carets out of 1,203).
 - Still open: change your Stips password (it was shared for research), and send the permission request to Stips.
 
 **Next options**
-1. "Add to home screen" for one question or chat (a pinned shortcut).
-2. A preview image for both widgets in the widget picker.
-3. The Android 17 emulator in the release check (about 10 more minutes per build).
-4. Choosing a cover photo from Unsplash when asking, with our own Unsplash key.
+1. Two replies in one answer: swipe a second answer to add its line ("^^^" then "^"), as people already do by hand.
+2. "Add to home screen" for one question or chat (a pinned shortcut).
+3. A preview image for both widgets in the widget picker.
+4. The Android 17 emulator in the release check (about 10 more minutes per build).

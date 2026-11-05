@@ -418,6 +418,32 @@ private fun ReadingPage(settings: AppSettings) {
         )
     }
 
+    GroupLabel(stringResource(R.string.settings_replies))
+    GroupRow(
+        title = stringResource(R.string.settings_easy_reply),
+        summary = stringResource(R.string.settings_easy_reply_summary),
+        index = 0,
+        count = 3,
+        onClick = { store.update { it.copy(easyReply = !it.easyReply) } },
+        trailing = { Switch(checked = settings.easyReply, onCheckedChange = null) },
+    )
+    GroupRow(
+        title = stringResource(R.string.settings_reply_quotes),
+        summary = stringResource(R.string.settings_reply_quotes_summary),
+        index = 1,
+        count = 3,
+        onClick = { store.update { it.copy(replyQuotes = !it.replyQuotes) } },
+        trailing = { Switch(checked = settings.replyQuotes, onCheckedChange = null) },
+    )
+    GroupRow(
+        title = stringResource(R.string.settings_moderator_badges),
+        summary = stringResource(R.string.settings_moderator_badges_summary),
+        index = 2,
+        count = 3,
+        onClick = { store.update { it.copy(moderatorBadges = !it.moderatorBadges) } },
+        trailing = { Switch(checked = settings.moderatorBadges, onCheckedChange = null) },
+    )
+
     GroupLabel(stringResource(R.string.settings_times))
     GroupRow(
         title = stringResource(R.string.settings_live_times),

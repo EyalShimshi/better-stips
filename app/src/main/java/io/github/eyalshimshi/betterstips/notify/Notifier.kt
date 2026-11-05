@@ -23,9 +23,11 @@ import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.StipsApp
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.diag.NetLog
+import io.github.eyalshimshi.betterstips.util.JumpRules
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -37,6 +39,15 @@ object Notifier {
     private const val CHANNEL_ID = "stips_updates"
     private const val JOB_ID = 4201
     private const val PREFS = "notify"
+
+    /** Where a notification's question opens (v0.10): a kind, a count and a time, as [JumpRules] writes them. */
+    private const val EXTRA_FOCUS = "io.github.eyalshimshi.betterstips.extra.FOCUS"
+    private const val EXTRA_FOCUS_COUNT = "io.github.eyalshimshi.betterstips.extra.FOCUS_COUNT"
+    private const val EXTRA_FOCUS_AT = "io.github.eyalshimshi.betterstips.extra.FOCUS_AT"
+
+    /** Where a phone notification asked its question to open, or null. */
+    fun focusFrom(intent: Intent): QuestionFocus? =
+        JumpRules.decode(intent.getStringExtra(EXTRA_FOCUS), intent.getIntExtra(EXTRA_FOCUS_COUNT, -1), intent.getLongExtra(EXTRA_FOCUS_AT, -1L))
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -112,17 +123,19 @@ object Notifier {
     private fun post(context: Context, notification: StipsNotification) {
         if (!canPost(context)) return
         ensureChannel(context)
-        val link = when (val target = notification.target) {
+        val target = notification.target
+        val link = when (target) {
             is NotificationTarget.OpenQuestion -> "$SITE_URL/ask/${target.id}"
             is NotificationTarget.OpenProfile -> "$SITE_URL/profile/${target.id}"
             null -> null
         }
+        val focus = if (target is NotificationTarget.OpenQuestion) JumpRules.focusFor(notification.type, notification.text, notification.time) else null
         val built = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_title))
             .setContentText(notification.text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(notification.text))
-            .setContentIntent(openApp(context, link, notification.id.toInt()))
+            .setContentIntent(openApp(context, link, notification.id.toInt(), focus))
             .setAutoCancel(true)
             .build()
         try {
@@ -150,12 +163,17 @@ object Notifier {
         }
     }
 
-    private fun openApp(context: Context, link: String?, requestCode: Int): PendingIntent {
+    private fun openApp(context: Context, link: String?, requestCode: Int, focus: QuestionFocus? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             if (link != null) {
                 action = Intent.ACTION_VIEW
                 data = Uri.parse(link)
+            }
+            if (focus != null) {
+                putExtra(EXTRA_FOCUS, JumpRules.kind(focus))
+                putExtra(EXTRA_FOCUS_COUNT, JumpRules.count(focus))
+                putExtra(EXTRA_FOCUS_AT, JumpRules.at(focus))
             }
         }
         return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

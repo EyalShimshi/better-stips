@@ -42,15 +42,12 @@ object StipsTime {
         }
     }
 
-    /** Minutes and seconds, for times under an hour (#8). */
-    data class MinutesSeconds(val minutes: Int, val seconds: Int)
-
     /**
-     * How long ago, to the second, when that's under an hour; null otherwise. A time a little in the future (clocks
-     * never agree exactly) counts as zero.
+     * Seconds ago when that's under a minute (#8: past a minute, times read in minutes again); null otherwise. A time
+     * a little in the future (clocks never agree exactly) counts as zero.
      */
-    fun underAnHour(then: Instant, now: Instant): MinutesSeconds? {
+    fun secondsAgo(then: Instant, now: Instant): Int? {
         val seconds = Duration.between(then, now).seconds.coerceAtLeast(0)
-        return if (seconds < 3_600) MinutesSeconds((seconds / 60).toInt(), (seconds % 60).toInt()) else null
+        return if (seconds < 60) seconds.toInt() else null
     }
 }
