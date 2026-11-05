@@ -16,7 +16,7 @@ Everything from issue #8, plus the chats widget from the last round's options.
 - #8 Feature additions: all ten asks.
 
 **To ship**
-- Commit "Home layouts, welcome, expert mode, who's who, seconds, settings pages and a chats widget (v0.9)" with "Fixes #8". Pushed by the agent; this release is its build.
+- Commit "Home layouts, welcome, expert mode, who's who, seconds, settings pages and a chats widget (v0.9)" with "Fixes #8", and a CI fix so the release check opens each build over the newest earlier release (it had picked build 6 over build 11). Both pushed by the agent; this release is their build.
 
 **To test**
 1. Install over 0.8 and open the app: it opens to Home as before (no welcome screen on an update).
