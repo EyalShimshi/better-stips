@@ -62,6 +62,21 @@ class MainActivity : ComponentActivity() {
         if (link != null) pendingLink.value = link
     }
 
+    override fun onStart() {
+        super.onStart()
+        // On screen, the app's own counts are fresh: phone notification checks wait (v0.11). Coming back also makes
+        // sure they're still scheduled.
+        Notifier.appVisible = true
+        Notifier.sync(applicationContext, (application as StipsApp).container.settings.settings.value)
+    }
+
+    override fun onStop() {
+        Notifier.appVisible = false
+        // The first check after leaving comes a few minutes later.
+        Notifier.sync(applicationContext, (application as StipsApp).container.settings.settings.value)
+        super.onStop()
+    }
+
     /** A Stips link (from another app or a phone notification), a launcher shortcut, or a chats widget row. */
     private fun linkFrom(intent: Intent?): DeepLink? {
         val link = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)

@@ -61,7 +61,7 @@ object Shortcuts {
     const val ACTION_HOT = "io.github.eyalshimshi.betterstips.action.HOT"
     const val ACTION_CHATS = "io.github.eyalshimshi.betterstips.action.CHATS"
 
-    /** A row of the chats widget: [chatUri] says which chat. Only the app's own widget sends it. */
+    /** A row of the chats widget or a message notification (v0.11): [chatUri] says which chat. Only the app sends it. */
     const val ACTION_CHAT = "io.github.eyalshimshi.betterstips.action.CHAT"
     const val ID_HOT = "hot"
     const val ID_CHATS = "chats"

@@ -223,11 +223,13 @@
     <string name="notifications_signed_out_title">צריך להתחבר כדי לראות התראות</string>
     <string name="notifications_signed_out_body">תשובות לשאלות שלך, פרחים ותודות יופיעו כאן.</string>
     <string name="notifications_phone_title">התראות בטלפון</string>
-    <string name="notifications_phone_body">Stips+ יבדוק בערך כל 15 דקות אם יש התראות או הודעות חדשות (פחות מ־1MB ביום). אפשר לכבות את זה בהגדרות.</string>
+    <string name="notifications_phone_body">Stips+ בודק אם יש תשובות, פרחים, תודות והודעות חדשים כל כמה דקות בזמן שמשתמשים בטלפון, ובערך כל 15 דקות בשאר הזמן. אפשר לכבות את זה בהגדרות.</string>
     <string name="notifications_phone_turn_on">הפעלה</string>
     <string name="notifications_permission_denied">ההתראות של Stips+ כבויות. אפשר להפעיל אותן בהגדרות של אנדרואיד.</string>
-    <string name="notification_channel_name">עדכונים מסטיפס</string>
-    <string name="notification_channel_description">תשובות חדשות, פרחים, תודות והודעות בסטיפס.</string>
+    <string name="notification_channel_activity">תשובות ופעילות</string>
+    <string name="notification_channel_activity_description">תשובות חדשות, פרחים ותודות בסטיפס.</string>
+    <string name="notification_channel_messages">הודעות</string>
+    <string name="notification_channel_messages_description">הודעות פרטיות חדשות בסטיפס.</string>
     <string name="notification_title">סטיפס</string>
     <plurals name="notification_messages">
         <item quantity="one">יש לך הודעה חדשה</item>
@@ -304,7 +306,7 @@
     <string name="settings_on_site">באתר של סטיפס</string>
     <string name="settings_updates">עדכונים</string>
     <string name="settings_phone_notifications">התראות בטלפון</string>
-    <string name="settings_phone_notifications_summary">תשובות חדשות, פרחים, תודות והודעות. בדיקה בערך כל 15 דקות, פחות מ־1MB ביום.</string>
+    <string name="settings_phone_notifications_summary">תשובות חדשות, פרחים, תודות והודעות, כמה דקות אחרי שהם מגיעים.</string>
     <string name="settings_phone_notifications_signed_out">צריך להתחבר קודם: ההתראות מגיעות מחשבון הסטיפס שלך.</string>
     <string name="settings_live_new">שאלות חדשות בלייב</string>
     <string name="settings_live_new_summary">שאלות חדשות מופיעות בבית מעצמן. בדיקה כל 30 שניות כשהבית פתוח (בערך 1MB לשעה).</string>
@@ -603,4 +605,43 @@
     <string name="reply_hidden">תשובה מוסתרת</string>
     <string name="reply_jump">מעבר לתשובה שמגיבים לה</string>
     <string name="reply_fixed">התגובה שלך עודכנה: בינתיים נכנסו תשובות אחרות.</string>
+    <!-- v0.11: phone notifications that arrive -->
+    <string name="notification_test_title">ההתראות של Stips+ עובדות</string>
+    <string name="notification_test_text">כך יופיעו תשובות חדשות, פרחים והודעות.</string>
+    <string name="settings_check_every">כל כמה זמן לבדוק</string>
+    <string name="settings_check_every_summary">בזמן שמשתמשים בטלפון, ומיד כשמדליקים את המסך. כשהמסך כבוי, אנדרואיד בודק בערך כל 15 דקות.</string>
+    <string name="check_minutes">%d דק׳</string>
+    <string name="notify_status_never">עוד לא הייתה בדיקה. הראשונה תהיה בדקות הקרובות.</string>
+    <string name="notify_status_nothing">בדיקה אחרונה ב־%1$s: אין חדש.</string>
+    <plurals name="notify_status_posted">
+        <item quantity="one">בדיקה אחרונה ב־%1$s: נשלחה התראה אחת.</item>
+        <item quantity="two">בדיקה אחרונה ב־%1$s: נשלחו 2 התראות.</item>
+        <item quantity="many">בדיקה אחרונה ב־%1$s: נשלחו %2$d התראות.</item>
+        <item quantity="other">בדיקה אחרונה ב־%1$s: נשלחו %2$d התראות.</item>
+    </plurals>
+    <string name="notify_status_failed">הבדיקה האחרונה, ב־%1$s, לא הצליחה להגיע לסטיפס (%2$s). ננסה שוב בקרוב.</string>
+    <string name="notify_status_late">אנדרואיד נתן ל־Stips+ לבדוק בפעם האחרונה ב־%1$s. אם ההתראות מאחרות, כדאי לבדוק את הגדרות הסוללה של Stips+.</string>
+    <string name="notify_battery_title">חיסכון בסוללה מעכב את הבדיקות</string>
+    <string name="notify_battery_body">אנדרואיד עלול לעכב את הבדיקות של Stips+ בשעות. כדאי לאפשר לו לפעול ברקע, וכך ההתראות יגיעו בזמן.</string>
+    <string name="notify_battery_allow">לאפשר</string>
+    <string name="notify_restricted">השימוש ברקע מוגבל ל־Stips+, ולכן הוא לא יכול לבדוק. אפשר לשנות את זה בהגדרות האפליקציה באנדרואיד.</string>
+    <string name="notify_blocked">ההתראות של Stips+ כבויות בהגדרות של אנדרואיד.</string>
+    <string name="notify_check_now">לבדוק עכשיו</string>
+    <string name="notify_send_test">התראת ניסיון</string>
+    <string name="notify_checked_nothing">אין חדש.</string>
+    <plurals name="notify_checked_posted">
+        <item quantity="one">התראה חדשה אחת, כבר בטלפון.</item>
+        <item quantity="two">2 התראות חדשות, כבר בטלפון.</item>
+        <item quantity="many">%d התראות חדשות, כבר בטלפון.</item>
+        <item quantity="other">%d התראות חדשות, כבר בטלפון.</item>
+    </plurals>
+    <string name="notify_checked_failed">לא הצלחנו לבדוק כרגע. אפשר לנסות שוב עוד רגע.</string>
+    <string name="notify_test_sent">נשלחה. לא רואים אותה? כדאי לבדוק את Stips+ בהגדרות ההתראות של אנדרואיד.</string>
+    <string name="notify_prompt_title">לקבל התראות בטלפון?</string>
+    <string name="notify_prompt_body">תשובות חדשות, פרחים, תודות והודעות יופיעו בטלפון כמה דקות אחרי שהם מגיעים.</string>
+    <string name="notify_prompt_battery_title">שההתראות יגיעו בזמן</string>
+    <string name="notify_prompt_battery_body">כדי לחסוך בסוללה, אנדרואיד מעכב את הבדיקות של Stips+, לפעמים בשעות. כדאי לאפשר ל־Stips+ לפעול ברקע, וכך ההתראות יגיעו תוך דקות.</string>
+    <string name="notify_prompt_later">לא עכשיו</string>
+    <string name="settings_hide_reply_carets">הסתרת ה־^</string>
+    <string name="settings_hide_reply_carets_summary">מסתיר את ה־^^ שתשובה מתחילה בהם כשהציטוט כבר מראה למה הם מצביעים. כשזה כבוי, התשובות מוצגות בדיוק כפי שנכתבו.</string>
 </resources>

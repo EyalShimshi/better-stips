@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Keeps the 15-minute notification check scheduled after a restart (JobInfo.setPersisted). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Android's "let Stips+ always run in the background?" question, so the checks aren't held back for hours (v0.11). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".StipsApp"
@@ -52,6 +54,11 @@
             android:name=".notify.NotificationCheckJob"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- The notification check every few minutes while the phone is awake (v0.11); only the app's own alarm calls it. -->
+        <receiver
+            android:name=".notify.NotificationAlarmReceiver"
+            android:exported="false" />
 
         <!-- The "Hot right now" home-screen widget (D-51). -->
         <receiver

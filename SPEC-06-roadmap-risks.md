@@ -11,6 +11,7 @@
 | M3 v0.4 | Widget (shipped in v0.6), shortcuts (shipped in v0.8), tablet layout, lint in CI | DESIGN-PHILOSOPHY §13 checklist passes on every screen |
 | M3.5 v0.9 | Issue #8: Home layouts and options, welcome, expert mode, who's who (asker, verified accounts), seconds, settings in pages; the chats widget | The owner sets Home the way they like it |
 | M3.6 v0.10 | Easy reply and reply quotes, notifications that open at the new answer, moderators on answers | Replying in busy threads takes one swipe |
+| M3.7 v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, per-chat notifications that pop up, a status panel and a one-time offer | The owner gets new answers and messages on the phone within minutes |
 | M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes
@@ -32,6 +33,7 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-09 | Unsafe content or harassment | Medium | Medium | Report and block content in the app since v0.3 (`reports.send`, `ask/BlockContent`); report users and block their messages from a chat since v0.8 (D-56) |
 | R-10 | Stips limits the phone's address (`IP_RATE_LIMIT` after about 100 calls without the site's Referer) and seems "down" (#3, #5) | Low since v0.5 | Medium | The site's Referer (D-49), a budget at the official app's pace (D-46), a pause with one try a minute and a banner, the network log, and the probe workflow to re-measure (D-50) |
 | R-11 | A release crashes on launch although it compiles and passes its tests (builds 7–9, #7: R8 removed constructors that a library calls by name) | Low since v0.8 | High | Explicit keep rules and AGP 8's reading of library rules; CI checks those constructors in the APK and opens every build on an emulator before publishing it (D-55) |
+| R-12 | Phone notifications come late or not at all: Stips has no push for other apps, and Android (Samsung's especially) holds background work back to save battery | Medium | Medium | Checks every few minutes while the phone is awake; Android's "run in the background?" asked when turning them on; a status panel that names what's holding them back, with *Check now* and a test (D-72–D-74). Can't be tested on CI's signed-out emulator: the owner's phone is the test |
 
 ## 4. The permission request
 

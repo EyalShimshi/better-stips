@@ -42,6 +42,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | v0.8 | Issue #7: the launch crash since v0.6 fixed, and every release opened on an emulator before it's published; report and block in chats, a ↓ button for new messages (F-12), launcher shortcuts (F-44) |
 | v0.9 | Issue #8: Home layouts and options, refresh by hand, a welcome screen, expert mode, the asker's label, verified accounts, seconds, settings in pages (F-45–F-49); the chats widget (F-50) |
 | v0.10 | Easy reply and reply quotes (F-51, F-52), notifications that open at the new answer or the flowered one (F-53), moderators marked on answers (F-54); seconds only under a minute, no ⟳ beside "New questions" |
+| v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, one notification per chat, notifications that pop up, a status panel with fixes, and a one-time offer to turn them on (F-55); reply quotes keep the answer's text as written (F-52) |
 | Later | Per-app language, pinned shortcuts for single questions and chats |
 | Public | Only after Stips' written permission (D-02) |
 
@@ -68,7 +69,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-17 | Open Stips links | P2 | Question, profile and messages links open in the app: from other apps (when the user allows it in Android settings), from phone notifications and from links inside answers |
 | F-18 | Timings | P1 | The question screen shows "Loaded in 0.4 s"; Settings → Performance lists recent timings |
 | F-19 | Instant start | P1 | The last-seen first page of the Home feed shows at once on launch, then refreshes |
-| F-20 | Notifications | P1 | A bell on Home with an unread badge opens Stips' notification list (newest first, unread highlighted, tap opens the question or profile); Chats shows an unread badge; optional phone notifications (opt-in, ~15 min) |
+| F-20 | Notifications | P1 | A bell on Home with an unread badge opens Stips' notification list (newest first, unread highlighted, tap opens the question or profile); Chats shows an unread badge; optional phone notifications (opt-in; every few minutes while the phone is awake since v0.11, F-55) |
 | F-21 | Ask a question | P1 | Three steps like the site: question (10–120, details ≤2000, anonymous nickname, link), 1–5 tags (suggested and typed), a cover from Stips' gallery (skipped for YouTube links); the daily cap is respected; the new question opens after posting |
 | F-22 | Home: hot first | P0 | The top 5 hot questions as large cards in a snapping row (with "See all"), then the New feed; a **Live** chip makes new questions appear by themselves every 30 s while Home is on screen |
 | F-23 | Compact question header | P0 | Title, meta and tags take at most half the screen; the cover is a background the title fades out of; the body is clamped with "Show more"; scrolling collapses the header into a top bar that shows only the question title |
@@ -100,9 +101,10 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-49 | Exact times (#8) | P2 | Under a minute, times show seconds, corrected to Stips' clock; *Count the seconds* makes them tick |
 | F-50 | Chats widget | P2 | Up to 10 latest chats (name, last message, time, unread count) on the home screen; a tap opens the chat. It follows the unread count and the Chats screen; its copy stays on the phone |
 | F-51 | Easy reply (v0.10) | P1 | Swiping an answer to the right (or ⋮ → *Reply*) starts a reply to it: the draft opens with the carets that point to it ("^^", "4^") and a line break, and a bar above the composer says who it's to, with ✕. After posting, the carets are corrected if answers came in between, while Stips allows editing. A setting turns it off |
-| F-52 | Reply quotes (v0.10) | P1 | Answers that point up with carets show the answer they reply to as a quote (author, two lines); a tap goes there and lights it up. Pointers further in the text are tappable. A setting turns it off |
+| F-52 | Reply quotes (v0.10) | P1 | Answers that point up with carets show the answer they reply to as a quote (author, two lines) above their text; a tap goes there and lights it up. The text stays as written, with every pointer tappable (v0.11). Settings turn the quotes off, or hide the opening carets |
 | F-53 | Notifications open in place (v0.10) | P1 | A notification about new answers opens its question at the first new one; one about a flower, at the user's answer that got it; the answer lights up for two seconds. From the bell and from phone notifications |
 | F-54 | Moderators on answers (v0.10) | P2 | "נאמן סטיפס" / "נאמנת סטיפס" (and senior moderators) by the name on their answers, as on their profiles. A setting turns it off |
+| F-55 | Phone notifications that arrive (v0.11) | P1 | New answers, flowers, thanks and messages reach the phone within minutes while it's in use (every 1, 2 or 5 minutes; 2 by default), and about every 15 minutes otherwise; they pop up. One notification per chat, with who wrote and what; tapping opens the chat. A status panel in Settings shows the last check and what holds checks back (Android's notification settings, restricted background use, battery saving), with *Check now* and *Send a test*. Signed-in users are offered, once, to turn them on and to let Stips+ run in the background |
 
 ## 7. Non-functional requirements
 

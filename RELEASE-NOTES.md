@@ -1,35 +1,42 @@
-## Stips+ 0.10: easy reply, reply quotes, and notifications that open in place
+## Stips+ 0.11: phone notifications that arrive, and replies as written
 
 **What's new**
-- **Easy reply:** swipe an answer from left to right (also ⋮ → *Reply*). Your draft starts with the carets that point to it, then a new line: "^", "^^", "^^^", and from four up a number, "4^". A bar above the box says who you're replying to; ✕ cancels. After you send, the app reloads the answers. If others came in while you wrote, it edits your answer so the carets point to the right one. A short message tells you when that happens. You can turn it off in Settings → Home and reading.
-- **Reply quotes:** any answer that points up with carets now shows the answer it replies to, as a quote like in WhatsApp: the author and the first two lines. Tap the quote to go there; the answer lights up. This works for everyone's answers and every way people write it: "^^" on its own line, "^^text", "4^", "^4", stacked lines replying to two answers, or a caret later in the text (that one is bold and tappable).
-- **Notifications open in place:** a notification about new answers opens the question at the first new one (the third from the bottom when there are three). A flower opens it at your answer that got the flower. The answer breathes for two seconds, then goes back to normal. This works from the bell and from phone notifications.
-- **"נאמן סטיפס" on answers:** moderators have a purple shield badge by their name, as on their profiles ("נאמנת סטיפס", "נאמן בכיר"…).
-- **Smaller changes:** the ⟳ beside "שאלות חדשות" is gone, since pulling down does the same. Seconds now show only in the first minute ("לפני 12 שניות"), then minutes as before.
+- **Checks every few minutes:** while you use your phone, Stips+ checks Stips every 2 minutes (or 1 or 5: Settings → Notifications and widgets → *How often to check*), and right after you wake the phone. With the screen off, Android runs a check about every 15 minutes. Nothing is checked while Stips+ itself is open; its own badges are live there.
+- **Notifications that pop up:** two channels, *Answers and activity* and *Messages*, both shown at the top of the screen. The old *Stips updates* channel is gone.
+- **One notification per chat:** who wrote and their last message; tap it to open the chat. Opening the chat clears it, and so does reading the chat anywhere else. Opening the bell clears the notifications about answers and flowers.
+- **A status panel** (Settings → Notifications and widgets, while they're on): when the last check ran and what it found, and anything in Android that holds notifications back, each with a button to fix it: notifications turned off for Stips+, restricted background use, or battery saving. **Check now** runs a check on the spot; **Send a test** shows a sample notification.
+- **A one-time offer:** signed in with phone notifications off, the app asks once whether to turn them on. If they're on but Android is saving battery on Stips+, it asks once to let it run in the background.
+- **Replies keep their carets:** an answer that points up still shows the quote of the answer it replies to, and its own text now stays exactly as written, "^^" included. The carets are tappable too and jump to the same answer. To get the old look back: Settings → Home and reading → *Hide the carets* (off by default).
 
 **Fixed**
-- Your requests in chat after 0.9: everything listed above.
+- "I'm not getting any push notifications from the app." There was no single proven cause, so each likely one is now handled:
+  - Phone notifications were off by default and never offered. A reinstall (for example during the 0.6–0.7 launch crash) turned them off.
+  - Android's battery saving, which Samsung applies strongly, could hold the 15-minute check back for hours. Turning notifications on now asks Android to let Stips+ run in the background, and the alarm checks every few minutes whenever the phone is awake.
+  - The check missed a notification that Stips updated in place ("3 new answers" with the same id). It also missed a new message when one chat was read as another arrived. It now remembers each notification and chat by its content.
+  - A widget update could one day replace the check's background job. Widgets use WorkManager, which numbers its own jobs from 0, and the check used number 4201. The check now uses a number far from those.
+- Reply quotes no longer remove the carets from the answer they belong to (your request): the message is shown as its author wrote it.
 
 **To ship**
-- Commit "Easy reply, reply quotes, notifications that open in place, moderator badges (v0.10)", pushed by the agent; this release is its build.
+- Commit "Phone notifications that arrive, and reply quotes that keep the carets (v0.11)", pushed by the agent; this release is its build.
 
 **To test**
-1. Install over 0.9. Home: the ⟳ next to "שאלות חדשות" is gone, and a brand-new question says "לפני 12 שניות" and then "לפני דקה".
-2. Open a busy question and drag an answer to the right. A ↩ appears, and the phone ticks once you've pulled far enough. Let go: the box opens with "^^" (or whatever count fits) on the first line and the keyboard up. Write something and send.
-3. If answers came in while you wrote, a message says your reply was updated; the carets on your answer now point to the right one.
-4. Scroll through answers that start with "^" or "^^": each shows a quote of the answer it replies to. Tap a quote: the list jumps there and that answer lights up.
-5. Open the bell and tap "new answers" on one of your questions: it opens at the first new answer, which breathes. Do the same with a flower notification.
-6. Look for a moderator answering anywhere: the purple "נאמן סטיפס" badge sits by the name. Badges are looked up the first time each person shows up, so one may appear a second or two after the answer.
+1. Install over 0.10 and open the app. If phone notifications are off, a dialog offers to turn them on. Tap **Turn on**, allow notifications, then allow Stips+ to run in the background when Android asks. If they're already on, it asks only about running in the background.
+2. Settings → Notifications and widgets. The panel says "No check yet" or when the last check ran. Tap **Send a test**: a notification pops up at the top of the screen. Tap **Check now**: it says "Nothing new" or how many it sent.
+3. Leave the app with the home button. Ask someone to message you, or answer one of your questions from the site. Within about 2 minutes a notification pops up. A message shows who wrote and what, and tapping it opens the chat.
+4. Open the bell in Stips+: the notifications about answers and flowers leave the phone's shade.
+5. If nothing arrives, the panel's status line and warnings say why. Send me those lines. In expert mode the panel also shows Android's standby group.
+6. Open a busy question: an answer that starts with "^^" shows its quote above and still starts with "^^" below it. Tap the carets: the list jumps to the answer they point at. Turn on Settings → Home and reading → *Hide the carets*: the "^^" goes, and the quote stays.
 
 **Heads-up**
-- **Where notifications open is partly a guess.** Stips sends only the question with a notification, and its texts are written on Stips' server, so I couldn't see one. The app reads a count from the text ("3 תשובות חדשות"), and otherwise uses the newest answer it showed you there last time. If a notification opens at the wrong answer: Settings → For experts → Expert mode, then the { } button on that notification. Send me what it shows and I'll fit the rule to the real text.
-- **The moderator badge costs requests.** Stips doesn't mark moderators on answers, so the app reads each answerer's profile badges once every two weeks. That's at most 30 lookups per question you open, one every 1.5 seconds, and only when the request budget has room. It can be turned off in Settings → Home and reading.
-- **The caret correction edits your answer**, and Stips keeps the previous version in the answer's history (like any edit). It only happens while Stips still lets you edit, and only if your answer still starts with carets.
-- Nothing was tested on a real phone. On the emulator the app is signed out, so easy reply, the correction and the notification jumps were checked only in code and unit tests. The caret reading was tested on real answers (213 with carets out of 1,203).
+- **This is still checking, not push.** Stips sends push messages only to its own app. Stips+ checks every 2 minutes while the phone is awake. Once the screen has been off for a while, Android allows a check about every 15 minutes, and only with the background permission; without it, possibly hours. So a notification can come up to about 15 minutes late while the phone sleeps, and right after you pick it up.
+- **Data:** each check is one tiny request (under 1 KB), and lists are read only when something may be new. That's about 30 checks an hour while you use the phone.
+- **Checking the list counts as seeing it.** As on the site, Stips marks notifications seen when their list is read, so after a phone notification the bell's badge may already be clear. The new ones still show under *New* in the bell.
+- **The official Stips app:** if it's on the phone too, you'll get notifications from both apps. You may want to turn off the official app's.
+- Nothing was tested on a real phone. The emulator in CI is signed out, so the checks were tested in code and unit tests only. The status panel is there to show what happens on your phone.
 - Still open: change your Stips password (it was shared for research), and send the permission request to Stips.
 
 **Next options**
-1. Two replies in one answer: swipe a second answer to add its line ("^^^" then "^"), as people already do by hand.
-2. "Add to home screen" for one question or chat (a pinned shortcut).
-3. A preview image for both widgets in the widget picker.
+1. An "instant" mode with the screen off: a background service that checks every minute. It costs battery and keeps a small permanent notification.
+2. Two replies in one answer: swipe a second answer to add its line, as people already do by hand.
+3. "Add to home screen" for one question or chat (a pinned shortcut).
 4. The Android 17 emulator in the release check (about 10 more minutes per build).

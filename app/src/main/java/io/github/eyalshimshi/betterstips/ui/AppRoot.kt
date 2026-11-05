@@ -107,6 +107,7 @@ import io.github.eyalshimshi.betterstips.ui.feed.MyListScreen
 import io.github.eyalshimshi.betterstips.ui.feed.SavedScreen
 import io.github.eyalshimshi.betterstips.ui.feed.TopicScreen
 import io.github.eyalshimshi.betterstips.ui.home.HomeScreen
+import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsPrompt
 import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsScreen
 import io.github.eyalshimshi.betterstips.ui.penpals.PenPalsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
@@ -315,6 +316,8 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
     }
     CrashDialog()
+    // Once: phone notifications on, and allowed to run in the background (v0.11).
+    NotificationsPrompt(active = !welcome, snackbar = snackbar)
 }
 
 /** Whether this is the version first installed (not an update): only then does the welcome screen show. */

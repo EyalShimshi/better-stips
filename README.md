@@ -4,7 +4,7 @@
 
 > **Status:** private, for personal use, while we ask Stips for permission to publish it ([SPEC-06 §4](SPEC-06-roadmap-risks.md#4-the-permission-request)).
 
-## Features (v0.10)
+## Features (v0.11)
 
 - **Home:** the five hottest questions as big cards, then the newest questions. **Live** brings new questions in by themselves, every 5 to 30 seconds (long-press the Live chip to set it); pull down to reload. Search finds topics and people.
 - **Home your way** (Settings → Home and reading): the default, a layout **like the website** (hot questions, then today's questions by topic), or **new questions only**; 3, 5 or 10 hot cards, from now, today or this week; the channel chips on or off; which tab the app opens on.
@@ -12,7 +12,7 @@
 - **Launcher shortcuts:** touch and hold the app icon for **Hot** and **Chats**.
 - **Ask a question** in three steps, like the site: the question (anonymous with your own nickname, and a link if you like), its tags (suggested by Stips), and a cover photo from Stips' gallery.
 - **Questions:** the cover photo behind the title (tap ⋮ → View image to see it whole, with zoom), answers 💬 and pins 📌 as symbols, the asker's link, a header that folds into a small title bar as you scroll, and pull down to reload. The asker's own answers say **"שואל השאלה"**, even when anonymous. Organizations and Stips' own account have a **blue check**, and moderators a **"נאמן סטיפס"** badge. Answers in Stips' order, newest, oldest or by votes.
-- **Replies, Stips style:** swipe an answer to the right to reply to it. Stips+ starts your answer with the carets that point to it (^^, or 4^ from four up) and fixes them after posting if other answers came in first. Answers that point up show the answer they reply to as a quote; tap it to go there.
+- **Replies, Stips style:** swipe an answer to the right to reply to it. Stips+ starts your answer with the carets that point to it (^^, or 4^ from four up) and fixes them after posting if other answers came in first. Answers that point up show the answer they reply to as a quote above their text, which stays as written; tap the quote or the carets to go there (Settings can hide the carets).
 - **Notifications open in place:** new answers open at the first new one, a flower at your answer that got it, and that answer lights up for a moment.
 - **Times to the second** under a minute ("12 s"), set by Stips' clock; turn on *Count the seconds* to watch them tick.
 - **Answer** (anonymously too, with one link), **edit**, **delete** or **detach** your answers; **vote**, **pin**, **get updates**. If you answered a question anonymously, your next answer there starts anonymous. As the asker, **send flowers** to good answers.
@@ -21,7 +21,7 @@
 - **Pen pals (חברים לעט):** read the board, post your own message, and tap a post to start a private chat.
 - **Profiles** for everyone: photo (tap to view it big), questions · answers · flowers, bio, badges, age, how long they've been on Stips, the **credibility** gauge, the **thanks wall** first (write on others', delete on yours), and activity graphs. Special accounts show Stips' colors and badges.
 - **Chats:** a green dot shows who's online, and the top bar shows who you're talking to (tap it for their profile). New messages arrive within seconds. Bubbles are compact: tap one for its time, long-press to copy it. Scroll up and earlier messages load by themselves, back to a card about the other person where the chat began; a ↓ button counts new messages and jumps back down. ⋮ reports someone to Stips' team or blocks their messages.
-- **Notifications:** Stips' list with new ones highlighted until you open them, a badge on the bell and on Chats, and optional **phone notifications**.
+- **Notifications:** Stips' list with new ones highlighted until you open them, a badge on the bell and on Chats, and optional **phone notifications** that pop up within minutes while you use your phone: new answers, flowers and thanks, and one per chat with who wrote and what. Settings → Notifications and widgets shows the last check and anything in Android that holds them back, with *Check now* and *Send a test*.
 - **Welcome:** the first launch offers to sign in, or to look around as a guest.
 - **Settings** in pages: account, Home and reading, appearance, notifications and widgets, privacy and safety, Stips' own pages, about. **Expert mode** adds ids, *Server details* (what Stips sent, copyable), load times, and **Diagnostics → Network log** for bug reports.
 - **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, haptic feedback, and transitions that follow your finger on predictive back.
@@ -58,7 +58,7 @@
 | Unread chats and notifications | Every 10 seconds, only while the app is open and you're signed in | Under 1 KB each |
 | An open chat | New messages every 3 seconds, and whether the other person is online once a minute, only while the chat is on screen | Under 1 KB for each check with nothing new, about 1 MB an hour |
 | **Live** new questions | Every 5–30 seconds (you choose; 30 by default), only while Home is on screen, and only if you turn it on | About 1 MB an hour at 30 s, 6.7 MB at 5 s |
-| **Phone notifications** | About every 15 minutes, only if you turn it on (Settings → Notifications and widgets) | Under 1 MB a day |
+| **Phone notifications** | Every 1, 2 or 5 minutes while your phone is awake (you choose; 2 by default) and about every 15 minutes otherwise, only if you turn it on (Settings → Notifications and widgets). Not while the app is open | Under 1 KB each; a list of a few KB only when something may be new |
 | **Home-screen widget** | When Android wakes it (hourly), only if its list is over 30 minutes old; nothing extra when the app loaded the same list recently. Only if you add the widget | About 9 KB each, at most 0.2 MB a day |
 | **Chats widget** | When your unread count changes (checked by the app while it's open, or by phone notifications), or hourly when its list is over 30 minutes old; nothing extra when the Chats screen loaded the list. Only if you add the widget | A few KB each |
 | **Moderator badges** | While a question is open: the profile badges of people whose answers are on screen, once every two weeks per person, at most 30 per question and one every 1.5 seconds (turn off: Settings → Home and reading) | About 1–2 KB each |
@@ -67,7 +67,7 @@
 
 **Network log:** the app keeps its last few hundred requests in memory (which call, the answer code, timing, errors; never passwords, cookies or what you wrote) so you can attach them to a bug report from Settings → Diagnostics (turn on expert mode to see it). Nothing is sent unless you share it.
 
-**Permissions:** Internet and network state (to notice network changes and to schedule the background check); notifications (asked only when you turn phone notifications on, Android 13+); "run at startup", so the 15-minute check survives a restart. Picking a profile photo uses Android's photo picker, so the app never gets access to your other photos.
+**Permissions:** Internet and network state (to notice network changes and to schedule the background check); notifications (asked only when you turn phone notifications on, Android 13+); "run at startup", so the 15-minute check survives a restart; and asking to run in the background (Android shows its own question when you turn phone notifications on, and you decide), so battery saving doesn't hold the checks back. Picking a profile photo uses Android's photo picker, so the app never gets access to your other photos.
 
 ## Building
 

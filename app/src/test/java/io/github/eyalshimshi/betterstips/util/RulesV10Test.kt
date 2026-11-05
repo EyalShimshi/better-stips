@@ -75,9 +75,9 @@ class RulesV10Test {
         assertNull("above the first answer", ReplyRefs.target(1, 2))
         assertNull(ReplyRefs.target(0, 1))
 
-        val reply = ReplyRefs.resolve("^^\nשלום", 3)
+        val reply = ReplyRefs.resolve("^^\nשלום", 3, hideLeading = true)
         assertEquals(listOf(1), reply.targets)
-        assertEquals("the pointer becomes a quote", "שלום", reply.body)
+        assertEquals("hidden, the pointer is left to the quote", "שלום", reply.body)
         assertTrue(reply.inBody.isEmpty())
 
         val tooFar = ReplyRefs.resolve("^^\nשלום", 1)
@@ -93,16 +93,16 @@ class RulesV10Test {
         assertEquals("nothing but the pointer: it stays", "^^", bare.body)
         assertEquals(listOf((0..1) to 2), bare.inBody)
 
-        val stacked = ReplyRefs.resolve("^^^\n^^\nx", 5)
+        val stacked = ReplyRefs.resolve("^^^\n^^\nx", 5, hideLeading = true)
         assertEquals(listOf(2, 3), stacked.targets)
         assertEquals("x", stacked.body)
 
-        val mixed = ReplyRefs.resolve("^^^ את קבעת\n\n^^ דור המבול", 6)
+        val mixed = ReplyRefs.resolve("^^^ את קבעת\n\n^^ דור המבול", 6, hideLeading = true)
         assertEquals(listOf(3, 4), mixed.targets)
         assertEquals("את קבעת\n\n^^ דור המבול", mixed.body)
         assertEquals(listOf((9..10) to 4), mixed.inBody)
 
-        assertEquals("שלום עולם שורה", ReplyRefs.snippet("^^\nשלום   עולם\nשורה"))
+        assertEquals("שלום עולם שורה", ReplyRefs.snippet("^^\nשלום   עולם\nשורה", hideLeading = true))
         assertEquals("abcdefghij\u2026", ReplyRefs.snippet("abcdefghijklmnop", max = 10))
     }
 

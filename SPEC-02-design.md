@@ -121,7 +121,7 @@ flowchart TD
 - Tinted with the channel's scheme when the question has a channel.
 - Not found (`API_ERROR_EOF`): "This question was deleted or doesn't exist." + *Go back*.
 - **v0.9:** pull down to reload the question and its answers (the spinner comes down below the top bar). The asker's own answers carry a small tertiary pill, "שואל השאלה" / "שואלת השאלה", after the name. Verified accounts (organizations, Stips' own) show a blue ✓ after the name, and their answers a thin blue outline. Answers follow the chosen order (as on Stips, newest, oldest, most votes). In expert mode: an id line under the hero and under each name, *Server details* in the ⋮ menus, and the load time at the end.
-- **v0.10, replies (D-68, D-69):** dragging an answer from left to right slides it after the finger, revealing a ↩ that grows in; past 64 dp a haptic tick, and letting go starts a reply (the card springs back). The composer then shows a bar (start-side primary stripe, ↩, "Replying to Dana", her first line, ✕) and the draft opens with "^^" and a line break, cursor at the end, keyboard up. ⋮ → *Reply* does the same. An answer that points up shows, between its header and its text, one to three quotes: a rounded box tinted with 8 % primary, a 3 dp primary stripe on the start side, the author in primary labelMedium and two lines of their text in bodySmall; a tap scrolls there. Pointers further in the text are bold primary and tappable.
+- **v0.10, replies (D-68, D-69):** dragging an answer from left to right slides it after the finger, revealing a ↩ that grows in; past 64 dp a haptic tick, and letting go starts a reply (the card springs back). The composer then shows a bar (start-side primary stripe, ↩, "Replying to Dana", her first line, ✕) and the draft opens with "^^" and a line break, cursor at the end, keyboard up. ⋮ → *Reply* does the same. An answer that points up shows, between its header and its text, one to three quotes: a rounded box tinted with 8 % primary, a 3 dp primary stripe on the start side, the author in primary labelMedium and two lines of their text in bodySmall; a tap scrolls there. The text below stays as written (v0.11): every pointer in it, at the start or further on, is bold primary and tappable. *Hide the carets* (Settings, off by default) leaves out the opening ones that the quotes show.
 - **v0.10, notifications and moderators (D-70, D-71):** opened from a notification, the screen scrolls the first new answer (or the user's flowered one) to just below the folded top bar, and its card breathes: its surface goes to primary container and back twice over two seconds. A moderator's name is followed by a pill in Stips' purple (tonal, 14 % container) with a 12 dp shield: "נאמן סטיפס" / "נאמנת סטיפס", or "נאמן בכיר" / "נאמנה בכירה".
 
 ### 5.3 Chats
@@ -257,8 +257,9 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 ┌──────────────────────────────────────┐
 │ ←  Notifications                     │
 │ ┌ Get notified on your phone       ┐ │  only while phone notifications
-│ │ …every 15 minutes, under 1 MB…   │ │  are off; *Turn on* asks Android's
-│ └ ( Turn on )                      ┘ │  permission (13+)
+│ │ …every few minutes while you use │ │  are off; *Turn on* asks Android's
+│ │ your phone…                      │ │  permission (13+), then whether
+│ └ ( Turn on )                      ┘ │  Stips+ may run in the background
 │ (💬) Dana answered your question… • │  unread: bold, tinted row, dot
 │      5 min                           │
 │ (🌸) Your answer got a flower        │  icon by type: answer, flower,
@@ -268,8 +269,27 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 
 - Rows are uniform (icon, two lines of text, time; a note or removed points on one extra line). New items (Stips' `viewed` flag, or newer than what the app last showed) sit under **New** with a tinted background and a dot; the rest under **Earlier**. Times: today's time, "Yesterday", or the date.
 - Tapping opens the question or profile. Pull to refresh; older pages load at the end.
-- Opening the list clears the bell's badge (Stips marks them seen, as on the site).
-- Phone notifications: channel "Stips updates"; up to 5 new items per check, plus one "You have N unread messages"; tapping opens the item in the app.
+- Opening the list clears the bell's badge (Stips marks them seen, as on the site), and takes the phone's notifications about answers, flowers and thanks out of the shade (v0.11).
+- Phone notifications (v0.11, D-73): two channels that pop up, *Answers and activity* and *Messages*. Up to 5 new items per check, each opening its item in the app; one notification per chat with unread messages (who wrote, the last message, a count), opening the chat. Opening a chat clears its notification.
+
+### 5.9 Phone notifications in Settings (v0.11, D-74)
+
+```
+┌──────────────────────────────────────┐
+│ Phone notifications            [on]  │
+│ How often to check                   │
+│ (1 min)(2 min)(5 min)(15 min)        │  while the phone is awake
+│ Last check at 14:32: nothing new.    │
+│ ⚠ Battery saving holds the checks    │  only while Android saves battery
+│   back … ( Allow )                   │  on Stips+; likewise "off in
+│ ( Check now )  Send a test           │  Android" and "restricted"
+└──────────────────────────────────────┘
+```
+
+- The status line: no check yet; nothing new; how many were sent; or that the last check couldn't reach Stips (with the error code). Times are clock times.
+- Warnings, each with its fix: notifications off in Android (→ the app's notification settings), restricted background use (→ app info), battery saving (→ Android's own "let it run in the background?" question), and, when none of those applies, no check for an hour (→ app info). They're read again whenever the screen comes back.
+- *Check now* runs a check at once and says what it found; *Send a test* posts a sample. Expert mode adds a line with Android's standby group, the last run and the interval.
+- **The offer** (once, signed in, after the welcome): "Get notified on your phone?" (*Turn on* / *Not now*), or, when they're already on but Android saves battery on Stips+, "Let notifications arrive on time" (*Allow* / *Not now*).
 
 ## 6. System surfaces
 
@@ -278,7 +298,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 | Share sheet | Question and profile links |
 | Browser | "Open on Stips", sign-up, password reset, the account pages in Settings |
 | Link handling | `stips.co.il/ask/…`, `/profile/…`, `/messages` (user-enabled) |
-| Notifications | Opt-in phone notifications (channel "Stips updates"), checked every ~15 minutes |
+| Notifications | Opt-in phone notifications in two channels that pop up (*Answers and activity*, *Messages*), checked every few minutes while the phone is awake and about every 15 minutes otherwise (v0.11) |
 | Photo picker | Choosing a profile photo (no storage permission) |
 | Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
 | Chats widget | v0.9, D-67: latest chats with name, last message, clock time and an unread badge (bold when unread); the title counts unread; a tap opens the chat; signed out, a line asks to sign in |

@@ -204,8 +204,8 @@ class StipsApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.start()
-        val wanted = container.settings.settings.value.backgroundNotifications
-        if (!io.github.eyalshimshi.betterstips.notify.Notifier.schedule(this, wanted) && wanted) {
+        val settings = container.settings.settings.value
+        if (!io.github.eyalshimshi.betterstips.notify.Notifier.sync(this, settings) && settings.backgroundNotifications) {
             // Android refused the job; show the switch as off rather than pretend.
             container.settings.update { it.copy(backgroundNotifications = false) }
         }

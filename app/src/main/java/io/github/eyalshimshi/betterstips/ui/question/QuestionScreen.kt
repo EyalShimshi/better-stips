@@ -656,6 +656,8 @@ private fun QuestionContent(
     val scope = rememberCoroutineScope()
     val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
     var highlight by remember { mutableStateOf<Highlight?>(null) }
+    // Answers show as written; the reader may hide the opening carets that the quotes stand for (v0.11).
+    val hideCarets = LocalAppSettings.current.hideReplyCarets
     // Carets count in Stips' order (oldest first), whatever order the answers are shown in (v0.10).
     val stipsOrder = state.answers
     val positions = remember(stipsOrder) { stipsOrder.withIndex().associate { (i, a) -> a.id to i } }
@@ -762,7 +764,11 @@ private fun QuestionContent(
             }
             items(answers, key = { it.id }) { answer ->
                 val position = positions[answer.id]
-                val reply = if (replyQuotes && position != null) remember(answer.text, position) { ReplyRefs.resolve(answer.text, position) } else null
+                val reply = if (replyQuotes && position != null) {
+                    remember(answer.text, position, hideCarets) { ReplyRefs.resolve(answer.text, position, hideCarets) }
+                } else {
+                    null
+                }
                 AnswerCard(
                     answer = answer,
                     signedIn = signedIn,
@@ -1328,7 +1334,7 @@ private fun ReplyQuote(target: Answer, hidden: Boolean, onClick: () -> Unit) {
             )
             if (!hidden) {
                 Text(
-                    ReplyRefs.snippet(target.text),
+                    ReplyRefs.snippet(target.text, hideLeading = LocalAppSettings.current.hideReplyCarets),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -1420,7 +1426,7 @@ private fun ReplyBar(replyTo: Answer, onCancel: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                ReplyRefs.snippet(replyTo.text),
+                ReplyRefs.snippet(replyTo.text, hideLeading = LocalAppSettings.current.hideReplyCarets),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

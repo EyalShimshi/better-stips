@@ -61,11 +61,11 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….ui.theme` | `Theme`, `SchemeGenerator` (pure), `Type` |
 | `….ui.components` | Cover/monogram, avatar (with the online dot: `PresenceAvatar`), question row, states (empty, error, skeleton), linkified text |
 | `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.user`, `.notifications`, `.signin`, `.settings` | Screens and their ViewModels |
-| `….notify` | `Notifier` (channel, posting, scheduling) and `NotificationCheckJob` (JobScheduler, every 15 min, opt-in) |
+| `….notify` | `Notifier` (channels, posting, scheduling, status), `NotificationCheckJob` (JobScheduler, every 15 min) and `NotificationAlarmReceiver` (every few minutes while the phone is awake, v0.11); opt-in |
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules). The chats widget: `ChatsWidget`, `ChatsWidgetReceiver`, `RefreshChatsWidget`, `ChatsWidgetFeed` (D-67) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
-| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), links and deep links, launcher shortcut actions, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
+| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), which notifications and chats reach the phone (`NotifyRules`, v0.11), links and deep links, launcher shortcut actions, HTML-to-text, Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
@@ -89,7 +89,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | Cookies | An in-memory `CookieJar` for the ASP session. Restarted apps restore the session with `user.login {auth_token}` |
 | `SessionStore` | Sign-in (`user.login` with email + password by POST) → keeps `a_token`, user id, nickname, gender in app-private prefs. When the first screen opens (not for background work, D-52), restores once in the background. After 10 idle minutes it checks the server session with `user.get_app_user` and signs in again with the token if needed; at most once per 30 s when Stips says "not signed in". Only `{"logged": false}` signs the user out (D-37). Sign out clears prefs and cookies |
 | `StipsRepository` | Feeds, question, answers, channels (asset snapshot + live refresh), answer posting/editing/detaching, votes, pins, follow, profiles (page, graphs, flowered answers, thanks wall), notifications and unread counts, safe mode, bio, profile photo upload, chats. Memory cache for questions and answers already shown |
-| `Notifier` | Opt-in. `JobScheduler` runs `NotificationCheckJob` every 15 minutes with any network (persisted across reboots). It asks `messages.count`; only when notifications are waiting does it read the list and post up to 5 new ones (ids above the last seen); a higher unread-messages count posts one summary. The first run after turning it on only records the current state |
+| `Notifier` | Opt-in. `JobScheduler` runs `NotificationCheckJob` every 15 minutes with any network (persisted across reboots; id 2104201000, far from WorkManager's own ids, D-72), and an inexact `ELAPSED_REALTIME` alarm runs `NotificationAlarmReceiver` every 1, 2 or 5 minutes while the phone is awake (each check sets the next; the job restarts the chain). Checks wait while the app is on screen (`MainActivity` sets `appVisible`) or the budget is low, and never overlap (a mutex). A check asks `messages.count`; it reads the notifications list when some are waiting, and the chats list when the unread count changed (or every 30 minutes); `NotifyRules` decides what's new by signature (D-73). Up to 5 notifications and 4 chats per check, in the *Answers and activity* and *Messages* channels (high importance). The first check after turning it on only records. The last check's result and time go to prefs for Settings (D-74) |
 | `FeedCache` | Saves the first page of each list as JSON in app files; shown at once on the next launch, and by the widget |
 | `HotWidgetFeed` | The widget's list: the first Hot page (now). Any screen that loads it updates the widget through `StipsRepository.onFirstPage`; by itself the widget asks Stips only when Android wakes it (hourly), its copy is over 30 minutes old and `RateGuard` allows; ⟳ always asks. One refresh at a time (D-51) |
 | `ChatsWidgetFeed` | The chats widget's list: the first page of chats, from `StipsRepository.onConversations` (any screen that loads it). It watches `onUnreadCounts` and, only while a chats widget is placed, asks again when the count changes; also hourly when stale, and on ⟳; within `RateGuard`. Saved to `files/chats_widget.json` with the account's id; cleared on sign-out or another account (D-67) |
@@ -107,8 +107,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | Store | What | Where |
 |---|---|---|
 | `session` prefs | `a_token`, user id, nickname, gender | App-private, excluded from backup |
-| `settings` prefs | Theme, colors, images, animations, Live, phone notifications; v0.9: Home's layout and options, start tab, order of answers, seconds, expert mode, whether the welcome was answered | App-private |
-| `notify` prefs | Last notification id and unread-messages count seen by the background check | App-private, cleared when turned off |
+| `settings` prefs | Theme, colors, images, animations, Live, phone notifications; v0.9: Home's layout and options, start tab, order of answers, seconds, expert mode, whether the welcome was answered; v0.11: how often to check, whether the notifications offer was answered, whether to hide reply carets | App-private |
+| `notify` prefs | What the checks have seen (v0.11: each notification's signature, each unread chat's newest message, the unread count), the last check's result, and when Android last ran one | App-private, cleared when turned off |
 | `saved` prefs | Saved questions | App-private |
 | `files/feed-*.json` | Last-seen first page | App-private |
 | `files/chats_widget.json` | The chats widget's copy of your latest chats (D-67) | App-private, excluded from backup, deleted on sign-out |
@@ -120,7 +120,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 
 - `ACTION_SEND` for sharing links; `ACTION_VIEW` for the site, sign-up and password reset.
 - Intent filter for `https://stips.co.il/ask/…`, `/profile/…` and `/messages` (no `autoVerify`; users enable it under *Open by default*).
-- `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on) and `RECEIVE_BOOT_COMPLETED` (keeps the persisted job). The photo picker (`PickVisualMedia`) needs no storage permission.
+- `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on), `RECEIVE_BOOT_COMPLETED` (keeps the persisted job) and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (Android's own "let Stips+ run in the background?" dialog, v0.11). The photo picker (`PickVisualMedia`) needs no storage permission.
 - System splash (Android 12+) from the window background; adaptive + themed (monochrome) launcher icon of our own (no Stips logo).
 - Static launcher shortcuts *Hot* and *Chats* (`res/xml/shortcuts.xml`, D-57), with adaptive icons.
 - Two Glance app widgets: "Hot right now" (D-51) and the chats widget (D-67), each with a pin request from Settings.
@@ -130,8 +130,12 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | Permission | Why |
 |---|---|
 | `INTERNET` | Talk to Stips and load images |
+| `ACCESS_NETWORK_STATE` | Notice network changes (#3); JobScheduler needs it for a job that waits for a network (#1, #2) |
+| `POST_NOTIFICATIONS` | Phone notifications, asked when the user turns them on (v0.2) |
+| `RECEIVE_BOOT_COMPLETED` | Keeps the notification job after a restart |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Shows Android's own question, "let Stips+ always run in the background?", so notification checks aren't held back for hours (v0.11, D-72). The user decides; nothing changes without that dialog |
 
-Nothing else: no notifications, location, contacts or storage.
+Nothing else: no location, contacts or storage.
 
 ## 9. Networking and security
 

@@ -13,15 +13,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import android.Manifest
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,13 +33,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.BatteryAlert
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.QuestionAnswer
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -59,6 +63,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,8 +80,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.StipsRepository
@@ -95,6 +103,7 @@ import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.JumpRules
+import io.github.eyalshimshi.betterstips.util.NotifyRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -246,7 +255,11 @@ private fun NotificationsList(
     }
     val onDetails: ((StipsNotification) -> Unit)? = if (settings.expertMode) ({ details = it }) else null
     LaunchedEffect(state.page, state.refreshing) {
-        if (state.page >= 1 && !state.refreshing) currentOnSeen()
+        if (state.page >= 1 && !state.refreshing) {
+            currentOnSeen()
+            // Seen here, so they leave the phone's notification shade (v0.11).
+            Notifier.clearUpdates(context)
+        }
     }
     PullToRefreshBox(isRefreshing = state.refreshing && state.page > 0, onRefresh = vm::refresh, modifier = modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -464,7 +477,8 @@ private fun notificationIcon(type: String): ImageVector {
 
 /**
  * Turns phone notifications on (asking for Android's permission first, on Android 13 and later) or off. When the
- * permission is refused, [snackbar] explains and offers Android's notification settings.
+ * permission is refused, [snackbar] explains and offers Android's notification settings. Once they're on, Android's
+ * own question about running in the background follows, unless it already allows that (v0.11).
  */
 @Composable
 fun rememberPhoneNotificationsToggle(snackbar: SnackbarHostState): (Boolean) -> Unit {
@@ -476,9 +490,12 @@ fun rememberPhoneNotificationsToggle(snackbar: SnackbarHostState): (Boolean) -> 
     val refusedText = stringResource(R.string.notifications_job_refused)
     fun setEnabled(on: Boolean) {
         // Schedule first: only a job Android accepted counts as "on" (#1, #2).
-        val scheduled = Notifier.schedule(context.applicationContext, on)
+        val minutes = container.settings.settings.value.checkMinutes
+        val scheduled = Notifier.schedule(context.applicationContext, on, minutes)
         container.settings.update { it.copy(backgroundNotifications = on && scheduled) }
         if (on && !scheduled) scope.launch { snackbar.showSnackbar(refusedText) }
+        // While Android saves battery on Stips+, it holds the checks back for hours.
+        if (on && scheduled && !Notifier.runsInBackground(context)) Notifier.askToRunInBackground(context)
     }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -486,7 +503,7 @@ fun rememberPhoneNotificationsToggle(snackbar: SnackbarHostState): (Boolean) -> 
         } else {
             scope.launch {
                 val result = snackbar.showSnackbar(deniedText, actionLabel = settingsText, withDismissAction = true)
-                if (result == SnackbarResult.ActionPerformed) openNotificationSettings(context)
+                if (result == SnackbarResult.ActionPerformed) Notifier.openNotificationSettings(context)
             }
         }
     }
@@ -499,11 +516,175 @@ fun rememberPhoneNotificationsToggle(snackbar: SnackbarHostState): (Boolean) -> 
     }
 }
 
-private fun openNotificationSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-    try {
-        context.startActivity(intent)
-    } catch (e: ActivityNotFoundException) {
-        // Some devices hide this screen; nothing else to offer.
+/** Without a check for this long, Android is holding Stips+ back (the job's period is 15 minutes). */
+private const val LATE_MS = 60 * 60_000L
+
+/**
+ * How phone notifications are doing (Settings, v0.11): the last check; what in Android holds them back (notifications
+ * turned off, restricted background use, battery saving), each with a way to fix it; "Check now" and a test.
+ */
+@Composable
+fun PhoneNotificationsStatus(snackbar: SnackbarHostState, modifier: Modifier = Modifier) {
+    val container = LocalAppContainer.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val settings by container.settings.settings.collectAsStateWithLifecycle()
+    val status by remember { Notifier.status(context.applicationContext) }.collectAsStateWithLifecycle()
+    // Android's settings change while the user is away (its battery question, app info): read them again on return.
+    var returns by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) { returns++ }
     }
+    val background = remember(returns) { Notifier.runsInBackground(context) }
+    val restricted = remember(returns) { Notifier.backgroundRestricted(context) }
+    val blocked = remember(returns) { Notifier.blockedInAndroid(context) }
+    val lastRun = remember(returns, status) { Notifier.lastRunAt(context) }
+    var checking by remember { mutableStateOf(false) }
+    val resources = context.resources
+    val nothingText = stringResource(R.string.notify_checked_nothing)
+    val failedText = stringResource(R.string.notify_checked_failed)
+    val testText = stringResource(R.string.notify_test_sent)
+    val deniedText = stringResource(R.string.notifications_permission_denied)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(statusLine(status), style = MaterialTheme.typography.bodyMedium)
+        if (blocked) {
+            StatusWarning(Icons.Outlined.NotificationsOff, null, stringResource(R.string.notify_blocked), stringResource(R.string.action_open_settings)) {
+                Notifier.openNotificationSettings(context)
+            }
+        }
+        if (restricted) {
+            StatusWarning(Icons.Outlined.Block, null, stringResource(R.string.notify_restricted), stringResource(R.string.action_open_settings)) {
+                Notifier.openAppSettings(context)
+            }
+        }
+        if (!background) {
+            StatusWarning(
+                Icons.Outlined.BatteryAlert,
+                stringResource(R.string.notify_battery_title),
+                stringResource(R.string.notify_battery_body),
+                stringResource(R.string.notify_battery_allow),
+            ) { Notifier.askToRunInBackground(context) }
+        } else if (lastRun > 0 && System.currentTimeMillis() - lastRun > LATE_MS) {
+            StatusWarning(
+                Icons.Outlined.Schedule,
+                null,
+                stringResource(R.string.notify_status_late, checkTime(lastRun)),
+                stringResource(R.string.action_open_settings),
+            ) { Notifier.openAppSettings(context) }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalButton(
+                enabled = !checking,
+                onClick = {
+                    checking = true
+                    scope.launch {
+                        val result = Notifier.run(context.applicationContext, container, Notifier.Trigger.User)
+                        checking = false
+                        val message = when (result?.outcome) {
+                            NotifyRules.Outcome.Posted -> {
+                                val count = result?.posted ?: 0
+                                resources.getQuantityString(R.plurals.notify_checked_posted, count, count)
+                            }
+                            NotifyRules.Outcome.Nothing -> nothingText
+                            else -> failedText
+                        }
+                        snackbar.showSnackbar(message)
+                    }
+                },
+            ) { Text(stringResource(R.string.notify_check_now)) }
+            TextButton(
+                onClick = {
+                    val sent = Notifier.postTest(context)
+                    scope.launch { snackbar.showSnackbar(if (sent) testText else deniedText) }
+                },
+            ) { Text(stringResource(R.string.notify_send_test)) }
+        }
+        if (settings.expertMode) {
+            val bucket = remember(returns) { Notifier.standbyBucket(context) ?: "?" }
+            val ran = if (lastRun > 0) checkTime(lastRun) else "never"
+            ExpertLine("standby: $bucket · last run: $ran · every ${settings.checkMinutes} min · background: $background")
+        }
+    }
+}
+
+@Composable
+private fun statusLine(status: NotifyRules.Status?): String {
+    if (status == null) return stringResource(R.string.notify_status_never)
+    val time = checkTime(status.at)
+    return when (status.outcome) {
+        NotifyRules.Outcome.Posted ->
+            LocalContext.current.resources.getQuantityString(R.plurals.notify_status_posted, status.posted, time, status.posted)
+        NotifyRules.Outcome.Nothing -> stringResource(R.string.notify_status_nothing, time)
+        NotifyRules.Outcome.Failed -> stringResource(R.string.notify_status_failed, time, status.error ?: "?")
+    }
+}
+
+/** "14:32" today, or a short date and time before that. */
+private fun checkTime(at: Long): String {
+    val zone = ZoneId.systemDefault()
+    val time = Instant.ofEpochMilli(at).atZone(zone)
+    val format = if (time.toLocalDate() == LocalDate.now(zone)) {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+    } else {
+        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
+    }
+    return time.format(format)
+}
+
+@Composable
+private fun StatusWarning(icon: ImageVector, title: String?, text: String, action: String, onAction: () -> Unit) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            if (title != null) Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onAction) { Text(action) }
+        }
+    }
+}
+
+/**
+ * Once, for a signed-in user (v0.11): turn phone notifications on, or, when they're on but Android saves battery on
+ * Stips+, let it run in the background. Either answer ends it; Settings has both.
+ */
+@Composable
+fun NotificationsPrompt(active: Boolean, snackbar: SnackbarHostState) {
+    val container = LocalAppContainer.current
+    val context = LocalContext.current
+    val settings by container.settings.settings.collectAsStateWithLifecycle()
+    val session by container.session.session.collectAsStateWithLifecycle()
+    // Before any early return: the permission's answer comes back to this launcher.
+    val toggle = rememberPhoneNotificationsToggle(snackbar)
+    if (!active || !session.signedIn || settings.notificationsPrompted) return
+    val on = settings.backgroundNotifications && Notifier.canPost(context)
+    val background = remember { Notifier.runsInBackground(context) }
+    val done = { container.settings.update { it.copy(notificationsPrompted = true) } }
+    if (on && background) {
+        LaunchedEffect(Unit) { done() }
+        return
+    }
+    AlertDialog(
+        onDismissRequest = done,
+        icon = { Icon(if (on) Icons.Outlined.BatteryAlert else Icons.Outlined.NotificationsActive, contentDescription = null) },
+        title = { Text(stringResource(if (on) R.string.notify_prompt_battery_title else R.string.notify_prompt_title)) },
+        text = { Text(stringResource(if (on) R.string.notify_prompt_battery_body else R.string.notify_prompt_body)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    done()
+                    if (on) Notifier.askToRunInBackground(context) else toggle(true)
+                },
+            ) { Text(stringResource(if (on) R.string.notify_battery_allow else R.string.notifications_phone_turn_on)) }
+        },
+        dismissButton = { TextButton(onClick = done) { Text(stringResource(R.string.notify_prompt_later)) } },
+    )
 }

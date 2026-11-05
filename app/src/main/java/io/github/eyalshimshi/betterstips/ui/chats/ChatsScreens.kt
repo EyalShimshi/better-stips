@@ -101,6 +101,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
+import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
@@ -260,6 +261,8 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
         snackbar.showSnackbar(if (notice == ChatNotice.Reported) reportedText else failedText)
         vm.consumeNotice()
     }
+    // Open, so this chat's phone notification has done its job (v0.11).
+    LaunchedEffect(userId) { Notifier.clearChat(context, userId) }
 
     // New messages every 3 s while the chat is on screen, slower after failures; their status about once a minute (#6).
     LaunchedEffect(vm, lifecycleOwner) {

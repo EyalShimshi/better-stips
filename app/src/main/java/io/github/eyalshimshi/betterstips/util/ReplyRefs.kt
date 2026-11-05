@@ -16,8 +16,8 @@ object ReplyRefs {
 
     /**
      * An answer read with its pointers resolved: [targets] (indexes in Stips' order, first pointer first, at most
-     * [MAX_QUOTES]), the [body] to show (without the opening pointers once they're shown as quotes), and the pointers
-     * left in the body, [inBody], as ranges of [body] with the index each points at.
+     * [MAX_QUOTES]), the [body] to show (the text as written, or without its opening pointers when the user hides
+     * them), and the pointers in the body, [inBody], as ranges of [body] with the index each points at.
      */
     data class Resolved(val targets: List<Int>, val body: String, val inBody: List<Pair<IntRange, Int>>)
 
@@ -87,13 +87,18 @@ object ReplyRefs {
     /** The index answer [index] points at with [count] (both in Stips' order), or null above the first answer. */
     fun target(index: Int, count: Int): Int? = (index - count).takeIf { count >= 1 && it in 0 until index }
 
-    /** Reads the pointers of the answer at [index] (in Stips' order) against the answers above it. */
-    fun resolve(text: String, index: Int): Resolved {
+    /**
+     * Reads the pointers of the answer at [index] (in Stips' order) against the answers above it. The text stays as
+     * written, and each pointer that resolves is tappable (v0.11). With [hideLeading] (a setting, off by default), the
+     * opening pointers are left out of [Resolved.body] when they all resolve, since the quotes show them.
+     */
+    fun resolve(text: String, index: Int, hideLeading: Boolean = false): Resolved {
         val parsed = parse(text)
         if (parsed.refs.isEmpty()) return Resolved(emptyList(), text, emptyList())
         val leading = parsed.refs.filter { it.leading }
-        // The opening pointers become quotes when they all point at answers, unless they're all the answer says.
-        val strip = leading.isNotEmpty() && leading.all { target(index, it.count) != null } && parsed.bodyStart < text.length
+        // Hidden only when they all point at answers, and never when they're all the answer says.
+        val strip = hideLeading && leading.isNotEmpty() && leading.all { target(index, it.count) != null } &&
+            parsed.bodyStart < text.length
         val shift = if (strip) parsed.bodyStart else 0
         val inBody = parsed.refs
             .filterNot { strip && it.leading }
@@ -102,9 +107,9 @@ object ReplyRefs {
         return Resolved(targets, if (strip) text.substring(parsed.bodyStart) else text, inBody)
     }
 
-    /** A one-paragraph preview of an answer for a quote, without its own opening pointers. */
-    fun snippet(text: String, max: Int = 160): String {
-        val start = parse(text).bodyStart
+    /** A one-paragraph preview of an answer for a quote; with [hideLeading], without its own opening pointers. */
+    fun snippet(text: String, max: Int = 160, hideLeading: Boolean = false): String {
+        val start = if (hideLeading) parse(text).bodyStart else 0
         val body = if (start in 1 until text.length) text.substring(start) else text
         val flat = body.replace(spaces, " ").trim()
         return if (flat.length <= max) flat else flat.take(max).trimEnd() + "\u2026"

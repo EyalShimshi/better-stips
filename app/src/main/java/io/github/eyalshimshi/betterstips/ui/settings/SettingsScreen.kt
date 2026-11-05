@@ -88,6 +88,7 @@ import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
 import io.github.eyalshimshi.betterstips.ui.feed.windowLabel
 import io.github.eyalshimshi.betterstips.ui.home.LiveControls
+import io.github.eyalshimshi.betterstips.ui.notifications.PhoneNotificationsStatus
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
@@ -419,11 +420,13 @@ private fun ReadingPage(settings: AppSettings) {
     }
 
     GroupLabel(stringResource(R.string.settings_replies))
+    // Hiding the carets only matters while quotes show what they point at (v0.11).
+    val repliesCount = if (settings.replyQuotes) 4 else 3
     GroupRow(
         title = stringResource(R.string.settings_easy_reply),
         summary = stringResource(R.string.settings_easy_reply_summary),
         index = 0,
-        count = 3,
+        count = repliesCount,
         onClick = { store.update { it.copy(easyReply = !it.easyReply) } },
         trailing = { Switch(checked = settings.easyReply, onCheckedChange = null) },
     )
@@ -431,15 +434,25 @@ private fun ReadingPage(settings: AppSettings) {
         title = stringResource(R.string.settings_reply_quotes),
         summary = stringResource(R.string.settings_reply_quotes_summary),
         index = 1,
-        count = 3,
+        count = repliesCount,
         onClick = { store.update { it.copy(replyQuotes = !it.replyQuotes) } },
         trailing = { Switch(checked = settings.replyQuotes, onCheckedChange = null) },
     )
+    if (settings.replyQuotes) {
+        GroupRow(
+            title = stringResource(R.string.settings_hide_reply_carets),
+            summary = stringResource(R.string.settings_hide_reply_carets_summary),
+            index = 2,
+            count = repliesCount,
+            onClick = { store.update { it.copy(hideReplyCarets = !it.hideReplyCarets) } },
+            trailing = { Switch(checked = settings.hideReplyCarets, onCheckedChange = null) },
+        )
+    }
     GroupRow(
         title = stringResource(R.string.settings_moderator_badges),
         summary = stringResource(R.string.settings_moderator_badges_summary),
-        index = 2,
-        count = 3,
+        index = repliesCount - 1,
+        count = repliesCount,
         onClick = { store.update { it.copy(moderatorBadges = !it.moderatorBadges) } },
         trailing = { Switch(checked = settings.moderatorBadges, onCheckedChange = null) },
     )
@@ -542,6 +555,8 @@ private fun NotificationsPage(settings: AppSettings, snackbar: SnackbarHostState
     val toggleNotifications = rememberPhoneNotificationsToggle(snackbar)
     val notificationsOn = settings.backgroundNotifications && Notifier.canPost(context)
     val widgetByHandText = stringResource(R.string.settings_widget_by_hand)
+    // While they're on: how often to check, and how the checks are doing (v0.11).
+    val updatesCount = if (notificationsOn) 4 else 2
     GroupLabel(stringResource(R.string.settings_updates))
     GroupRow(
         title = stringResource(R.string.settings_phone_notifications),
@@ -549,11 +564,28 @@ private fun NotificationsPage(settings: AppSettings, snackbar: SnackbarHostState
             if (session.signedIn) R.string.settings_phone_notifications_summary else R.string.settings_phone_notifications_signed_out,
         ),
         index = 0,
-        count = 2,
+        count = updatesCount,
         onClick = { toggleNotifications(!notificationsOn) },
         trailing = { Switch(checked = notificationsOn, onCheckedChange = null) },
     )
-    GroupBox(index = 1, count = 2) {
+    if (notificationsOn) {
+        ChoiceBox(
+            title = stringResource(R.string.settings_check_every),
+            summary = stringResource(R.string.settings_check_every_summary),
+            options = AppSettings.CHECK_MINUTES.map { it to stringResource(R.string.check_minutes, it) },
+            selected = settings.checkMinutes,
+            onSelect = { minutes ->
+                store.update { it.copy(checkMinutes = minutes) }
+                Notifier.schedule(context.applicationContext, true, minutes)
+            },
+            index = 1,
+            count = updatesCount,
+        )
+        GroupBox(index = 2, count = updatesCount) {
+            PhoneNotificationsStatus(snackbar, Modifier.padding(16.dp))
+        }
+    }
+    GroupBox(index = updatesCount - 1, count = updatesCount) {
         LiveControls(
             settings = settings,
             onChange = { store.update(it) },

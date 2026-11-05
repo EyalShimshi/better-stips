@@ -109,15 +109,16 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 
 ## Phone notifications
 
-- Off by default. When turned on (Settings → Notifications and widgets, or the card on the notifications screen), `Notifier.schedule` registers job **4201** with Android's JobScheduler: every 15 minutes, any network, kept across reboots. Turning it off cancels the job and forgets what was seen.
-- Each run asks `messages.count`; only when notifications are waiting does it read `notifications.list` (Stips then treats them as seen, as when the bell is opened on the site).
-- Debug on a connected phone: `adb shell cmd jobscheduler run -f io.github.eyalshimshi.betterstips 4201` runs it now; `adb shell dumpsys jobscheduler | Select-String betterstips` shows when it last ran.
+- Off by default; signed-in users are offered them once (`NotificationsPrompt`). When turned on (Settings → Notifications and widgets, the card on the notifications screen, or the offer), `Notifier.schedule` registers job **2104201000** with Android's JobScheduler (every 15 minutes, any network, kept across reboots) and sets an alarm for every *How often* minutes while the phone is awake (`NotificationAlarmReceiver`, `ELAPSED_REALTIME`: it never wakes the phone). Turning it off cancels both and forgets what was seen. v0.2–v0.10 used job id 4201; WorkManager (the widgets) numbers its own jobs from 0, so ours moved far above, and the old one is cancelled if it's ours (D-72).
+- Each run asks `messages.count`; it reads `notifications.list` only when notifications are waiting (Stips then treats them as seen, as when the bell is opened on the site), and `messages.list` when the unread count changed or every 30 minutes. `NotifyRules` decides what's new by signature (D-73). Checks skip while the app is on screen (`Notifier.appVisible`) or the request budget is low; skips and results go to the network log ("notifications").
+- Turning them on also asks Android to let Stips+ run in the background (`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`). Without that, Samsung and others hold jobs back for hours. Settings shows the state, the last check and the fixes (D-74).
+- Debug on a connected phone: `adb shell cmd jobscheduler run -f io.github.eyalshimshi.betterstips 2104201000` runs the job now; `adb shell dumpsys jobscheduler | Select-String betterstips` shows when it last ran; `adb shell dumpsys alarm | Select-String betterstips` shows the alarm; `adb shell am get-standby-bucket io.github.eyalshimshi.betterstips` shows Android's standby group (also in expert mode).
 
 ## Widgets
 
 - Two Glance widgets: "Hot right now" (`HotWidget`, `HotWidgetFeed`) and Chats (`ChatsWidget`, `ChatsWidgetFeed`). Each feed listens to the repository (`onFirstPage`, `onConversations`, `onUnreadCounts`), so lists that screens load anyway reach the widgets at no cost.
 - The chats widget asks Stips only while it's placed (`AppWidgetManager.getAppWidgetIds`), when the unread count changes, hourly when stale, or on ⟳. Its copy (`files/chats_widget.json`) holds private message previews: keep it in the backup exclusions (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`) and deleted on sign-out.
-- A widget row opens a chat through the private action `…action.CHAT` with a `stipsplus://chat/<userId>?name=` address (`Shortcuts.chatUri`); each chat's address differs so Android keeps the taps apart.
+- A widget row opens a chat through the private action `…action.CHAT` with a `stipsplus://chat/<userId>?name=` address (`Shortcuts.chatUri`); each chat's address differs so Android keeps the taps apart. Message notifications open chats the same way (v0.11).
 
 ## The website-like Home
 
@@ -125,7 +126,7 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 
 ## Replies, notifications and moderators (v0.10)
 
-- **Caret pointers** are read and written in one place, `util/ReplyRefs.kt`, tested on real answers in `RulesV10Test`. If people start writing pointers another way, add the form there with an example. Counting relies on Stips listing answers oldest first (SPEC-04 §2.12).
+- **Caret pointers** are read and written in one place, `util/ReplyRefs.kt`, tested on real answers in `RulesV10Test` and `RulesV11Test`. If people start writing pointers another way, add the form there with an example. Counting relies on Stips listing answers oldest first (SPEC-04 §2.12). The answer's text is shown as written; only the *Hide the carets* setting (`hideLeading`) drops the opening pointers.
 - **Where a notification opens** is decided in `util/JumpRules.kt`. Stips' notification texts aren't in the site's code, so the "N new answers" count is a guess at their wording. With expert mode on, { } on a notification shows its type, its raw JSON and where the app opens it; fix the patterns there when a text is read wrong.
 - **Moderator marks** come from people's profile badges (`profile.page_data`), cached in the `user_badges` prefs for two weeks. If the marks cost too many requests, lower `MAX_BADGE_LOOKUPS` in `QuestionViewModel`, or turn the setting's default off.
 

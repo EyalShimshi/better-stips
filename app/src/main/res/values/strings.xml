@@ -213,11 +213,13 @@
     <string name="notifications_signed_out_title">Sign in to see notifications</string>
     <string name="notifications_signed_out_body">Answers to your questions, flowers and thanks show up here.</string>
     <string name="notifications_phone_title">Get notified on your phone</string>
-    <string name="notifications_phone_body">Stips+ checks for new notifications and messages about every 15 minutes (under 1 MB a day). You can turn it off in Settings.</string>
+    <string name="notifications_phone_body">Stips+ checks for new answers, flowers, thanks and messages every few minutes while you use your phone, and about every 15 minutes otherwise. You can turn it off in Settings.</string>
     <string name="notifications_phone_turn_on">Turn on</string>
     <string name="notifications_permission_denied">Notifications are off for Stips+. You can allow them in Android settings.</string>
-    <string name="notification_channel_name">Stips updates</string>
-    <string name="notification_channel_description">New answers, flowers, thanks and messages on Stips.</string>
+    <string name="notification_channel_activity">Answers and activity</string>
+    <string name="notification_channel_activity_description">New answers, flowers and thanks on Stips.</string>
+    <string name="notification_channel_messages">Messages</string>
+    <string name="notification_channel_messages_description">New private messages on Stips.</string>
     <string name="notification_title">Stips</string>
     <plurals name="notification_messages">
         <item quantity="one">You have a new message</item>
@@ -288,7 +290,7 @@
     <string name="settings_on_site">On the Stips website</string>
     <string name="settings_updates">Updates</string>
     <string name="settings_phone_notifications">Phone notifications</string>
-    <string name="settings_phone_notifications_summary">New answers, flowers, thanks and messages. Checks about every 15 minutes, under 1 MB a day.</string>
+    <string name="settings_phone_notifications_summary">New answers, flowers, thanks and messages, a few minutes after they arrive.</string>
     <string name="settings_phone_notifications_signed_out">Sign in first: notifications come from your Stips account.</string>
     <string name="settings_live_new">Live new questions</string>
     <string name="settings_live_new_summary">New questions appear on Home by themselves. Checks every 30 seconds while Home is open (about 1 MB an hour).</string>
@@ -581,4 +583,39 @@
     <string name="reply_hidden">A hidden answer</string>
     <string name="reply_jump">Go to the answer it replies to</string>
     <string name="reply_fixed">Your reply was updated: other answers came in first.</string>
+    <!-- v0.11: phone notifications that arrive -->
+    <string name="notification_test_title">Stips+ notifications work</string>
+    <string name="notification_test_text">New answers, flowers and messages will show up like this.</string>
+    <string name="settings_check_every">How often to check</string>
+    <string name="settings_check_every_summary">While you use your phone, and as soon as you wake it. With the screen off, Android checks about every 15 minutes.</string>
+    <string name="check_minutes">%d min</string>
+    <string name="notify_status_never">No check yet. The first one comes within a few minutes.</string>
+    <string name="notify_status_nothing">Last check at %1$s: nothing new.</string>
+    <plurals name="notify_status_posted">
+        <item quantity="one">Last check at %1$s: %2$d notification sent.</item>
+        <item quantity="other">Last check at %1$s: %2$d notifications sent.</item>
+    </plurals>
+    <string name="notify_status_failed">The last check, at %1$s, couldn\'t reach Stips (%2$s). It tries again soon.</string>
+    <string name="notify_status_late">Android last let Stips+ check at %1$s. If notifications come late, look at the battery settings for Stips+.</string>
+    <string name="notify_battery_title">Battery saving holds the checks back</string>
+    <string name="notify_battery_body">Android may delay Stips+\'s checks for hours. Let it run in the background, and notifications arrive on time.</string>
+    <string name="notify_battery_allow">Allow</string>
+    <string name="notify_restricted">Background use is restricted for Stips+, so it can\'t check. You can allow it in the app\'s Android settings.</string>
+    <string name="notify_blocked">Notifications from Stips+ are turned off in Android\'s settings.</string>
+    <string name="notify_check_now">Check now</string>
+    <string name="notify_send_test">Send a test</string>
+    <string name="notify_checked_nothing">Nothing new.</string>
+    <plurals name="notify_checked_posted">
+        <item quantity="one">%d new notification, on your phone now.</item>
+        <item quantity="other">%d new notifications, on your phone now.</item>
+    </plurals>
+    <string name="notify_checked_failed">Couldn\'t check right now. Try again in a moment.</string>
+    <string name="notify_test_sent">Sent. Don\'t see it? Look at Stips+ in Android\'s notification settings.</string>
+    <string name="notify_prompt_title">Get notified on your phone?</string>
+    <string name="notify_prompt_body">New answers, flowers, thanks and messages will show up on your phone a few minutes after they arrive.</string>
+    <string name="notify_prompt_battery_title">Let notifications arrive on time</string>
+    <string name="notify_prompt_battery_body">To save battery, Android holds Stips+\'s checks back, sometimes for hours. Let Stips+ run in the background, and notifications arrive within minutes.</string>
+    <string name="notify_prompt_later">Not now</string>
+    <string name="settings_hide_reply_carets">Hide the carets</string>
+    <string name="settings_hide_reply_carets_summary">Leaves out the ^^ an answer starts with when its quote already shows what they point at. Off, answers show exactly as written.</string>
 </resources>

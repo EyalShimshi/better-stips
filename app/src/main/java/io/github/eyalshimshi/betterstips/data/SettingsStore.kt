@@ -35,8 +35,12 @@ data class AppSettings(
     val animations: Boolean = true,
     /** New questions appear on Home by themselves (polls every [liveIntervalSeconds] while Home is open). */
     val autoRefreshNew: Boolean = false,
-    /** Phone notifications from a background check every 15 minutes. */
+    /** Phone notifications: Stips+ checks every [checkMinutes] while the phone is awake, and every 15 minutes anyway. */
     val backgroundNotifications: Boolean = false,
+    /** Minutes between checks while the phone is awake: one of [CHECK_MINUTES]; 15 leaves only the job (v0.11). */
+    val checkMinutes: Int = DEFAULT_CHECK_MINUTES,
+    /** The one-time offer to turn phone notifications on (or let them run in the background) was answered (v0.11). */
+    val notificationsPrompted: Boolean = false,
     /** Live: seconds between checks, [LIVE_MIN_SECONDS] to [LIVE_MAX_SECONDS] (#4). */
     val liveIntervalSeconds: Int = LIVE_MAX_SECONDS,
     /** Anonymous mode: answers and questions go out anonymously until this time (epoch ms); 0 is off (#4). */
@@ -57,6 +61,8 @@ data class AppSettings(
     val easyReply: Boolean = true,
     /** Answers that point up with carets show the answer they reply to (v0.10). */
     val replyQuotes: Boolean = true,
+    /** The opening carets of an answer shown with quotes are left out; off, so answers show as written (v0.11). */
+    val hideReplyCarets: Boolean = false,
     /** "נאמן סטיפס" by moderators' names on answers; each answerer is looked up once every two weeks (v0.10). */
     val moderatorBadges: Boolean = true,
     /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
@@ -74,6 +80,10 @@ data class AppSettings(
 
         /** The choices for [hotCount]. */
         val HOT_COUNTS = listOf(3, 5, 10)
+
+        /** The choices for [checkMinutes]. */
+        val CHECK_MINUTES = listOf(1, 2, 5, 15)
+        const val DEFAULT_CHECK_MINUTES = 2
 
         /** The choices for [hotWindow]: the windows Stips offers on its main hot list. */
         val HOT_WINDOWS = listOf(HotWindow.Now, HotWindow.Today, HotWindow.Week)
@@ -121,6 +131,8 @@ class SettingsStore(context: Context) {
             .putBoolean("animations", next.animations)
             .putBoolean("autoRefreshNew", next.autoRefreshNew)
             .putBoolean("backgroundNotifications", next.backgroundNotifications)
+            .putInt("checkMinutes", next.checkMinutes)
+            .putBoolean("notificationsPrompted", next.notificationsPrompted)
             .putInt("liveIntervalSeconds", next.liveIntervalSeconds)
             .putLong("anonymousUntil", next.anonymousUntil)
             .putBoolean("expertMode", next.expertMode)
@@ -133,6 +145,7 @@ class SettingsStore(context: Context) {
             .putString("answersOrder", next.answersOrder.name)
             .putBoolean("easyReply", next.easyReply)
             .putBoolean("replyQuotes", next.replyQuotes)
+            .putBoolean("hideReplyCarets", next.hideReplyCarets)
             .putBoolean("moderatorBadges", next.moderatorBadges)
             .putBoolean("onboarded", next.onboarded)
             .apply()
@@ -149,6 +162,9 @@ class SettingsStore(context: Context) {
             animations = prefs.getBoolean("animations", defaults.animations),
             autoRefreshNew = prefs.getBoolean("autoRefreshNew", defaults.autoRefreshNew),
             backgroundNotifications = prefs.getBoolean("backgroundNotifications", defaults.backgroundNotifications),
+            checkMinutes = prefs.getInt("checkMinutes", defaults.checkMinutes).takeIf { it in AppSettings.CHECK_MINUTES }
+                ?: defaults.checkMinutes,
+            notificationsPrompted = prefs.getBoolean("notificationsPrompted", defaults.notificationsPrompted),
             liveIntervalSeconds = prefs.getInt("liveIntervalSeconds", defaults.liveIntervalSeconds)
                 .coerceIn(AppSettings.LIVE_MIN_SECONDS, AppSettings.LIVE_MAX_SECONDS),
             anonymousUntil = prefs.getLong("anonymousUntil", defaults.anonymousUntil),
@@ -163,6 +179,7 @@ class SettingsStore(context: Context) {
             answersOrder = enumOr(prefs.getString("answersOrder", null), defaults.answersOrder),
             easyReply = prefs.getBoolean("easyReply", defaults.easyReply),
             replyQuotes = prefs.getBoolean("replyQuotes", defaults.replyQuotes),
+            hideReplyCarets = prefs.getBoolean("hideReplyCarets", defaults.hideReplyCarets),
             moderatorBadges = prefs.getBoolean("moderatorBadges", defaults.moderatorBadges),
             onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
         )
