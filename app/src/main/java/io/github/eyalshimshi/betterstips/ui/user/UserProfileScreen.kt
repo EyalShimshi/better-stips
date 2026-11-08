@@ -42,7 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import io.github.eyalshimshi.betterstips.ui.components.QuestionIcon
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Cake
@@ -318,7 +318,7 @@ fun UserProfileScreen(
                                     1,
                                     count,
                                     { onOpenMyList(MyList.Asked) },
-                                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                                    icon = QuestionIcon,
                                 )
                                 GroupRow(
                                     stringResource(R.string.my_answers),

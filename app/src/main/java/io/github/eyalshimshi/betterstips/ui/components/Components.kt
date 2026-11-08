@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.outlined.Schedule
@@ -86,6 +87,13 @@ val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppConta
 
 /** Opens a user's profile from anywhere (author names, avatars, thanks wall). Provided by AppRoot. */
 val LocalOpenProfile = staticCompositionLocalOf<(Long) -> Unit> { {} }
+
+/**
+ * Material's question-mark icon, facing the way Hebrew (and English) write "?" (v0.16). The auto-mirrored one turns it
+ * around in right-to-left, as Arabic writes "؟", so it read backwards in Hebrew.
+ */
+@Suppress("DEPRECATION")
+val QuestionIcon: ImageVector get() = Icons.Outlined.HelpOutline
 
 /** Unread chats and notifications, refreshed by AppRoot while the app is open. */
 val LocalUnreadCounts = compositionLocalOf { UnreadCounts() }

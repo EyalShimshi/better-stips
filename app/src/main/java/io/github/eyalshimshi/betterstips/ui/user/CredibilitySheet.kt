@@ -13,7 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import io.github.eyalshimshi.betterstips.ui.components.QuestionIcon
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Cancel
@@ -306,7 +306,7 @@ private fun Requirement(text: String, met: Boolean?) {
     val (icon, tint) = when (met) {
         true -> Icons.Outlined.CheckCircle to MaterialTheme.colorScheme.primary
         false -> Icons.Outlined.Cancel to MaterialTheme.colorScheme.error
-        null -> Icons.AutoMirrored.Outlined.HelpOutline to MaterialTheme.colorScheme.onSurfaceVariant
+        null -> QuestionIcon to MaterialTheme.colorScheme.onSurfaceVariant
     }
     StatusLine(icon, text, tint)
 }

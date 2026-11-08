@@ -58,6 +58,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -85,6 +86,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -926,42 +928,49 @@ private fun QuestionContent(
     }
 }
 
-/** The sort menu by the number of answers (v0.16): Stips' order (the default), newest first, or by upvotes. */
+/**
+ * The sort chip by the number of answers (v0.16): Stips' order (the default), newest first, or by upvotes. A chip, so
+ * it's easy to tap; another order fills it, so the replies' order isn't a surprise.
+ */
 @Composable
 private fun AnswerSortButton(sort: AnswerSort, onSort: (AnswerSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val sorted = sort != AnswerSort.Default
-    val description = stringResource(R.string.sort_answers) + ": " + stringResource(answerSortLabel(sort))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        // Another order says so, so the replies' order isn't a surprise.
-        if (sorted) {
-            Text(
-                stringResource(answerSortLabel(sort)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-            )
-        }
-        Box {
-            IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) {
+    val colors = MaterialTheme.colorScheme
+    Box {
+        AssistChip(
+            onClick = { open = true },
+            label = { Text(stringResource(answerSortLabel(sort)), maxLines = 1) },
+            leadingIcon = {
                 Icon(
                     Icons.AutoMirrored.Filled.Sort,
-                    contentDescription = description,
-                    tint = if (sorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
+                    contentDescription = stringResource(R.string.sort_answers),
+                    modifier = Modifier.size(AssistChipDefaults.IconSize),
                 )
-            }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                AnswerSort.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(answerSortLabel(option))) },
-                        onClick = {
-                            open = false
-                            onSort(option)
-                        },
-                        trailingIcon = if (option == sort) ({ Icon(Icons.Filled.Check, contentDescription = null) }) else null,
-                    )
-                }
+            },
+            trailingIcon = {
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize))
+            },
+            colors = if (sort != AnswerSort.Default) {
+                AssistChipDefaults.assistChipColors(
+                    containerColor = colors.secondaryContainer,
+                    labelColor = colors.onSecondaryContainer,
+                    leadingIconContentColor = colors.onSecondaryContainer,
+                    trailingIconContentColor = colors.onSecondaryContainer,
+                )
+            } else {
+                AssistChipDefaults.assistChipColors()
+            },
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            AnswerSort.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(answerSortLabel(option))) },
+                    onClick = {
+                        open = false
+                        onSort(option)
+                    },
+                    trailingIcon = if (option == sort) ({ Icon(Icons.Filled.Check, contentDescription = null) }) else null,
+                )
             }
         }
     }

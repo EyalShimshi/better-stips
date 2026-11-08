@@ -34,7 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import io.github.eyalshimshi.betterstips.ui.components.QuestionIcon
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
@@ -905,7 +905,7 @@ private fun notificationIcon(kind: NotificationKinds.Kind): ImageVector = when (
     NotificationKinds.Kind.Flower -> Icons.Outlined.LocalFlorist
     NotificationKinds.Kind.Thanks -> Icons.Outlined.VolunteerActivism
     NotificationKinds.Kind.Answers -> Icons.Outlined.QuestionAnswer
-    NotificationKinds.Kind.Question -> Icons.AutoMirrored.Outlined.HelpOutline
+    NotificationKinds.Kind.Question -> QuestionIcon
     NotificationKinds.Kind.Message -> Icons.AutoMirrored.Outlined.Chat
     NotificationKinds.Kind.Badge -> Icons.Outlined.WorkspacePremium
     NotificationKinds.Kind.Removal -> Icons.Outlined.Gavel

@@ -165,6 +165,7 @@ The log never contains request parameters, cookies, tokens or text the user wrot
 - **Defaults (D-112):** `SettingsStore.update` saves every setting, so a new default doesn't reach anyone who ever saved one. To move people still on an old default, add it to a migration like `v16DefaultChanges` and raise `DEFAULTS_VERSION`.
 - **Sorting answers (D-113):** `AnswerSort` in [AnswerDisplay.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/AnswerDisplay.kt), kept in `QuestionUiState.sort`, so it lasts as long as the visit. Carets always count in Stips' order (`stipsOrder`), whatever is shown.
 - **Refreshing tabs (D-115):** AppRoot marks a tab in `TabRefreshes` ([TabRefresh.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/components/TabRefresh.kt)) when the bottom bar switches to it, and the open tab when the app comes back (`ON_START` after `ON_STOP`). A screen joins with `RefreshOnEnter(route) { … }`; merge new items on top (`pollNew`) rather than reload, and skip when its view model loaded less than `AutoRefresh.FRESH_MS` ago. Pen pals' Live is Home's loop: `repeatOnLifecycle(RESUMED)`, `RateGuard.allowBackground()`, `AppSettings.liveDelayMs`; both share `liveIntervalSeconds`.
+- **"?" icons (D-117):** use `QuestionIcon` (Components.kt), not `Icons.AutoMirrored.*.HelpOutline`: the auto-mirrored one turns around in right-to-left and reads backwards in Hebrew.
 - **The Stips+ badge (D-116):** `BioPromo.has` decides, from the profile already loaded. Keep it off answers: it would cost a profile request per answerer.
 
 ## Data files
