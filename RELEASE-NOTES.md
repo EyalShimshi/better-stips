@@ -1,50 +1,51 @@
-## Stips+ 0.13: unread bars, notices from Stips' team, credibility explained, and edit history (#10)
+## Stips+ 0.14: settings rethought, an intro, pictures from links, thread export, and a safer public repository (#12, #14, #15, #16)
 
-I saw your notes and issues #10 and #11: #10 is in this release, and I'll check the issues before finishing from now on (it's in the playbook).
+**From issue #12**
+- **Settings, rethought:** an account card on top, then three groups: *Make it yours* (appearance, Home, questions and answers, DM settings), *On your phone* (notifications, widgets) and *More* (privacy and safety, Stips, about). Each row says what's chosen now ("Theme: System · Dynamic color").
+- **Pictures in Settings:** Appearance shows a piece of the app in your colors. Home shows its three layouts to pick from. Questions and answers shows two answers, one replying to the other, and it changes as you flip the switches (quote, carets, moderator badge, swipe). DM settings shows two chat bubbles the same way, also in the ⚙ sheet on the chats screens. Notifications shows what a phone notification looks like.
+- **Expert mode moved into About**, with Diagnostics. Live new questions moved to Home; deleting the account to the account page.
+- **An intro on first launch:** pick the look, Home's layout and how replies show, each with its picture, then sign in or look around as a guest, and phone notifications. Settings → About → *Show the intro again* replays it.
+- **Gentle jumps:** tapping a reply's quote or carets (in chats and in questions) doesn't move anything when the message is already on screen in full; it only lights it up. Otherwise the screen moves just enough to show it whole, about a tenth of the screen from the edge.
+- **No emojis in questions and answers:** they're left out as you type or paste, with a short line saying why. Chats keep them.
+  - **Is there a way around it?** No. Stips' server keeps question and answer text in a form that can't hold emojis and cuts the text at the first one, which is why your answer came out empty (`"a": ""`). Writing them as HTML codes doesn't work either, because Stips escapes `&` on the way in.
+- **The asker's nickname:** on an anonymous question asked under a nickname, the asker's own anonymous answers show that nickname instead of "אנונימי", still without a profile link.
+- **Pen pals:** a post only opens a chat with its writer. Report, hide and block are gone; your own post keeps *Delete*.
+- **Home:** refreshing scrolls the hot questions back to the first card.
+- **Profiles:** links in bios open. The activity graph has the newest on the right. On your own profile, a colorful **I use Stips+** button next to *Edit bio* adds "גם אני משתמש בסטיפס+" (or משתמשת) and the app's Google Play link below your bio. A dialog first shows the exact line and promises the bio stays as it is.
+- **Stips' creator (user 2042) has a badge**, "יוצר סטיפס", by his name on his profile, his questions and his answers. The list is [SpecialAccounts.kt](app/src/main/java/io/github/eyalshimshi/betterstips/SpecialAccounts.kt), at the top of the code: one line per account. Edit it and it reaches phones with the next release. It isn't downloaded while the app runs, so nobody can put a badge or a blue check on an account without a signed release.
 
-**What's new**
-- **"Unread" bar in questions:** a notification about new answers opens the question with a thin "N unread answers" bar just above the first new one, instead of the glow. A flower notification still makes your answer glow. Pull to refresh, post an answer, or open the question again, and the bar is gone.
-- **"Unread" bar in chats:** a chat opens with a thin "N unread messages" bar just above the first unread message. When they don't fit on the screen, the chat opens at the bar and ↓ counts them. Leave the chat or reply, and it's gone.
-- **Notices from Stips' team:** a removed question or answer, the outcome of your report, or a note from the team now says who it's from. It shows the team's reason in a box, as the site does, and the credibility points taken. Tap one for the full text, your credibility now, and how to appeal. On the phone they arrive as "Stips' team".
-- **Credibility, explained:** the gauge shows Stips' rating (מושלם, אמין מאוד, אמין, בסדר, בעייתי, מזיק, מזיק מאוד) and how fast it rises. Tap it for:
-  - What your points allow: editing from 50, activity from 30.
-  - **When will the points reach…**: pick a number with the slider and see the date, if no points are taken away. From 90 up it's a range, since Stips adds a point every 3–7 days there.
-  - The milestones ahead with their dates, and Stips' table.
-  - On your own profile, your goals: senior answerer (500 flowers), and what Stips asks of moderators (age 15+, 100 points, 3,000 flowers, a year and a half on Stips, a year since the last block).
-- **Block screens:** if Stips blocks the account, or the points drop under 30, a full screen says why and until when. It shows Stips' own reason and end date when Stips sends them. Otherwise it follows the rules: at 20–29 points, blocked for 30 − points days (a point a day); below 20, for good. You can keep reading, contact Stips, open the rules or sign out. The screen comes back if Stips refuses something you do.
-- **Easy reply below 50 points:** Stips allows no editing below 50 points, and easy reply fixes its carets by editing, so it turns off for answers then. Settings says why. Reply quotes keep working for everyone. Easy reply in chats isn't affected, because it counts before sending.
+**#15: pictures from links**
+- An imgbb link (`ibb.co/…`), or an image file on imgbb, Imgur or Postimages, opens in the app's viewer: pinch or double-tap to zoom, with *Open in browser* at the top.
+- An attached link that's a picture gets a **Show image** button next to it; the link itself still opens the browser. Picture links inside text open the viewer.
+- Nothing is loaded until you tap. For an imgbb page the app first reads imgbb's short description of it (under 1 KB) to find the picture.
+- **Uploading from the app:** my recommendation is in [SPEC-07 §2](SPEC-07-proposals.md#2-uploading-pictures-to-imgbb-from-the-app-15-part-2). A built-in upload needs an imgbb key, and in an open app that key would be public. It would also put pictures from (mostly young) users online in one tap. Safer: a button in the link dialog that opens imgbb's own upload page, and you paste the link back.
 
-**From issue #10**
-- **Edit history:** an edited answer says "· edited" next to its time. Tap it (or ⋮ → *Edit history*) to see every version, newest first, with who edited it (the answerer, a moderator or Stips) and when. It's the same list the site shows ("גרסאות קודמות").
-- **Tap the open tab again** (Home, Pen pals, Chats, Profile): it scrolls to the top and reloads at the same time, like opening the page again.
-- **Scores in color:** green above zero, red below.
-- **A scroll button on questions:** a small round ↓ in the corner jumps to the last answer. Once you've scrolled down and the question's header has folded away, the arrow turns around and takes you back up. It hides when the whole thread fits on the screen.
+**#16: export a thread**
+- ⋮ → *Export thread*: the question and its answers as **Text** (Markdown, good for pasting into an AI chat) or **JSON**, with a preview, then *Copy* or *Share*.
+- Answers are numbered in Stips' order, with "replies to #N" worked out from their carets. Answers you hid stay out.
 
-**Also from the rule book and the site's code**
-- **Messages need 5 flowers:** below 5 flowers (moderators are exempt), a chat shows Stips' explanation in place of the message box, instead of failing when you send. Pen pals already did this.
-- The credibility sheet also has the PDF's other rules: editing only up to 2 days after posting, and appeals through Contact or a senior moderator.
+**#14: the public repository**
+I ran a full security review of the code, the repository and CI, and fixed what you chose:
+- **Releases wait for your approval.** Each one now needs your tap. One-time setup: Settings → Environments → **release** → *Required reviewers* → add yourself. Then approve each release in the GitHub app: the run → *Review deployments*.
+- **CI:** the workflow's token is read-only except for publishing, and the actions from outside GitHub are pinned to exact versions. The emulator test no longer copies live Stips posts into the release notes or `ci-status`; its screenshots are kept only when it fails.
+- **Docs:** the measurements and the tool that re-measured Stips' rate limit are gone, as is the playbook step about checking issues before finishing. Personal details are out of the docs and tests, and commits use your GitHub noreply address.
+- **Signing out** now clears the account's phone notifications and what the phone kept about it: which questions it answered anonymously (never backed up now), what it read, and its easy replies.
+- **Link labels** show the real site: a link like `https://stips.co.il@other.site/` now reads "other.site", and a link's title shows its site next to it.
 
-**To ship**
-- Commits "Unread bars, Stips' team notices, block screens, credibility explained (v0.13)" and "Edit history, reload on re-tapping a tab, colored scores, a scroll button on threads (#10, v0.13)", pushed by the agent; this release is the build of the second. The first one's build was cancelled on purpose, so both come out together.
+**#13 and #17: planning**
+- [SPEC-07 §1](SPEC-07-proposals.md#1-stips-notifications-inside-the-app-rethought-13) is the notifications deep dive. It covers what Stips sends, why the list feels messy (one row per burst of answers, the team's notices lost among them), the options, and my recommendation: one row per question, the team's notices on top, sections by day.
+- [SPEC-07 §3](SPEC-07-proposals.md#3-an-iphone-version-17) is the iPhone question. It's possible with Kotlin Multiplatform, and about half the code can be shared. It needs an Apple developer account ($99 a year), and on iPhone notifications can't be checked every few minutes. My recommendation: Google Play first.
 
 **To test**
-1. Install over 0.12. When new answers come in on your question, tap the notification. The question opens at a thin "unread answers" bar, without the glow. Pull down: the bar goes. A flower notification still makes your answer glow.
-2. Have someone send you a few messages, then open the chat: a thin "unread messages" bar sits above the first one. Leave and come back: it's gone.
-3. Profile → tap the credibility gauge. At 93 you're *מושלם* (a point every 3–7 days). Move the slider to 100: about 3 to 7 weeks.
-4. Settings → Home and reading → Easy reply: at 93 it works as before (under 50 it would turn off and say why).
-5. When a notice from Stips' team arrives, check its label. If it's wrong, turn on expert mode, tap { } on it, and send me what it shows.
-6. Edit one of your answers, then tap "· edited" under your name: the sheet shows the version now and the one before, "Edited by the answerer".
-7. On a long question, tap ↓: you're at the last answer and the button shows ↑. Tap it to go back up. Scroll Home down and tap Home: it goes up and the spinner shows while it reloads.
+1. Settings: open each group and flip switches while watching the pictures. Find Expert mode under About.
+2. Settings → About → *Show the intro again*: go through it, change the look, and see the app change behind it.
+3. In a question with an imgbb link, tap *Show image* and zoom.
+4. ⋮ → *Export thread* → *Copy*, and paste it into a note or an AI chat.
+5. Type an emoji into an answer: it doesn't go in, and a line explains why.
+6. In a chat or a question, tap a reply's quote when the message is already on screen: it only lights up.
+7. Your profile → *I use Stips+* (cancel, or add it and remove it with *Edit bio*). Open user 2042's profile to see the badge.
 
 **Heads-up**
-- **Guesses:** the team's notices aren't in the site's code, and neither are their texts. The app recognizes them by the team's reason box, the points taken, and words like "נמחק", "הוסר", "דיווחת". The first real ones will show whether the labels are right.
-- **Untested:** a block can't be tried on your account (93 points), so the block screens are checked only by unit tests.
-- **How chats know what's unread:** Stips doesn't mark single messages as read, only how many are unread per chat (in the chats list). When the app hasn't loaded that list since it started, it uses the last message it showed you in that chat.
-- **Left for later** (from the PDF): hints while writing (a question without "?", emojis, letters repeated), and a note on pen pals that a new post replaces your previous one. A question's own edit history (Stips keeps one) isn't shown yet.
+- This release waits for your approval, so it appears on the Releases page only after you approve it.
+- The Google Play link in "I use Stips+" works once the app is on Google Play.
 - Nothing was tested on a real phone. The CI emulator is signed out.
-- Still open: change your Stips password, and send the permission request to Stips.
-
-**Next options**
-1. Writing hints from the rule book: a gentle warning before posting a question without "?", or with emojis or repeated letters, which moderators remove.
-2. An "instant" mode with the screen off: a background service that checks every minute. It costs battery and keeps a small permanent notification.
-3. "Add to home screen" for one question or chat (a pinned shortcut).

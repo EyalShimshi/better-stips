@@ -224,6 +224,14 @@ private fun QuestionStep(state: AskUiState, anonymousMode: Boolean, channelName:
             minLines = 4,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (state.emojisRemoved) {
+            // Stips cuts a question at its first emoji, so they're left out (#12).
+            Text(
+                stringResource(R.string.no_emoji_notice),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = state.anonymous,

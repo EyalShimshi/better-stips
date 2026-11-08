@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.Author
@@ -97,6 +98,9 @@ val LocalNow = compositionLocalOf<Instant?> { null }
 
 /** Taps on the bottom bar's tab that's already open, by its route (v0.12). Provided by AppRoot. */
 val LocalTabReselects = staticCompositionLocalOf<SharedFlow<String>> { MutableSharedFlow() }
+
+/** Shows the first-run intro again (Settings → About, #12). Provided by AppRoot. */
+val LocalShowIntro = staticCompositionLocalOf<() -> Unit> { {} }
 
 /** Farther down than this, going back to the top jumps instead of scrolling through everything. */
 private const val RESELECT_ANIMATE_LIMIT = 30
@@ -379,6 +383,7 @@ fun QuestionMetaRow(
     avatarSize: Dp = 18.dp,
     clickableAuthor: Boolean = false,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    special: SpecialAccounts.Entry? = null,
 ) {
     val style = MaterialTheme.typography.labelMedium
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -389,6 +394,10 @@ fun QuestionMetaRow(
                 AuthorName(question.author, style, Modifier.weight(1f, fill = false))
             } else {
                 NameWithMark(question.author, style, color, Modifier.weight(1f, fill = false))
+            }
+            if (special != null) {
+                Spacer(Modifier.width(6.dp))
+                SpecialBadgePill(special)
             }
         }
         Spacer(Modifier.width(8.dp))

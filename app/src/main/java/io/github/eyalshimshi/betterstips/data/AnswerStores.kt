@@ -21,6 +21,9 @@ class ReadMarks(context: Context) {
         keepNewest(prefs, MAX)
     }
 
+    /** Signing out forgets what this account read (#14). */
+    fun clear() = prefs.edit().clear().apply()
+
     private companion object {
         const val MAX = 500
     }
@@ -44,6 +47,9 @@ class ChatReadMarks(context: Context) {
         prefs.edit().apply { drop.forEach { remove(it) } }.apply()
     }
 
+    /** Signing out forgets this account's chats (#14). */
+    fun clear() = prefs.edit().clear().apply()
+
     private companion object {
         const val MAX = 300
     }
@@ -59,6 +65,9 @@ class ReplyTargets(context: Context) {
         prefs.edit().putLong(answerId.toString(), targetId).apply()
         keepNewest(prefs, MAX)
     }
+
+    /** Signing out forgets this account's replies (#14). */
+    fun clear() = prefs.edit().clear().apply()
 
     private companion object {
         const val MAX = 300

@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and older: back up everything except the Stips session token and the chats widget's copy of your chats. -->
+<!--
+  Android 11 and older: back up everything except the Stips session token, the chats widget's copy of your chats,
+  and which questions you answered anonymously (#14).
+-->
 <full-backup-content>
     <exclude domain="sharedpref" path="session.xml" />
+    <exclude domain="sharedpref" path="anonymous_answers.xml" />
     <exclude domain="file" path="chats_widget.json" />
 </full-backup-content>

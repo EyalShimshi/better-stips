@@ -120,7 +120,15 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-66 | Edit history (#10, v0.13) | P1 | An edited answer says "· edited" after its time; it and ⋮ → *Edit history* open every version, newest first, with who edited it (the answerer, a moderator, Stips) and when |
 | F-67 | Scores in color (#10, v0.13) | P2 | An answer's score is green above zero and red below |
 | F-68 | Scroll button on threads (#10, v0.13) | P2 | A small round button goes down to the last answer; once the question's header has folded away it turns into "back to the top". Hidden when the thread fits on the screen |
-
+| F-69 | Pen pals, simpler (#12, v0.14) | P2 | A pen-pal post only opens a chat with its writer; your own keeps *Delete* |
+| F-70 | The asker's nickname (#12, v0.14) | P2 | On an anonymous question asked under a nickname, the asker's anonymous answers show that nickname |
+| F-71 | Gentle jumps (#12, v0.14) | P1 | A reply's quote or carets light up what they point at without moving the list when it's in sight, and move it the least otherwise |
+| F-72 | No emojis where Stips drops them (#12, v0.14) | P1 | Questions and answers leave emojis out as they're typed, with a line saying why; chats keep them |
+| F-73 | Bio links and "I use Stips+" (#12, v0.14) | P2 | Links in bios open; your profile offers to add a line with the app's Google Play link below your bio |
+| F-74 | Special accounts (#12, v0.14) | P2 | Stips' creator has a badge by his name on his profile, questions and answers; the list is in the code |
+| F-75 | Settings rethought and an intro (#12, v0.14) | P1 | Settings in three groups with summaries and pictures; a first-run intro to choose the look, Home and replies, then sign in; shown again from About |
+| F-76 | Pictures from links (#15, v0.14) | P1 | imgbb links and image files open in the app's zoomable viewer; attached ones get *Show image* |
+| F-77 | Export a thread (#16, v0.14) | P2 | ⋮ → *Export thread*: Markdown or JSON, copied or shared |
 ## 7. Non-functional requirements
 
 | Area | Requirement |

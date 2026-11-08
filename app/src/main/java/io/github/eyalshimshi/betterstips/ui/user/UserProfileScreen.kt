@@ -16,6 +16,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -80,6 +84,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -105,6 +110,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -115,6 +121,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.ChartAction
 import io.github.eyalshimshi.betterstips.data.model.ChartPoint
@@ -131,10 +138,12 @@ import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.ExpertFields
 import io.github.eyalshimshi.betterstips.ui.components.ExpertLine
+import io.github.eyalshimshi.betterstips.ui.components.LinkifiedText
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
+import io.github.eyalshimshi.betterstips.ui.components.SpecialBadgePill
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedMark
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
@@ -148,13 +157,14 @@ import io.github.eyalshimshi.betterstips.ui.theme.ColorMath
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
+import io.github.eyalshimshi.betterstips.util.BioPromo
 import io.github.eyalshimshi.betterstips.util.CredRules
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private const val BIO_MAX = 250
+private const val BIO_MAX = BioPromo.BIO_MAX
 
 /**
  * A social-style profile (SPEC-02 §7): photo, counts, bio, the credibility gauge, activity graphs and the thanks
@@ -187,6 +197,7 @@ fun UserProfileScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val titleVisible by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     var editingBio by rememberSaveable { mutableStateOf(false) }
+    var promoOpen by rememberSaveable { mutableStateOf(false) }
     var photoOpen by rememberSaveable { mutableStateOf(false) }
     val showImages = LocalAppSettings.current.showImages
     val expert = LocalAppSettings.current.expertMode
@@ -290,6 +301,7 @@ fun UserProfileScreen(
                             onMessage = onMessage,
                             onStat = ::showChart,
                             onOpenPhoto = if (profile.avatar.fullPhotoUrl() != null && showImages) ({ photoOpen = true }) else null,
+                            onPromo = if (isMe && state.page != null) ({ promoOpen = true }) else null,
                         )
                     }
                     item(key = "credibility") { CredibilityCard(profile.points, onClick = { credibilityOpen = true }) }
@@ -404,6 +416,18 @@ fun UserProfileScreen(
             onDismiss = { editingBio = false },
         )
     }
+    if (promoOpen && profile != null) {
+        val bio = state.page?.bio
+        BioPromoDialog(
+            bio = bio,
+            female = profile.female,
+            onConfirm = {
+                promoOpen = false
+                vm.saveBio(BioPromo.appended(bio, profile.female))
+            },
+            onDismiss = { promoOpen = false },
+        )
+    }
     if (detailsOpen && profile != null) {
         ServerDetailsDialog(
             title = stringResource(R.string.expert_details),
@@ -446,6 +470,7 @@ private fun ProfileHeader(
     onMessage: (() -> Unit)?,
     onStat: (ChartAction) -> Unit,
     onOpenPhoto: (() -> Unit)?,
+    onPromo: (() -> Unit)? = null,
 ) {
     // Stips gives some accounts a colored profile background (#8): a band behind the photo, as a cover.
     val band = profile.background.takeIf { it.size >= 2 }?.map { Color(it) }
@@ -472,6 +497,7 @@ private fun ProfileHeader(
             onStat = onStat,
             onOpenPhoto = onOpenPhoto,
             top = if (band != null) 40.dp else 8.dp,
+            onPromo = onPromo,
         )
     }
 }
@@ -489,6 +515,7 @@ private fun ProfileHeaderBody(
     onStat: (ChartAction) -> Unit,
     onOpenPhoto: (() -> Unit)?,
     top: Dp,
+    onPromo: (() -> Unit)? = null,
 ) {
     val online = onlineColor()
     Column(
@@ -587,13 +614,16 @@ private fun ProfileHeaderBody(
         }
         val age = if (page?.hideAge == true) null else page?.age
         val memberFor = memberForText(page?.activeSince)
-        if (badges.isNotEmpty() || verifiedLabel != null || age != null || memberFor != null) {
+        // Stips+'s special accounts: their badge comes first (#12).
+        val special = SpecialAccounts.badge(profile.userId)
+        if (badges.isNotEmpty() || verifiedLabel != null || age != null || memberFor != null || special != null) {
             Spacer(Modifier.height(8.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
+                if (special != null) SpecialBadgePill(special, large = true)
                 if (verifiedLabel != null) InfoPill(Icons.Outlined.Verified, verifiedLabel, highlighted = true)
                 badges.forEach { InfoPill(Icons.Outlined.WorkspacePremium, it, highlighted = true) }
                 if (age != null) {
@@ -608,11 +638,12 @@ private fun ProfileHeaderBody(
         val bio = page?.bio
         if (bio != null) {
             Spacer(Modifier.height(10.dp))
-            Text(bio, style = MaterialTheme.typography.bodyMedium)
+            // Links in a bio open like links in answers: Stips ones in the app, the rest in the browser (#12).
+            LinkifiedText(bio, style = MaterialTheme.typography.bodyMedium)
         }
         if (onMessage != null || isMe) {
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (onMessage != null) {
                     FilledTonalButton(onClick = onMessage) {
                         Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -626,6 +657,8 @@ private fun ProfileHeaderBody(
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(if (bio == null) R.string.profile_add_bio else R.string.profile_edit_bio))
                     }
+                    // "גם אני משתמש בסטיפס+" for the bio, in the special badges' colors (#12).
+                    if (onPromo != null && !BioPromo.has(bio)) PromoButton(onPromo)
                 }
             }
         }
@@ -789,11 +822,13 @@ private fun chartLabel(action: ChartAction): String = stringResource(
     },
 )
 
-/** Weekly bars for the last half year. Tap a bar for its week; time runs in reading direction. */
+/**
+ * Weekly bars for the last half year. Tap a bar for its week. Time runs left to right, the newest week on the right,
+ * also in Hebrew, as on a timeline (#12).
+ */
 @Composable
 private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifier) {
     val animate = LocalAppSettings.current.animations
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     var selected by remember(points) { mutableIntStateOf(-1) }
     val grow = remember(points) { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(points) {
@@ -820,12 +855,11 @@ private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifie
             Modifier
                 .fillMaxWidth()
                 .height(120.dp)
-                .pointerInput(points, rtl) {
+                .pointerInput(points) {
                     detectTapGestures { offset ->
                         if (points.isNotEmpty()) {
                             val slot = size.width.toFloat() / points.size
-                            val position = (offset.x / slot).toInt().coerceIn(0, points.lastIndex)
-                            val index = if (rtl) points.lastIndex - position else position
+                            val index = (offset.x / slot).toInt().coerceIn(0, points.lastIndex)
                             selected = if (selected == index) -1 else index
                         }
                     }
@@ -838,7 +872,7 @@ private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifie
             val minHeight = 3.dp.toPx()
             val radius = CornerRadius(barWidth / 2f, barWidth / 2f)
             points.forEachIndexed { i, point ->
-                val position = if (rtl) points.lastIndex - i else i
+                val position = i
                 val height = if (point.count == 0) minHeight else (size.height * point.count / max * grow.value).coerceAtLeast(minHeight)
                 val color = when {
                     point.count == 0 -> emptyColor
@@ -855,10 +889,13 @@ private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifie
             }
         }
         Spacer(Modifier.height(6.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            val first = points.firstOrNull()?.time?.atZone(ZoneId.systemDefault())?.toLocalDate()?.format(dayFormat).orEmpty()
-            Text(first, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(stringResource(R.string.chart_this_week), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // The first week under the left end, this week under the right one, whatever the language.
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                val first = points.firstOrNull()?.time?.atZone(ZoneId.systemDefault())?.toLocalDate()?.format(dayFormat).orEmpty()
+                Text(first, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.chart_this_week), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -1053,4 +1090,68 @@ private fun ThanksComposer(nickname: String, sending: Boolean, onSend: (String) 
 }
 
 private const val THANKS_MAX = 500
+
+/** The colors of the Stips+ bio button: Stips green into blue and purple, bright enough on both themes (#12). */
+private val PromoColors = listOf(Color(0xFF09A872), Color(0xFF2F7BF6), Color(0xFF8E44EC))
+
+/** The bio button (#12): a colored pill, like a special badge, that offers to add "גם אני משתמש בסטיפס+". */
+@Composable
+private fun PromoButton(onClick: () -> Unit) {
+    Row(
+        Modifier
+            .heightIn(min = 40.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Brush.horizontalGradient(PromoColors))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(
+            stringResource(R.string.bio_promo_button),
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * What the bio button adds (#12): the exact line, a promise that the bio stays as it is, and when the line doesn't
+ * fit Stips' 250 characters, how many it would take.
+ */
+@Composable
+private fun BioPromoDialog(bio: String?, female: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val length = BioPromo.lengthWith(bio, female)
+    val fits = length <= BioPromo.BIO_MAX
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+        title = { Text(stringResource(R.string.bio_promo_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.bio_promo_body), style = MaterialTheme.typography.bodyMedium)
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Text(BioPromo.line(female), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
+                }
+                Text(
+                    stringResource(R.string.bio_promo_keep),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!fits) {
+                    Text(
+                        stringResource(R.string.bio_promo_too_long, length, BioPromo.BIO_MAX),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm, enabled = fits) { Text(stringResource(R.string.bio_promo_add)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
 

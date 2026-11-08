@@ -127,6 +127,8 @@ data class HotStripState(
     val items: List<Question> = emptyList(),
     val loading: Boolean = true,
     val error: ApiException? = null,
+    /** Counts the lists that arrived; each new one brings the row back to the first card (#12). */
+    val version: Int = 0,
 )
 
 /** The hottest questions shown as big cards on Home; the screen shows as many as the reader chose (#8). */
@@ -145,7 +147,7 @@ class HotStripViewModel(private val repository: StipsRepository) : ViewModel() {
             _state.update { it.copy(loading = true, error = null) }
             try {
                 val list = repository.feedPage(query, 1)
-                _state.value = HotStripState(items = list, loading = false)
+                _state.update { HotStripState(items = list, loading = false, version = it.version + 1) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -397,6 +399,12 @@ private fun HotSection(
             }
             else -> {
                 val rowState = rememberLazyListState()
+                // A refresh brings the row back to the hottest question (#12).
+                val animations = LocalAppSettings.current.animations
+                LaunchedEffect(state.version) {
+                    if (rowState.firstVisibleItemIndex == 0 && rowState.firstVisibleItemScrollOffset == 0) return@LaunchedEffect
+                    if (animations) rowState.animateScrollToItem(0) else rowState.scrollToItem(0)
+                }
                 LazyRow(
                     state = rowState,
                     flingBehavior = rememberSnapFlingBehavior(rowState),

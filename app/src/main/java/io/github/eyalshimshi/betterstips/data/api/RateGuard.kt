@@ -6,10 +6,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Paces the app and handles Stips' per-address limit (#5). Stips answers `IP_RATE_LIMIT` ("ip … reached rate
- * limit") to every call from an address that sent about 100 calls without its site's Referer, at any pace from 150 s
- * to 6 minutes. Calls with the Referer aren't limited that way (test clients passed 200 in under 5 minutes; the
- * official app made 245 in 4½), and Stips+ sends it (D-49, SPEC-04 §2.10). So this is a safety net and a courtesy:
+ * Paces the app and handles Stips' per-address limit (#5): Stips answers `IP_RATE_LIMIT` ("ip … reached rate limit")
+ * to an address that sends too many calls (SPEC-04 §2.10). Stips+ makes its calls as the site's pages do (D-49) and
+ * keeps near the official app's pace, so this is a safety net and a courtesy:
  *
  * - **A request budget** close to the official app's pace: 40 at once, then one more every 2 seconds (30 a minute,
  *   at most 190 in any five minutes). Automatic checks (Live, badges, phone notifications) run only while at least

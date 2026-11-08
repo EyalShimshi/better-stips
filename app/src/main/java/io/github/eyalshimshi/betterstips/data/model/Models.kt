@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.data.model
 
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 import java.time.Instant
 
 const val SITE_URL = "https://stips.co.il"
@@ -40,13 +41,11 @@ data class Author(
 
 /**
  * Organizations that answer on Stips (#8). Stips brands some of them itself (`specialConfig`, for example Net Knights);
- * others, such as Sahar's volunteers, get no flag from Stips, so they're listed here by account.
+ * others, such as Sahar's volunteers, get no flag from Stips, so they're listed by account in [SpecialAccounts]
+ * ("verified").
  */
 object Organizations {
-    /** Sahar's volunteers (emotional support online) and the Net Knights (online safety), as the owner named them. */
-    val KNOWN_USER_IDS: Set<Long> = setOf(10486L, 253000L)
-
-    fun isKnown(userId: Long?): Boolean = userId != null && userId in KNOWN_USER_IDS
+    fun isKnown(userId: Long?): Boolean = userId != null && userId in SpecialAccounts.verifiedIds
 }
 
 sealed interface Cover {
@@ -136,9 +135,17 @@ data class Answer(
     val byAsker: Boolean = false,
     /** Stips kept earlier versions of it (`revision_flg`): it was edited, and its history can be shown (v0.13, #10). */
     val edited: Boolean = false,
+    /**
+     * The name to show instead of the author's (#12), set by the screen, never sent anywhere: the asker's anonymous
+     * answers on their own anonymous question show the nickname they asked under.
+     */
+    val displayName: String? = null,
     /** The item as Stips sent it (compact JSON), for expert mode (#8). */
     val raw: String? = null,
-)
+) {
+    /** The author as the answer shows them: with [displayName] when the screen set one. */
+    val shownAuthor: Author get() = if (displayName != null) author.copy(nickname = displayName) else author
+}
 
 /**
  * One of an answer's earlier versions (`omniobj_revision.for_item`, v0.13 (#10)), newest first as Stips lists them: what the

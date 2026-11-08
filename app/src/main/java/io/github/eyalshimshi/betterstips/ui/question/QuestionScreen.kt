@@ -73,6 +73,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.History
@@ -142,7 +143,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -155,7 +155,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -171,6 +170,7 @@ import io.github.eyalshimshi.betterstips.data.model.ModeratorRank
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
+import io.github.eyalshimshi.betterstips.ui.components.AttachedLink
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
@@ -183,6 +183,7 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
+import io.github.eyalshimshi.betterstips.ui.components.SpecialBadgePill
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
@@ -195,6 +196,7 @@ import io.github.eyalshimshi.betterstips.ui.components.channelLabel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
+import io.github.eyalshimshi.betterstips.ui.components.reveal
 import io.github.eyalshimshi.betterstips.ui.components.shareText
 import io.github.eyalshimshi.betterstips.ui.components.specialNameColor
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
@@ -202,8 +204,10 @@ import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
 import io.github.eyalshimshi.betterstips.util.AnswerDisplay
 import io.github.eyalshimshi.betterstips.util.AnswerRules
 import io.github.eyalshimshi.betterstips.util.CredRules
+import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -228,6 +232,9 @@ private sealed interface PendingAction {
     data object DetachQuestion : PendingAction
 
     data object EditQuestion : PendingAction
+
+    /** The thread as text to copy or share (#16). */
+    data object Export : PendingAction
 
     /** Expert mode (#8): what Stips sent about the question, or about one answer. */
     data object QuestionDetails : PendingAction
@@ -317,8 +324,10 @@ fun QuestionScreen(
         val hidden = question != null && remember(question.id, question.author.userId, blockVersion) {
             container.blocks.isBlocked("ask", question.id, question.author.userId)
         }
-        val answers = remember(state.answers, blockVersion, settings.answersOrder) {
-            AnswerDisplay.ordered(state.answers.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }, settings.answersOrder)
+        // The asker's anonymous answers show the nickname the question was asked under (#12).
+        val named = remember(state.answers, question?.author) { AnswerDisplay.withAskerNickname(question, state.answers) }
+        val answers = remember(named, blockVersion, settings.answersOrder) {
+            AnswerDisplay.ordered(named.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }, settings.answersOrder)
         }
         val signedIn = session.signedIn
         val me = session.userId
@@ -432,6 +441,7 @@ fun QuestionScreen(
                         channel = channel,
                         state = state,
                         answers = answers,
+                        stipsOrder = named,
                         signedIn = signedIn,
                         expert = expert,
                         listState = listState,
@@ -499,6 +509,7 @@ fun QuestionScreen(
                         val showImages = LocalAppSettings.current.showImages
                         val entries = buildList {
                             add(MenuEntry(stringResource(R.string.action_open_site), Icons.Outlined.OpenInBrowser) { openInBrowser(context, question.shareUrl) })
+                            add(MenuEntry(stringResource(R.string.export_thread), Icons.Outlined.ContentCopy) { pending = PendingAction.Export })
                             if (question.cover != null && showImages) {
                                 add(MenuEntry(stringResource(R.string.view_image), Icons.Outlined.Image) { viewerOpen = true })
                             }
@@ -631,6 +642,16 @@ fun QuestionScreen(
                     onDismiss = { pending = null },
                 )
             }
+            PendingAction.Export -> if (question != null) {
+                val hiddenIds = remember(named, blockVersion) { named.filter(isHidden).map { it.id }.toSet() }
+                ExportThreadDialog(
+                    question = question,
+                    answers = named,
+                    hidden = hiddenIds,
+                    channel = channel?.name,
+                    onDismiss = { pending = null },
+                )
+            }
             is PendingAction.AnswerDetails -> ServerDetailsDialog(
                 title = stringResource(R.string.expert_details),
                 fields = ExpertFields.answer(action.answer),
@@ -669,6 +690,7 @@ private fun QuestionContent(
     channel: Channel?,
     state: QuestionUiState,
     answers: List<Answer>,
+    stipsOrder: List<Answer>,
     signedIn: Boolean,
     expert: Boolean,
     listState: LazyListState,
@@ -696,7 +718,6 @@ private fun QuestionContent(
     // Answers show as written; the reader may hide the opening carets that the quotes stand for (v0.11).
     val hideCarets = LocalAppSettings.current.hideReplyCarets
     // Carets count in Stips' order (oldest first), whatever order the answers are shown in (v0.10).
-    val stipsOrder = state.answers
     val positions = remember(stipsOrder) { stipsOrder.withIndex().associate { (i, a) -> a.id to i } }
     val answersError = state.answersError
     val headerKeys = buildList {
@@ -714,6 +735,21 @@ private fun QuestionContent(
         scope.launch {
             listState.animateScrollToItem(headerKeys.size + index, -(topBarPx + gapPx).roundToInt())
             if (glow) highlight = Highlight(answerId, System.nanoTime())
+        }
+    }
+
+    val animations = LocalAppSettings.current.animations
+
+    /**
+     * Shows the answer a reply points at and lights it up (#12): no scroll when it's already in sight whole, otherwise
+     * the least scroll that shows it, with some room between it and the top bar.
+     */
+    fun revealAnswer(answerId: Long) {
+        val index = answers.indexOfFirst { it.id == answerId }
+        if (index < 0) return
+        scope.launch {
+            listState.reveal(headerKeys.size + index, animations, startInset = topBarPx.roundToInt())
+            highlight = Highlight(answerId, System.nanoTime())
         }
     }
     LaunchedEffect(state.jump) {
@@ -829,11 +865,12 @@ private fun QuestionContent(
                         reply = reply,
                         stipsOrder = stipsOrder,
                         isHidden = isHidden,
-                        onJump = { jumpTo(it) },
+                        onJump = { revealAnswer(it) },
                         onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
                         highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
                         moderator = moderatorOf(answer),
                         onShowHistory = if (answer.edited) ({ onHistory(answer) }) else null,
+                        special = if (answer.author.anonymous) null else SpecialAccounts.badge(answer.author.userId),
                     )
                 }
             }
@@ -921,7 +958,7 @@ private fun QuestionHero(
 ) {
     val showImages = LocalAppSettings.current.showImages
     val loader = LocalAppContainer.current.imageLoader
-    val uriHandler = LocalUriHandler.current
+    val askerSpecial = if (question.author.anonymous) null else SpecialAccounts.badge(question.author.userId)
     val surface = MaterialTheme.colorScheme.surface
     val cover = question.cover
     val withImage = cover != null && showImages
@@ -984,6 +1021,7 @@ private fun QuestionHero(
                 pinCount = pinCount,
                 avatarSize = 22.dp,
                 clickableAuthor = true,
+                special = askerSpecial,
             )
             if (question.topics.isNotEmpty() || channel != null) {
                 Row(
@@ -1018,26 +1056,7 @@ private fun QuestionHero(
                 }
             }
             val link = question.link
-            if (link != null) {
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { uriHandler.openUri(link) }
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        Links.host(link),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+            if (link != null) AttachedLink(link, title = null, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -1203,9 +1222,9 @@ private fun AnswerCard(
     highlightKey: Long?,
     moderator: ModeratorBadge?,
     onShowHistory: (() -> Unit)? = null,
+    special: SpecialAccounts.Entry? = null,
     modifier: Modifier = Modifier,
 ) {
-    val uriHandler = LocalUriHandler.current
     val haptics = LocalHapticFeedback.current
     val animations = LocalAppSettings.current.animations
     val density = LocalDensity.current
@@ -1304,7 +1323,11 @@ private fun AnswerCard(
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            AuthorName(answer.author, MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+                            AuthorName(answer.shownAuthor, MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f, fill = false))
+                            if (special != null) {
+                                Spacer(Modifier.width(6.dp))
+                                SpecialBadgePill(special)
+                            }
                             if (moderator != null) {
                                 Spacer(Modifier.width(6.dp))
                                 ModeratorPill(moderator)
@@ -1369,24 +1392,12 @@ private fun AnswerCard(
                     onTarget = onJump,
                 )
                 answer.links.forEach { link ->
-                    Row(
-                        Modifier
-                            .padding(top = 6.dp, end = 10.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { uriHandler.openUri(link.url) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Link, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            link.title ?: Links.host(link.url),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            textDecoration = TextDecoration.Underline,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    AttachedLink(
+                        link.url,
+                        title = link.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 2.dp, end = 10.dp),
+                    )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { onVote(1) }, enabled = signedIn) {
@@ -1444,7 +1455,7 @@ private fun ReplyQuote(target: Answer, hidden: Boolean, onClick: () -> Unit) {
         )
         Column(Modifier.padding(horizontal = 10.dp, vertical = 5.dp)) {
             Text(
-                if (hidden) stringResource(R.string.reply_hidden) else authorName(target.author),
+                if (hidden) stringResource(R.string.reply_hidden) else authorName(target.shownAuthor),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = accent,
@@ -1537,7 +1548,7 @@ private fun ReplyBar(replyTo: Answer, onCancel: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             Text(
-                stringResource(R.string.reply_to, authorName(replyTo.author)),
+                stringResource(R.string.reply_to, authorName(replyTo.shownAuthor)),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = accent,
@@ -1696,10 +1707,25 @@ private fun Composer(
                         )
                     }
                 }
+                // Emojis are left out as they're typed or pasted: Stips would cut the answer at the first one (#12).
+                var emojiNotice by remember { mutableIntStateOf(0) }
+                LaunchedEffect(emojiNotice) {
+                    if (emojiNotice > 0) {
+                        delay(EMOJI_NOTICE_MS)
+                        emojiNotice = 0
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = field,
-                        onValueChange = { value ->
+                        onValueChange = { typed ->
+                            val clean = EmojiFilter.strip(typed.text, typed.selection.start, typed.selection.end)
+                            val value = if (clean.removed) {
+                                emojiNotice++
+                                typed.copy(text = clean.text, selection = TextRange(clean.selectionStart, clean.selectionEnd), composition = null)
+                            } else {
+                                typed
+                            }
                             field = value
                             if (value.text != state.draft) onDraft(value.text)
                         },
@@ -1739,11 +1765,21 @@ private fun Composer(
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp),
                     )
+                } else if (emojiNotice > 0) {
+                    Text(
+                        stringResource(R.string.no_emoji_notice),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
         }
     }
 }
+
+/** How long the note that emojis were left out stays under the composer. */
+private const val EMOJI_NOTICE_MS = 4_000L
 
 /** Reporting a question or an answer: Stips wants a few words on what's wrong (5 to 500 characters). */
 @Composable
@@ -1797,6 +1833,7 @@ private fun EditQuestionDialog(question: Question, onDismiss: () -> Unit, onSave
     var title by rememberSaveable { mutableStateOf(question.title) }
     var body by rememberSaveable { mutableStateOf(question.body) }
     var link by rememberSaveable { mutableStateOf(question.link.orEmpty()) }
+    var emojis by remember { mutableStateOf(false) }
     val titleOk = title.trim().length in 10..120 && !AnswerRules.hasRepeatedLetters(title)
     val bodyOk = body.length <= 2000 && !AnswerRules.hasRepeatedLetters(body)
     AlertDialog(
@@ -1806,7 +1843,11 @@ private fun EditQuestionDialog(question: Question, onDismiss: () -> Unit, onSave
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = title,
-                    onValueChange = { title = it.take(120) },
+                    onValueChange = {
+                        val clean = EmojiFilter.strip(it)
+                        if (clean != it) emojis = true
+                        title = clean.take(120)
+                    },
                     label = { Text(stringResource(R.string.ask_title_label)) },
                     supportingText = { Text("${title.trim().length} / 120") },
                     isError = !titleOk,
@@ -1814,11 +1855,20 @@ private fun EditQuestionDialog(question: Question, onDismiss: () -> Unit, onSave
                 )
                 OutlinedTextField(
                     value = body,
-                    onValueChange = { body = it.take(2000) },
+                    onValueChange = {
+                        val clean = EmojiFilter.strip(it)
+                        if (clean != it) emojis = true
+                        body = clean.take(2000)
+                    },
                     label = { Text(stringResource(R.string.ask_body_label)) },
                     minLines = 2,
                     maxLines = 6,
                     isError = !bodyOk,
+                    supportingText = if (emojis) {
+                        { Text(stringResource(R.string.no_emoji_notice)) }
+                    } else {
+                        null
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(

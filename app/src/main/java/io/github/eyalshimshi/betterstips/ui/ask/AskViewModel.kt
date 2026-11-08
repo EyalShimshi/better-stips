@@ -11,6 +11,7 @@ import io.github.eyalshimshi.betterstips.data.model.AskDraft
 import io.github.eyalshimshi.betterstips.data.model.GalleryPhoto
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AskRules
+import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,6 +47,8 @@ data class AskUiState(
     val posting: Boolean = false,
     val error: ApiException? = null,
     val postedId: Long? = null,
+    /** Emojis were left out of what the user typed: Stips keeps none in questions (#12). */
+    val emojisRemoved: Boolean = false,
 )
 
 /** Asking a question, in the site's three steps: the question, its tags, its photo (#4). */
@@ -83,9 +86,19 @@ class AskViewModel(
     private fun defaultNickname(): String =
         if (session.session.value.profile?.female == true) StipsRepository.ANONYMOUS_FEMALE else StipsRepository.ANONYMOUS_MALE
 
-    fun setTitle(value: String) = _state.update { it.copy(title = value.take(AskRules.TITLE_MAX)) }
+    fun setTitle(value: String) = withoutEmojis(value) { text, removed ->
+        _state.update { it.copy(title = text.take(AskRules.TITLE_MAX), emojisRemoved = it.emojisRemoved || removed) }
+    }
 
-    fun setBody(value: String) = _state.update { it.copy(body = value.take(AskRules.BODY_MAX)) }
+    fun setBody(value: String) = withoutEmojis(value) { text, removed ->
+        _state.update { it.copy(body = text.take(AskRules.BODY_MAX), emojisRemoved = it.emojisRemoved || removed) }
+    }
+
+    /** Stips cuts a question at its first emoji, so they're left out as they're typed (#12). */
+    private inline fun withoutEmojis(value: String, apply: (String, Boolean) -> Unit) {
+        val clean = EmojiFilter.strip(value)
+        apply(clean, clean != value)
+    }
 
     fun setLink(value: String) = _state.update { it.copy(link = value) }
 
@@ -95,7 +108,9 @@ class AskViewModel(
 
     fun setAnonymous(on: Boolean) = _state.update { it.copy(anonymous = on, nickname = if (on) it.nickname else defaultNickname()) }
 
-    fun setNickname(value: String) = _state.update { it.copy(nickname = value.take(AskRules.NICKNAME_MAX)) }
+    fun setNickname(value: String) = withoutEmojis(value) { text, removed ->
+        _state.update { it.copy(nickname = text.take(AskRules.NICKNAME_MAX), emojisRemoved = it.emojisRemoved || removed) }
+    }
 
     fun leaveChannel() = _state.update { it.copy(channelId = null) }
 
@@ -170,7 +185,8 @@ class AskViewModel(
         }
     }
 
-    fun setTagInput(value: String) {
+    fun setTagInput(input: String) {
+        val value = EmojiFilter.strip(input)
         _state.update { it.copy(tagInput = value) }
         completionJob?.cancel()
         val prefix = AskRules.cleanTag(value)

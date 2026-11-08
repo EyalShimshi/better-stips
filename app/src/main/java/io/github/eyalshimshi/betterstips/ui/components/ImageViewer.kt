@@ -6,17 +6,26 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.BrokenImage
+import androidx.compose.material.icons.outlined.OpenInBrowser
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,30 +39,44 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.util.ImageLinks
+import io.github.eyalshimshi.betterstips.util.Links
 
 private const val MAX_ZOOM = 5f
 private const val DOUBLE_TAP_ZOOM = 2.5f
 
 /**
  * A photo, full screen on black: pinch or double-tap to zoom, drag to look around (#4). [previewUrl] (already in
- * the cache) shows at once while [fullUrl] loads on top of it.
+ * the cache) shows at once while [fullUrl] loads on top of it. A picture from a link (#15) has no [fullUrl] while
+ * its page is read, is [unavailable] when it can't be, and can be opened in the browser instead.
  */
 @Composable
-fun ImageViewerDialog(fullUrl: String, previewUrl: String?, caption: String?, onDismiss: () -> Unit) {
+fun ImageViewerDialog(
+    fullUrl: String?,
+    previewUrl: String?,
+    caption: String?,
+    onDismiss: () -> Unit,
+    onOpenInBrowser: (() -> Unit)? = null,
+    unavailable: Boolean = false,
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val loader = LocalAppContainer.current.imageLoader
         val haptics = LocalHapticFeedback.current
+        var loaded by remember(fullUrl) { mutableStateOf(false) }
+        var failed by remember(fullUrl) { mutableStateOf(false) }
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
@@ -115,13 +138,41 @@ fun ImageViewerDialog(fullUrl: String, previewUrl: String?, caption: String?, on
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                AsyncImage(
-                    model = fullUrl,
-                    contentDescription = caption,
-                    imageLoader = loader,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                if (fullUrl != null) {
+                    AsyncImage(
+                        model = fullUrl,
+                        contentDescription = caption,
+                        imageLoader = loader,
+                        contentScale = ContentScale.Fit,
+                        onSuccess = { loaded = true },
+                        onError = { failed = true },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            val cantShow = unavailable || (failed && previewUrl == null)
+            if (cantShow) {
+                Column(
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(Icons.Outlined.BrokenImage, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(R.string.image_unavailable),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center,
+                    )
+                    if (onOpenInBrowser != null) {
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = onOpenInBrowser) { Text(stringResource(R.string.image_open_browser), color = Color.White) }
+                    }
+                }
+            } else if (!loaded && previewUrl == null) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
             }
             FilledTonalIconButton(
                 onClick = onDismiss,
@@ -131,6 +182,17 @@ fun ImageViewerDialog(fullUrl: String, previewUrl: String?, caption: String?, on
                     .padding(12.dp),
             ) {
                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_close))
+            }
+            if (onOpenInBrowser != null) {
+                FilledTonalIconButton(
+                    onClick = onOpenInBrowser,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(12.dp),
+                ) {
+                    Icon(Icons.Outlined.OpenInBrowser, contentDescription = stringResource(R.string.image_open_browser))
+                }
             }
             if (caption != null) {
                 Text(
@@ -145,4 +207,29 @@ fun ImageViewerDialog(fullUrl: String, previewUrl: String?, caption: String?, on
             }
         }
     }
+}
+
+/**
+ * The picture behind an image link (#15), in the viewer above: an imgbb page is read first (only now, on the tap),
+ * then the picture loads under a spinner. imgbb's small version is a square crop, so it isn't shown first: it would
+ * stick out around a wide picture. "Open in browser" keeps the old way one tap away.
+ */
+@Composable
+fun ImageLinkViewer(source: ImageLinks.Source, onDismiss: () -> Unit) {
+    val container = LocalAppContainer.current
+    val context = LocalContext.current
+    var picture by remember(source) { mutableStateOf<ImageLinks.Picture?>(null) }
+    var unavailable by remember(source) { mutableStateOf(false) }
+    LaunchedEffect(source) {
+        val found = container.imageLinks.resolve(source)
+        if (found == null) unavailable = true else picture = found
+    }
+    ImageViewerDialog(
+        fullUrl = picture?.imageUrl,
+        previewUrl = null,
+        caption = Links.host(source.link),
+        onDismiss = onDismiss,
+        onOpenInBrowser = { openInBrowser(context, source.link) },
+        unavailable = unavailable,
+    )
 }

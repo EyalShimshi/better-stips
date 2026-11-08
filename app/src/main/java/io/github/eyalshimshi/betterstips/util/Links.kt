@@ -24,9 +24,16 @@ object Links {
     /** The user id in a Stips profile link, or null. */
     fun profileId(link: String): Long? = profileLink.find(link.trim())?.groupValues?.get(1)?.toLongOrNull()
 
-    /** "example.com" for a link, for compact labels. */
-    fun host(link: String): String = Regex("""^https?://(?:www\.)?([^/?#]+)""", RegexOption.IGNORE_CASE)
-        .find(link.trim())?.groupValues?.get(1) ?: link
+    /**
+     * "example.com" for a link, for compact labels. Only the real host: a "name@" before it (which browsers skip)
+     * is dropped, so "https://stips.co.il@other.example" reads "other.example" (#14).
+     */
+    fun host(link: String): String {
+        val authority = Regex("""^https?://([^/?#\\]+)""", RegexOption.IGNORE_CASE).find(link.trim())?.groupValues?.get(1) ?: return link
+        val hostAndPort = authority.substringAfterLast('@')
+        val host = if (hostAndPort.startsWith("[")) hostAndPort.substringBefore(']') + "]" else hostAndPort.substringBefore(':')
+        return host.removePrefix("www.").removePrefix("WWW.").ifEmpty { link }
+    }
 
     private val messagesLink = Regex("""^https?://(?:www\.)?stips\.co\.il/messages(?:[/?#].*)?$""", RegexOption.IGNORE_CASE)
 

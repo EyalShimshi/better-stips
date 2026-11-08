@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Get the APKs
         env:
@@ -72,7 +74,7 @@ jobs:
           echo "::warning::Couldn't install the emulator ahead; the emulator runner will try by itself."
 
       - name: Open the app
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2 (2.38.0), pinned as in build.yml (#14)
         env:
           SHORTCUTS: ${{ inputs.shortcuts && 'yes' || 'no' }}
         with:
@@ -83,10 +85,11 @@ jobs:
           emulator-boot-timeout: 1200
           script: bash tools/launch_test.sh
 
+      # The screenshots show Stips' live posts and a public repository's artifacts are public, so they're kept briefly.
       - name: Keep the screenshots and logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: launch-test-${{ inputs.tag }}-api-${{ inputs.api }}
           path: launch-test/
-          retention-days: 14
+          retention-days: 3

@@ -13,6 +13,7 @@ import io.github.eyalshimshi.betterstips.data.BlockStore
 import io.github.eyalshimshi.betterstips.data.ChannelsSource
 import io.github.eyalshimshi.betterstips.data.ChatReadMarks
 import io.github.eyalshimshi.betterstips.data.FeedCache
+import io.github.eyalshimshi.betterstips.data.ImageLinkResolver
 import io.github.eyalshimshi.betterstips.data.ReadMarks
 import io.github.eyalshimshi.betterstips.data.ReplyTargets
 import io.github.eyalshimshi.betterstips.data.SavedStore
@@ -100,6 +101,9 @@ class AppContainer(private val app: Application) {
     val replyTargets = ReplyTargets(app)
     val repository = StipsRepository(api, session, FeedCache(File(app.filesDir, "feeds")), channels, timings, blocks, userBadges)
 
+    /** Which picture an image link shows (#15): imgbb's small oEmbed answers, without cookies. */
+    val imageLinks = ImageLinkResolver(imageClient)
+
     /** The "Hot right now" widget's list (D-51). */
     val hotWidget = HotWidgetFeed(app, repository, appScope)
 
@@ -119,7 +123,21 @@ class AppContainer(private val app: Application) {
         repository.onFirstPage = { query, list -> if (query == HotWidgetFeed.QUERY) hotWidget.publish(list) }
         // Stips refused a call because the account is blocked: read why, and show the block screen again (v0.13).
         api.onBanned = { write -> appScope.launch { session.onBanned(write) } }
+        session.onSignedOut = ::forgetAccountData
         chatsWidget.start()
+    }
+
+    /**
+     * Signing out leaves nothing of the account on the phone (#14): its notifications, which questions it answered
+     * anonymously, what it read and replied to. Settings, saved questions and hidden content are the phone's.
+     */
+    private fun forgetAccountData() {
+        io.github.eyalshimshi.betterstips.notify.Notifier.forgetAccount(app)
+        anonymousAnswers.clear()
+        readMarks.clear()
+        chatReadMarks.clear()
+        replyTargets.clear()
+        seenNotifications.clear()
     }
 
     private val warmedUp = AtomicBoolean(false)

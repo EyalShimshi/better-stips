@@ -52,20 +52,20 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 
 | Package | Contents |
 |---|---|
-| `…betterstips` | `StipsApp` (Application), `AppContainer` (manual dependency container), `MainActivity` |
+| `…betterstips` | `StipsApp` (Application), `AppContainer` (manual dependency container), `MainActivity`, `SpecialAccounts` (badges and organizations' checks, edited by hand, v0.14) |
 | `….data.api` | `StipsApi` (requests, envelope, errors, the `+` quirk), `ApiException` |
 | `….data.parse` | `Parsers`: tolerant JSON → models (pure, unit-tested) |
 | `….data.model` | `Question`, `Answer`, `Author`, `Channel`, `Conversation`, `ChatMessage`, `UserProfile`, `ProfilePage`, `ChartPoint`, `ThanksMessage`, `StipsNotification`, `UnreadCounts`, `FeedQuery` |
-| `….data` | `StipsRepository`, `SessionStore`, `SavedStore`, `SettingsStore`, `FeedCache`, `Timings` |
+| `….data` | `StipsRepository`, `SessionStore`, `SavedStore`, `SettingsStore`, `FeedCache`, `Timings`, `ImageLinkResolver` (imgbb's oEmbed, v0.14) |
 | `….ui` | `AppRoot` (scaffold, bottom bar, nav host), `Routes` |
 | `….ui.theme` | `Theme`, `SchemeGenerator` (pure), `Type` |
-| `….ui.components` | Cover/monogram, avatar (with the online dot: `PresenceAvatar`), question row, states (empty, error, skeleton), linkified text |
+| `….ui.components` | Cover/monogram, avatar (with the online dot: `PresenceAvatar`), question row, states (empty, error, skeleton), linkified text, the image viewer (also for picture links), attached links with *Show image*, special badges, `reveal` (the least scroll to show an item, v0.14) |
 | `….ui.home`, `.question`, `.feed`, `.chats`, `.profile`, `.user`, `.notifications`, `.signin`, `.settings`, `.account` | Screens and their ViewModels (`.account`, v0.13: the block screen and the account's credibility helpers) |
 | `….notify` | `Notifier` (channels, posting, scheduling, status), `NotificationCheckJob` (JobScheduler, every 15 min) and `NotificationAlarmReceiver` (every few minutes while the phone is awake, v0.11); opt-in |
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules). The chats widget: `ChatsWidget`, `ChatsWidgetReceiver`, `RefreshChatsWidget`, `ChatsWidgetFeed` (D-67) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
-| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), which notifications and chats reach the phone (`NotifyRules`, v0.11), links and deep links, launcher shortcut actions, HTML-to-text and HTML entities decoded once (`TextUtils.decodeEntities`, v0.12; the parsers' `text()` reads every field people wrote through it), Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG) |
+| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), which notifications and chats reach the phone (`NotifyRules`, v0.11), links and deep links, launcher shortcut actions, HTML-to-text and HTML entities decoded once (`TextUtils.decodeEntities`, v0.12; the parsers' `text()` reads every field people wrote through it), Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG); v0.14: `EmojiFilter`, `JumpScroll`, `ImageLinks`, `ThreadExport`, `BioPromo` (pure) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
@@ -143,14 +143,14 @@ Nothing else: no location, contacts or storage.
 
 - HTTPS only (`usesCleartextTraffic=false`).
 - The password is sent once, by POST in the request body, to `https://stips.co.il/api`; it's never written to disk or logs.
-- The session token is stored app-private and excluded from cloud backup and device transfer (`dataExtractionRules`, `fullBackupContent`).
+- The session token is stored app-private and excluded from cloud backup and device transfer (`dataExtractionRules`, `fullBackupContent`), as is the list of questions answered anonymously (v0.14).
 - User-Agent: `StipsPlus/<version> (Android <release>; unofficial; +https://github.com/EyalShimshi/better-stips)`.
 - No logging of request bodies. No third-party SDKs.
 - Hidden profile fields the API returns (for example birth dates) are never shown or stored; only the signed-in user's own gender is kept, to pick the anonymous nickname as the site does.
 
 ## 10. Distribution constraints
 
-- Sideloaded APKs from the private repo's releases; Play Store only with Stips' permission (and Play's impersonation/IP policies).
+- Sideloaded APKs from the repository's releases (public since v0.14, each release approved by the owner); Play Store only with Stips' permission (and Play's impersonation/IP policies).
 - One signing key for every build (SPEC-05 §4).
 
 ## 11. Technical spikes (verify on the owner's device)

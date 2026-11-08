@@ -14,7 +14,7 @@
 | M3.7 v0.11 | Phone notifications that arrive: checks every few minutes while the phone is awake, per-chat notifications that pop up, a status panel and a one-time offer | The owner gets new answers and messages on the phone within minutes |
 | M3.8 v0.12 | Easy reply in chats, DM settings, back to the top, text as written; #9 | Chats work as answers do, and stay signed in |
 | M3.9 v0.13 | "Unread" bars, notices from Stips' team, block screens, credibility explained and projected, the 50-point and 5-flower limits; #10: edit history, reload on re-tapping a tab, colored scores, a scroll button on threads | The app says what Stips' rules mean for the user before they hit them |
-| M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
+| M3.10 v0.14 | #12: settings rethought with pictures, a first-run intro, gentle jumps, no emojis where Stips drops them, the asker's nickname, bio links and "I use Stips+", Stips' creator's badge; #15: pictures from links; #16: exporting a thread; #14: the public repository made safe (releases on approval, least-privilege CI, personal data out); proposals for #13, #15 and #17 (SPEC-07) | The owner sets the app up in a minute, and a public repository can't change what's on phones without the owner || M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
 
 ## 2. Spikes
 
@@ -33,48 +33,23 @@ See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone;
 | R-07 | The signing key is lost | Low | High | CI secret + a backup file on the owner's computer |
 | R-08 | Users are mostly minors; their content is personal | Medium | Medium | Nothing stored beyond caches and the user's own saved list; hidden profile fields are never shown; no analytics |
 | R-09 | Unsafe content or harassment | Medium | Medium | Report and block content in the app since v0.3 (`reports.send`, `ask/BlockContent`); report users and block their messages from a chat since v0.8 (D-56) |
-| R-10 | Stips limits the phone's address (`IP_RATE_LIMIT` after about 100 calls without the site's Referer) and seems "down" (#3, #5) | Low since v0.5 | Medium | The site's Referer (D-49), a budget at the official app's pace (D-46), a pause with one try a minute and a banner, the network log, and the probe workflow to re-measure (D-50) |
+| R-10 | Stips limits the phone's address (`IP_RATE_LIMIT`) and seems "down" (#3, #5) | Low since v0.5 | Medium | Requests made as the site's pages make them (D-49), a budget at the official app's pace (D-46), a pause with one try a minute and a banner, and the network log |
 | R-11 | A release crashes on launch although it compiles and passes its tests (builds 7–9, #7: R8 removed constructors that a library calls by name) | Low since v0.8 | High | Explicit keep rules and AGP 8's reading of library rules; CI checks those constructors in the APK and opens every build on an emulator before publishing it (D-55) |
 | R-12 | Phone notifications come late or not at all: Stips has no push for other apps, and Android (Samsung's especially) holds background work back to save battery | Medium | Medium | Checks every few minutes while the phone is awake; Android's "run in the background?" asked when turning them on; a status panel that names what's holding them back, with *Check now* and a test (D-72–D-74). Can't be tested on CI's signed-out emulator: the owner's phone is the test |
 | R-13 | A lost session looks like "nothing there": Stips answers account calls without one with empty data, not an error (#9) | Low since v0.12 | High | Cookies from answers to calls older than the latest sign-in are ignored; empty first pages and pull-to-refresh check the session with Stips and sign in again (D-79); a MockWebServer test covers the race |
 | R-14 | The team's notices and blocks can't be seen on a healthy account: their notification types and texts aren't in the site's code, and the block screens need under 30 points or a block (v0.13) | High | Low | Classified by `msgText`, `pointsRemoved` and their words, never by a question title (D-82); unknown points never block (D-83); expert mode shows each notification's type and kind, so a real notice can correct the rules |
-
+| R-15 | A public repository: anyone can read the code and file issues; a tricked agent, a hijacked action or a stolen account could change a release (#14) | Medium | High | Releases wait for the owner's approval; the CI token is read-only except for publishing; outside actions pinned to commits; the agent works on the issues the owner points to; nothing on phones is downloaded at run time (special accounts are code, D-99) |
+| R-16 | Picture links lead to someone else's pictures (#15) | Low | Medium | Only on the user's tap, only image files (decoded at screen size) from four known hosts, no cookies; *Open in browser* as before |
 ## 4. The permission request
 
 **Q-01:** Will Stips allow an independent client? The owner sends this to `contact@stips.co.il` (the address in Stips' Google Play listing). The terms name the operator as "נדב דפני - אינטרנט ותוכנה בע\"מ"; the Play listing names Futurebit Media Ltd.
 
-Rewritten before the launch (v0.10): the highlights so far, and a link to the open code. It still discloses the Referer (R-02).
+The owner sends the request from their own address. Its text isn't kept in this public repository (#14): it carries the owner's name and contact details, and how Stips+ makes its requests is for Stips to read, not for other clients (D-49, D-50). What it says:
 
-> **נושא:** Stips+ – אפליקציית אנדרואיד לסטיפס, רגע לפני ההשקה
->
-> שלום לצוות סטיפס,
->
-> שמי אייל שמשי, ואני משתמש פעיל בסטיפס. מתוך אהבה לאתר ולקהילה בניתי את Stips+, אפליקציית אנדרואיד עצמאית וחינמית שמביאה את סטיפס לטלפון בממשק טבעי, מהיר ונוח. האפליקציה כבר בליטושים האחרונים לקראת השקה, ואני ממש מתרגש לשתף אתכם!
->
-> כמה דברים שאני גאה בהם במיוחד:
-> - **דף בית חי:** השאלות הכי חמות בכרטיסים גדולים, ומתחתן השאלות החדשות, עם מצב Live שבו הן קופצות לפיד בזמן אמת בלי לרענן.
-> - **תשובה בהחלקה:** החלקה על תשובה מוסיפה לבד את ה-^^ לפי המוסכמה של סטיפס, ואם בינתיים נכנסו עוד תשובות, הספירה מתוקנת אוטומטית.
-> - **ציטוטים כמו בוואטסאפ:** תשובה שמפנה ב-^^ לתשובה קודמת מציגה ציטוט שלה, ולחיצה עליו קופצת אליה.
-> - **התראות שפותחות בדיוק במקום:** התראה על תשובות חדשות פותחת ישר בתשובה החדשה הראשונה, והתראה על פרח פותחת בתשובה שקיבלה אותו.
-> - **פרופילים בסגנון רשת חברתית:** נקודות אמינות, פרחים, גרפים של פעילות לאורך זמן וקיר התודות, ותג "נאמן סטיפס" ליד התשובות של הנאמנים.
-> - **ווידג'טים למסך הבית** לשאלות החמות ולשיחות שלא נקראו, מצב כהה ועברית מלאה מימין לשמאל.
->
-> חשוב לי שהאפליקציה תהיה טובה גם לסטיפס, לא רק למשתמשים, ולכן:
-> - **התוכן נשאר אצלכם.** האפליקציה פונה ישירות מהטלפון של המשתמש לסטיפס, כמו דפדפן, ורק בעקבות מה שהמשתמש עושה או מפעיל בה. אין שרת ביניים, ואין איסוף, העתקה או סריקה של תוכן.
-> - **שקיפות מלאה.** האפליקציה מזדהה בגלוי בכל בקשה (StipsPlus, unofficial, עם קישור לפרויקט), בכל שאלה יש קישור "פתיחה בסטיפס", והקוד פתוח לעיון: https://github.com/EyalShimshi/better-stips
-> - **בקצב של האפליקציה הרשמית.** כדי ששימוש רגיל לא ייחסם במגבלת הקצב שלכם (IP_RATE_LIMIT), כל בקשה נשלחת עם ה-Referer של האתר (https://stips.co.il/), כמו הבקשות של האתר ושל האפליקציה הרשמית, והקצב מוגבל בערך לזה של האפליקציה הרשמית. אם תעדיפו שאעשה את זה אחרת, אשנה.
-> - **פרטיות ובלי פרסומות.** ההתחברות היא עם חשבון סטיפס רגיל: הסיסמה נשלחת רק אליכם, והאפליקציה לא שומרת אותה. אין בה פרסומות, אנליטיקה או מעקב.
->
-> עד עכשיו לא הפצתי את האפליקציה לציבור, ואני משתמש בה בעצמי. לפני שאשיק אותה רשמית, ואולי גם אעלה אותה ל-Google Play, אשמח לקבל את אישורכם בכתב, כפי שנדרש בתנאי השימוש. אם יש לכם בקשות או תנאים, כמו שם אחר, קצב פניות, ייחוס או כל דבר אחר, אשמח להתאים. אשמח גם לשלוח לכם גרסה לנסות, או להראות לכם אותה.
->
-> המטרה שלי פשוטה: שיהיה עוד יותר כיף להשתמש בסטיפס.
->
-> תודה רבה, ומחכה לשמוע מכם!
-> אייל שמשי
-> eyalshimshi1@gmail.com
-
-*(English summary: an active user built a free, independent Android client out of love for the site, now in final polish before launch. Highlights: a live Home, swipe-to-reply with Stips' carets (corrected if answers land in between), WhatsApp-style reply quotes, notifications that open at the right answer, social profiles with the thanks wall and moderator badges, widgets and dark mode. Good faith: direct requests like a browser, only from what the user does or turns on; no middle server, collecting, copying or crawling; an honest User-Agent, "Open on Stips" and open code; the site's Referer on every request at about the official app's pace, changed if Stips prefers; the password goes only to Stips; no ads or tracking. Not distributed yet; asks for written permission and any conditions before launch, and offers a test build or a demo.)*
-
+- **Who and why:** an active user built a free, independent Android client out of love for the site and its community, now in its final polish before launch.
+- **Highlights:** a live Home (the hottest questions as big cards, new questions arriving by themselves); swipe-to-reply with Stips' carets, corrected when answers land in between; WhatsApp-style reply quotes; notifications that open at the right answer; social profiles with credibility, flowers, activity graphs, the thanks wall and moderator badges; widgets, dark mode and full right-to-left Hebrew.
+- **Good faith:** requests go straight from the user's phone to Stips, like a browser, only from what the user does or turns on; no middle server, collecting, copying or crawling. An honest User-Agent with a link to the project, "Open on Stips" on every question, and the open code. Requests are made as the site's own pages make them, at about the official app's pace, and that changes if Stips prefers. The password goes only to Stips and isn't stored; no ads, analytics or tracking.
+- **The ask:** written permission before launch (and before Google Play), as the terms require, and any conditions (a different name, a request rate, attribution). It offers a test build or a demo.
 ## 5. Open questions
 
 | ID | Question | Blocks |

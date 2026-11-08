@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -24,11 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AddComment
-import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,7 +50,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,12 +83,9 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
     val session by container.session.session.collectAsStateWithLifecycle()
     val blockVersion by container.blocks.version.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var reportTarget by remember { mutableStateOf<PenPalPost?>(null) }
     val texts = mapOf(
         PenPalMessage.Posted to stringResource(R.string.penpals_posted),
         PenPalMessage.Deleted to stringResource(R.string.penpals_deleted),
-        PenPalMessage.Reported to stringResource(R.string.report_sent),
-        PenPalMessage.Hidden to stringResource(R.string.content_hidden),
         PenPalMessage.Failed to stringResource(R.string.action_failed),
     )
     LaunchedEffect(state.message) {
@@ -126,10 +119,10 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
                 MessageCard(stringResource(R.string.penpals_closed_title), stringResource(R.string.penpals_closed_body), null, null)
             }
         } else {
-            PenPalsList(state, visible, session.signedIn, session.userId, padding, vm, listState, onOpenConversation, onSignIn) { reportTarget = it }
+            PenPalsList(state, visible, session.signedIn, session.userId, padding, vm, listState, onOpenConversation, onSignIn)
         }
     }
-    PenPalsDialogs(state, vm, reportTarget, onSignIn) { reportTarget = null }
+    PenPalsDialogs(state, vm, onSignIn)
 }
 
 @Composable
@@ -143,7 +136,6 @@ private fun PenPalsList(
     listState: LazyListState,
     onOpenConversation: (Long, String) -> Unit,
     onSignIn: () -> Unit,
-    onReport: (PenPalPost) -> Unit,
 ) {
         PullToRefreshBox(
             isRefreshing = state.refreshing && state.page > 0,
@@ -195,9 +187,6 @@ private fun PenPalsList(
                                         else -> Unit
                                     }
                                 },
-                                onReport = { if (signedIn) onReport(post) else onSignIn() },
-                                onHide = { vm.hide(post, wholeUser = false) },
-                                onHideUser = { vm.hide(post, wholeUser = true) },
                                 onDelete = { vm.delete(post) },
                                 modifier = Modifier.animateItem(),
                             )
@@ -226,32 +215,24 @@ private fun PenPalsList(
 }
 
 @Composable
-private fun PenPalsDialogs(state: PenPalsState, vm: PenPalsViewModel, reportTarget: PenPalPost?, onSignIn: () -> Unit, onReportDone: () -> Unit) {
+private fun PenPalsDialogs(state: PenPalsState, vm: PenPalsViewModel, onSignIn: () -> Unit) {
     if (state.composerOpen) {
         PenPalComposer(state = state, vm = vm, onSignIn = {
             vm.closeComposer()
             onSignIn()
         })
     }
-    if (reportTarget != null) {
-        PenPalReportDialog(
-            onDismiss = onReportDone,
-            onSend = { reason ->
-                onReportDone()
-                vm.report(reportTarget, reason)
-            },
-        )
-    }
 }
 
+/**
+ * A pen-pal post: tapping it opens a private chat with its writer, which is all the board is for (#12). Only the
+ * user's own post has a menu, to delete it when Stips allows that; the site offers no report or hide here.
+ */
 @Composable
 private fun PenPalCard(
     post: PenPalPost,
     isMine: Boolean,
     onOpen: () -> Unit,
-    onReport: () -> Unit,
-    onHide: () -> Unit,
-    onHideUser: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -272,51 +253,24 @@ private fun PenPalCard(
                     AuthorName(post.author, MaterialTheme.typography.labelLarge)
                     Text(agoText(post.time), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Box {
-                    IconButton(onClick = { menu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_actions))
-                    }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        if (isMine) {
-                            if (post.canDelete) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.penpals_delete), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                                    onClick = {
-                                        menu = false
-                                        onDelete()
-                                    },
-                                )
-                            }
-                        } else {
+                if (isMine && post.canDelete) {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_actions))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.penpals_report)) },
-                                leadingIcon = { Icon(Icons.Outlined.Flag, contentDescription = null) },
+                                text = { Text(stringResource(R.string.penpals_delete), color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     menu = false
-                                    onReport()
+                                    onDelete()
                                 },
                             )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.penpals_hide)) },
-                                leadingIcon = { Icon(Icons.Outlined.VisibilityOff, contentDescription = null) },
-                                onClick = {
-                                    menu = false
-                                    onHide()
-                                },
-                            )
-                            if (post.author.userId != null) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.hide_user_content)) },
-                                    leadingIcon = { Icon(Icons.Outlined.Block, contentDescription = null) },
-                                    onClick = {
-                                        menu = false
-                                        onHideUser()
-                                    },
-                                )
-                            }
                         }
                     }
+                } else {
+                    Spacer(Modifier.height(48.dp))
                 }
             }
             Text(
@@ -411,26 +365,4 @@ private fun PenPalComposer(state: PenPalsState, vm: PenPalsViewModel, onSignIn: 
             Spacer(Modifier.size(8.dp))
         }
     }
-}
-
-@Composable
-private fun PenPalReportDialog(onDismiss: () -> Unit, onSend: (String) -> Unit) {
-    var text by rememberSaveable { mutableStateOf("") }
-    val trimmed = text.trim()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.penpals_report)) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it.take(500) },
-                placeholder = { Text(stringResource(R.string.report_hint_penpal)) },
-                supportingText = { Text("${trimmed.length} / 500") },
-                minLines = 3,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = { TextButton(onClick = { onSend(trimmed) }, enabled = trimmed.length in 5..500) { Text(stringResource(R.string.report_send)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }

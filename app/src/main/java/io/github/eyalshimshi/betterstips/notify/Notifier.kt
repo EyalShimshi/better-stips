@@ -502,6 +502,17 @@ object Notifier {
         cancelAll(context, TAG_UPDATE)
     }
 
+    /**
+     * Signing out (#14): the account's notifications leave the shade (a message's sender and words would stay there
+     * for the next person on a shared phone), and what the checks knew is forgotten. The next account's first check
+     * only takes note of what's there, as on a first run.
+     */
+    fun forgetAccount(context: Context) {
+        cancelAll(context, TAG_UPDATE, TAG_CHAT, TAG_CHATS, TAG_TEST)
+        prefs(context).edit().clear().apply()
+        _status.value = null
+    }
+
     /** A chat was opened: its notification goes, with the general one about messages. */
     fun clearChat(context: Context, userId: Long) {
         cancel(context, TAG_CHAT, userId.toInt())

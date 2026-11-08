@@ -24,7 +24,7 @@ sealed interface PostBlock {
     data class Cooldown(val intervalMinutes: Int?, val nextInMinutes: Int?) : PostBlock
 }
 
-enum class PenPalMessage { Posted, Deleted, Reported, Hidden, Failed }
+enum class PenPalMessage { Posted, Deleted, Failed }
 
 data class PenPalsState(
     val items: List<PenPalPost> = emptyList(),
@@ -174,12 +174,6 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
     fun delete(post: PenPalPost) = act(PenPalMessage.Deleted) {
         repository.deleteItem("penfriendsitem", post.id)
         _state.update { s -> s.copy(items = s.items.filterNot { it.id == post.id }) }
-    }
-
-    fun report(post: PenPalPost, reason: String) = act(PenPalMessage.Reported) { repository.report("penfriendsitem", post.id, reason) }
-
-    fun hide(post: PenPalPost, wholeUser: Boolean) = act(PenPalMessage.Hidden) {
-        repository.blockContent("penfriendsitem", post.id, if (wholeUser) post.author.userId else null)
     }
 
     fun consumeMessage() = _state.update { it.copy(message = null) }

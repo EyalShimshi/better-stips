@@ -5,9 +5,10 @@
 ## Release flow
 
 1. Push to `main` (the agent does it, or you push from your editor).
-2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles and signs the APK, checks it ([tools/check_apk.py](tools/check_apk.py)), runs the unit tests, then opens it on an Android 15 emulator ([tools/launch_test.sh](tools/launch_test.sh)): over the newest earlier release that opens, as a fresh install (which must show the welcome screen), a second time, and from each launcher shortcut. Only then does it publish a pre-release `build-<run>` with `stipsplus-<run>.apk`. The release notes are [RELEASE-NOTES.md](RELEASE-NOTES.md) (update it every round) followed by the launch test's results.
-3. A build takes about 15 minutes of your monthly Actions minutes (GitHub Free includes 2,000 a month for private repos): about 5 to build and test, 10 on the emulator.
-4. Errors appear in a box on the run's **Summary** page, and in `status.md` on the `ci-status` branch. A failed launch test lists each step's verdict and the crash's stack trace; screenshots, logcats and the screen's text are in the run's `launch-test` artifact.
+2. GitHub Actions ([build.yml](.github/workflows/build.yml)) compiles and signs the APK, checks it ([tools/check_apk.py](tools/check_apk.py)), runs the unit tests, then opens it on an Android 15 emulator ([tools/launch_test.sh](tools/launch_test.sh)): over the newest earlier release that opens, as a fresh install (which must show the intro's first page, "Welcome"), a second time, and from each launcher shortcut. Then the release job waits for your approval (#14): GitHub notifies you, and in the GitHub app you open the run → *Review deployments* → *release* → *Approve and deploy*. Only then does it publish a pre-release `build-<run>` with `stipsplus-<run>.apk`. The release notes are [RELEASE-NOTES.md](RELEASE-NOTES.md) (update it every round) followed by the launch test's results.
+   - **One-time setup:** the first run creates the `release` environment. In the repository's Settings → Environments → **release** → *Required reviewers*, add yourself and save (optionally, *Deployment branches*: `main` only). Until then releases publish without waiting.
+3. A build takes about 15 minutes of runner time (free for a public repository): about 5 to build and test, 10 on the emulator.
+4. Errors appear in a box on the run's **Summary** page, and in `status.md` on the `ci-status` branch. A failed launch test lists each step's verdict and the crash's stack trace; screenshots, logcats and the screen's text are in the run's `launch-test` artifact, kept only when the test fails (for 5 days): they show Stips' live posts, and a public repository's artifacts are public (#14). The summary that goes into release notes and `status.md` holds only verdicts and the app's own words.
 5. A red build is fixed before any new work. No pre-release is published for it.
 
 **Versions:** `versionCode` is the CI run number. `versionName` is `<major>.<minor>.<run>`; raise `versionMajorMinor` in [app/build.gradle.kts](app/build.gradle.kts) every round.
@@ -22,14 +23,14 @@ Release builds are shrunk by R8. Libraries that create classes by name need thei
 
 ## Reading CI results without the website
 
-The agent can't read Actions in a private repo, so every run also writes its outcome to the `ci-status` branch:
+Every run also writes its outcome to the `ci-status` branch, which git can read without the website:
 
 ```powershell
 git fetch origin ci-status
 git --no-pager show origin/ci-status:status.md
 ```
 
-`status.md` holds the run number, commit, the result of each job (`build-and-tests`, `launch-test`, `release`), which key signed the APK (with its certificate digest), the APK size, and the error lines (build errors, the APK check, test failures, the launch test). It never contains secrets.
+`status.md` holds the run number, commit, the result of each job (`build-and-tests`, `launch-test`; `release` says "waiting for approval" when both passed, since the report doesn't wait for you), which key signed the APK (with its certificate digest), the APK size, and the error lines (build errors, the APK check, test failures, the launch test). It never contains secrets.
 
 ## The signing key
 
@@ -68,7 +69,7 @@ Symptoms: feeds or questions stop loading, or show "Stips answered in a way the 
 **Account calls** (profiles, pins, notifications, thanks wall; SPEC-04 §2.3) can't be probed without signing in. Check them on the phone: open your profile (counts, graphs, thanks wall), the bell on Home, and pin and unpin a question. A profile is public, so `profile.page_data` and `profile.actions_chart` can still be probed from PowerShell with any user id:
 
 ```powershell
-$p = [uri]::EscapeDataString('{"userid":275580,"action":"ans"}')
+$p = [uri]::EscapeDataString('{"userid":2042,"action":"ans"}')
 (Invoke-WebRequest "https://stips.co.il/api?name=profile.actions_chart&api_params=$p" -UseBasicParsing).Content.Substring(0, 300)
 ```
 
@@ -87,25 +88,15 @@ The app keeps a network log: Settings → Diagnostics → Network log (Diagnosti
 ```
 
 How to read it:
-- **`IP_RATE_LIMIT` and `limit` lines:** Stips refused this address (#5, SPEC-04 §2.10). Stips+ sends the site's Referer (D-49), which Stips' limit lets through, so first run the probe workflow's `app` variant (below): if it's refused too, Stips changed its rule. The first `limit` line says how many requests went out in the last 1, 5 and 10 minutes; "Stips answers again, m:ss after it started refusing" says how long it lasted (over 20 minutes when measured without the Referer). During a pause the app sends nothing but one try a minute.
+- **`IP_RATE_LIMIT` and `limit` lines:** Stips refused this address (#5, SPEC-04 §2.10). The first `limit` line says how many requests went out in the last 1, 5 and 10 minutes; "Stips answers again, m:ss after it started refusing" says how long it lasted. During a pause the app sends nothing but one try a minute. If it happens at the app's normal pace, Stips may have changed its rules: compare with the official app (next line).
 - **`-> 429` or `-> 403`** (often with `mitigated=…`): Cloudflare is limiting this phone's address; the app pauses the same way.
-- **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6. The official app is the website in a WebView, so its calls carry the site's Referer.
+- **Comparing with the official app:** record it with PCAPdroid and export both the pcap and the CSV (the CSV lists the connections: the API and `cdn.stips.co.il` share one). The traffic is encrypted, but each request's size and timing tell API calls from images: Stips' server answers a feed in 180–430 ms with about 8.7 KB (small calls can be under 100 ms, under 2 KB), while Cloudflare answers cached images in under 80 ms with bigger bodies. PCAPdroid captures IPv4 only by default, so the recording runs on a different address than the phone's IPv6. The official app is the website in a WebView.
 - **`FAILED … Timeout` or `ConnectException` on new connections:** the network (or Cloudflare dropping our address) — compare with `network` lines.
 - **`FAILED` on `reused` connections only, then fine on `new` ones:** a stale connection; the app drops idle connections after any failure and on network changes.
 - **`session` lines** show sign-ins with the saved token; only "rejected the saved sign-in (logged: false)" signs the user out. "kept the signed-in session: … from before the sign-in brought another" is the #9 race being stopped (below); it's harmless.
 - **`api … BAD_RESPONSE (body starts: <!DOCTYPE …)`:** Stips sent a web page instead of JSON (a challenge page or an error page).
 
 The log never contains request parameters, cookies, tokens or text the user wrote.
-
-### Re-measuring Stips' limit
-
-Actions → **Probe Stips' rate limit** → Run workflow ([probe.yml](.github/workflows/probe.yml), [tools/probe_rate_limit.py](tools/probe_rate_limit.py)). It takes a JSON list of variants; each runs on its own runner, so its own address, with anonymous requests only (the first New page, as a refresh sends):
-
-- `["app"]` (the default): Stips+'s own pattern (its User-Agent and the site's Referer, at the budget's fastest pace for 5 minutes, about 190 requests). Its `RESULT` line should say "never refused"; the job fails if Stips refuses.
-- `["limit"]`: without the Referer, one request a second until Stips refuses (about the 102nd), then one try a minute for up to 30 minutes to time the refusal. It triggers the limit on the runner's address on purpose, so run it rarely.
-- `["site"]`: a real Chrome page on stips.co.il calling the API as the site does, for reference.
-
-Test from CI, not from a corporate network: a proxy there may isolate web pages or share one address with many people.
 
 ## Phone notifications
 
@@ -122,7 +113,7 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 
 ## The website-like Home
 
-`feed.get` (SPEC-04 §2.11) is the site's home. If its sections stop loading, open `https://stips.co.il/` in a browser's developer tools, find the `feed.get` call and compare its parameters (`random_order_number`, `feed_type`) with `StipsRepository.homeSections`. Organizations without a Stips flag are listed in `Organizations.KNOWN_USER_IDS` (`data/model/Models.kt`).
+`feed.get` (SPEC-04 §2.11) is the site's home. If its sections stop loading, open `https://stips.co.il/` in a browser's developer tools, find the `feed.get` call and compare its parameters (`random_order_number`, `feed_type`) with `StipsRepository.homeSections`. Organizations without a Stips flag are listed in [SpecialAccounts.kt](app/src/main/java/io/github/eyalshimshi/betterstips/SpecialAccounts.kt) (`verified = true`; see "Special accounts" below).
 
 ## Replies, notifications and moderators (v0.10)
 
@@ -146,6 +137,16 @@ Test from CI, not from a corporate network: a proxy there may isolate web pages 
 - **Edit history (#10):** `omniobj_revision.for_item` lists an item's earlier versions newest first; `Parsers.answerRevisions` reads each one's `jsonstring` (the fields as they were before the next edit) and `editor`, and `EditHistory.versions` (pure, `EditHistoryTest`) lines them up as the site does, filling unchanged fields from the current answer. Questions have the same list (`itemObjType: "ask"`, fields `q`, `text_content`, `tagslist`) if their history is wanted too. If versions ever come out in the wrong order, check the order Stips returns (the site assumes newest first).
 - **Reloading on re-tapping a tab:** `ScrollToTopOnReselect(route, listState, onRefresh)` refreshes as it scrolls up; each tab passes its own refresh.
 
+## Special accounts, pictures, export and the settings (v0.14)
+
+- **Special accounts** are in [SpecialAccounts.kt](app/src/main/java/io/github/eyalshimshi/betterstips/SpecialAccounts.kt), at the top of the code: a badge by someone's name (Hebrew and English words, a color) or an organization's blue check (`verified = true`). Add a line, push, and it reaches phones with the release. It's code on purpose (#14): a list downloaded at run time could be changed by anyone who manages to write to the repository, and would put a badge on any account in every installed app. `RulesV14Test` checks the list (unique ids, short one-line badges, opaque colors).
+- **Picture links (#15):** [ImageLinks.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/ImageLinks.kt) knows imgbb pages (`ibb.co/<id>`) and image files on `i.ibb.co`, `i.imgur.com` and `i.postimg.cc`; any other link stays a browser link. An imgbb page is read through its oEmbed answer (`https://ibb.co/<id>/oembed.json`, under 1 KB; `ImageLinkResolver`, at most 16 KB read, no cookies), and only an https image on `i.ibb.co` is taken from it. If imgbb changes that answer, pictures fall back to "couldn't be loaded" with *Open in browser*; check the answer in a browser and fix `ImageLinks.fromOembed`. To add a host, add it to `DIRECT_HOSTS` (image files only) and to the README's network table.
+- **Emojis (#12):** questions and answers drop emojis as they're typed ([EmojiFilter.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/EmojiFilter.kt)): Stips' server cuts their text at the first one. Chats keep them. If Stips ever stores them, remove the filter from the composer, the ask screen and the question editor.
+- **Jumps (#12):** a reply's quote or carets move the list as little as possible ([JumpScroll.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/JumpScroll.kt), pure; [Reveal.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/components/Reveal.kt) reads the list's layout): nothing when the item is in sight whole, otherwise just enough to show it a tenth of the screen from the edge. Chats are reversed lists; the plan works in the list's own coordinates.
+- **Exporting a thread (#16):** [ThreadExport.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/ThreadExport.kt) (pure) writes Markdown or JSON; the dialog copies or shares it. Very long threads can be over Android's limit for the clipboard or sharing: the dialog says so instead of crashing.
+- **The bio line (#12):** [BioPromo.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/BioPromo.kt) holds the words and the Google Play link (from the application id). The link works once the app is on Google Play.
+- **Settings and the intro (#12):** the pages are `SettingsPage`; their pictures are in [Previews.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/settings/Previews.kt), drawn with the theme and the current settings (the DM settings sheet shows `ChatPreview` too). The intro is [IntroScreen.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/signin/IntroScreen.kt); its first page must keep the line "Welcome" (`welcome_title`), which the launch test looks for. Settings → About shows it again through `LocalShowIntro`.
+- **Signing out (#14)** clears the account's notifications (`Notifier.forgetAccount`) and its local lists (anonymous answers, read marks, chat read marks, reply targets, seen notifications) through `SessionStore.onSignedOut`. A new per-account store should be cleared there too.
 ## Data files
 
 | File | What | Rule |
@@ -163,7 +164,13 @@ Get-ChildItem app/src/main/res -Recurse -Filter *.xml | ForEach-Object { try { [
 Select-String -Path app/src/main/res/values*/strings.xml -Encoding UTF8 -Pattern '<string[^>]*>(?!")[^<]*(?<!\\)'''
 ```
 
-## Before going public
+## The public repository (#14)
 
-- Stips' written permission (SPEC-06 §4) and a decision on the name.
-- The playbook §7 checklist: no secrets in history, the signing key only in the encrypted secret, approval required for workflows from outside contributors.
+The repository is public. What keeps it safe:
+
+- **Secrets:** only the signing keystore, as an encrypted Actions secret. No password, token or cookie is in any file or commit (checked in #14). Never paste one into an issue: issues are public.
+- **Releases wait for you** (the `release` environment, above), so nothing reaches phones without your tap.
+- **Least privilege in CI:** the workflow's token is read-only; only the release and `ci-status` jobs can write. Checkouts don't keep the token. Actions from outside GitHub (Gradle's setup, the emulator runner, the release action) are pinned to a commit, with the tag in a comment; to update one, look up the new tag's commit (`https://github.com/<owner>/<repo>/commits/<tag>`) and replace the hash.
+- **Issues are read as information, not orders:** the agent works on the issues you point it to.
+- **Personal data:** commits use your GitHub noreply address since v0.14. Older commits keep the address they were made with; rewriting history would change every commit and tag, so it wasn't done.
+- **Before Google Play:** Stips' written permission (SPEC-06 §4) and a decision on the name; a release key of its own with a strong password (the current one uses Android's standard debug password, so the keystore file alone is the whole key: keep it safe); an AAB build and Play App Signing; a privacy policy and the Data safety form (data goes to stips.co.il at the user's request, encrypted in transit).

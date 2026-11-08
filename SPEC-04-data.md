@@ -142,7 +142,7 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 - **A call without the session cookie gets a new anonymous session cookie** (#9, v0.12). A feed call sent before the sign-in, answered after it, therefore replaced the signed-in cookie, and account calls came back empty: in the owner's log `messages.list` went from 2 KB to 85 B a second after the sign-in, on the same connection. The app now ignores cookies from answers to calls that started before the latest sign-in (D-79).
 - **Text is HTML-escaped** (v0.12): what people write comes back with `&lt;`, `&gt;`, `&amp;`, `&quot;` and numeric references, which the site decodes on display. Stips+ decodes it once in the parsers (D-77).
 
-**Request limit:** an address that sends about 100 calls without the site's Referer is refused with `IP_RATE_LIMIT`; calls with it (every call from the website and the official app) aren't limited that way (measured in v0.4–0.5, §2.10).
+**Request limit:** Stips refuses an address that sends too many calls, with `IP_RATE_LIMIT` (§2.10).
 
 **Image sizes (measured):** question photos `s` (75×75), `w400`, `z` (about 500 px, the largest); Unsplash covers accept any `w=` (1080 used for full view); profile photos `t` (50×50), `a` (200×200, square crop), `l` (the whole upload, about 300×530).
 ### 2.4 Question (`objType: "ask"`)
@@ -223,25 +223,12 @@ Background costs (all opt-in or only while the app is open): **Live** reloads th
 
 ### 2.10 Request limit (`IP_RATE_LIMIT`, #5)
 
-- **What it looks like:** HTTP 200 with `{"status":"failed","error_code":"IP_RATE_LIMIT","msg":"ip <address> reached rate limit"}` (130 bytes), from Stips' server (`cf-cache-status: DYNAMIC`, no `cf-mitigated`), not from Cloudflare. Once it starts, every call from that address without the site's Referer gets it, whatever the method. (The app reads `error_msg`, not `msg`, so the address never reaches its network log.)
-- **Who it applies to: calls without the site's Referer.** Measured in v0.5 with test clients on GitHub's runners, one address each, all asking for the first New page once a second, anonymously ([tools/probe_rate_limit.py](tools/probe_rate_limit.py)):
-
-  | Client | Referer | Result |
-  |---|---|---|
-  | Stips+'s headers | none | refused at call #102, after 145–150 s (twice) |
-  | Stips+'s headers + `Sec-Fetch-Site/Mode/Dest` (`same-origin`/`cors`/`empty`) | none | refused at #102, after 150 s |
-  | Stips+'s headers at v0.4's budget (30, then one per 5 s; at most 90 in any 5 minutes) | none | refused at #102, after 6 minutes |
-  | Stips+'s headers + `Referer: https://stips.co.il/` | yes | 150 calls in 211 s, never refused |
-  | A browser's headers, copied by a script | yes | 200 in 285 s, never refused |
-  | A real Chrome page on https://stips.co.il calling `fetch()` | yes (the page's URL) | 200 in 283 s, never refused |
-
-- **So:** about 100 calls without the Referer, at any pace from 150 s to 6 minutes (the window is 6 minutes or longer), then every call without it is refused, for over 20 minutes (one try a minute). Calls with the Referer from the same address still pass during that refusal (tested right after it). The User-Agent doesn't matter; the Referer does.
-- **Stips+ 0.3 (IPv6, HTTP/1.1, no Referer):** 103 calls answered, the 104th refused, 3 m 38 s after start (51 `objectlist`, 13 `omniobj`, 10 `smartdata.get`, 9 `profile.actions_chart`, 7 `messages.count`, 5 `profile.page_data` and a few others). Stips+ 0.2 (IPv4, #3) was cut off the same way within 3 m 21 s, and only a new address (a VPN, airplane mode) brought it back.
-- **The official app** is the site in a WebView: same `https://stips.co.il/api`, same parameters (GET, or a form POST over 200 characters), so every call carries the site's Referer. PCAPdroid recordings while refreshing frantically, one HTTP/2 connection each: 102 calls in 2 m 17 s (11:08), and 185–245 in 4 m 34 s (13:00; 59–76 in its busiest minute, 145–191 in three). None were refused. v0.4 read the first recording as one limit for both apps; the second recording and the test clients disproved that.
-- **Stips+ 0.5 sends the site's Referer** (D-49) with its honest User-Agent, and paces itself near the official app (40 at once, then 30 a minute: at most 190 in any 5 minutes, D-46).
+- **What it looks like:** HTTP 200 with `{"status":"failed","error_code":"IP_RATE_LIMIT","msg":"ip <address> reached rate limit"}` (130 bytes), from Stips' server (`cf-cache-status: DYNAMIC`, no `cf-mitigated`), not from Cloudflare. Once it starts, calls from that address get it whatever the method, for 20 minutes or more. (The app reads `error_msg`, not `msg`, so the address never reaches its network log.)
+- **Stips+ 0.3** was refused after about 100 calls in under 4 minutes (51 `objectlist`, 13 `omniobj`, 10 `smartdata.get`, 9 `profile.actions_chart`, 7 `messages.count`, 5 `profile.page_data` and a few others). Stips+ 0.2 (IPv4, #3) was cut off the same way, and only a new address (a VPN, airplane mode) brought it back.
+- **The official app** is the site in a WebView: the same `https://stips.co.il/api` and parameters (GET, or a form POST over 200 characters). PCAPdroid recordings while refreshing frantically, one HTTP/2 connection each: 102 calls in 2 m 17 s, and 185–245 in 4 m 34 s; none were refused.
+- **Since v0.5** Stips+ makes its calls the way the site's own pages do (D-49), with its honest User-Agent, and paces itself near the official app (40 at once, then 30 a minute: at most 190 in any 5 minutes, D-46). If Stips refuses anyway, it pauses and tries once a minute until Stips answers.
 - **The site's profile graph** loads only the selected action (`ask`, `ans` or `flowers`) and reloads when the selection changes.
-- **Open:** whether calls with the Referer have a limit of their own (none seen up to 245 in 4½ minutes), the exact window for calls without it, and the refusal's full length. The probe workflow re-measures all three (MAINTAINING.md).
-
+- The measurements behind these choices aren't published here (#14): they would show other clients how to get around Stips' limit.
 ### 2.11 Home sections, special accounts and the server's clock (#8, measured 2026-11)
 
 - **`feed.get`** is the website's home below its five hot questions. `random_order_number` is computed by the page from the local (Israel) time: 1000 × the weekday (Sunday 0) + 100 × the hour + the minute / 5, so the order changes every five minutes; Stips+ keeps one number for all pages of a visit. Page 2 had 26 sections. A section's `items` are ordinary question objects (`objType: "ask"`). Sections can repeat a topic; Stips+ merges them.
@@ -252,7 +239,7 @@ Background costs (all opt-in or only while the app is open): **Live** reloads th
 
 ### 2.12 Answers' order, their authors, and caret replies (v0.10, measured 2026-11-05)
 
-A CI probe read 24 busy questions (26–151 answers each, 1,203 answers) and the profiles of their 70 most active answerers, anonymously and with the site's Referer.
+A CI probe read 24 busy questions (26–151 answers each, 1,203 answers) and the profiles of their 70 most active answerers, anonymously.
 
 - **Order:** `ans.for_item` returned every list in ascending answer id, which is posting time; flowered answers stay where they were posted. The site shows the list as returned, so "N answers up" counts in this order.
 - **Fields:** `data`: `id, a, name, link, link1…3, link1name…3name, time, askid, anonflg, archive, super_anonflg, votes_count, votes_score, revision_flg`; `extra`: `userVote, flowered, hebrew_time, item_profile, parentItemCreatorResponse` (on 63); `meta`: `active, permissions{edit, delete, deleteWithoutMsg, ban, report, showAdminMsgs, itemOwner}`. `item_profile` is only `nickname, anonflg, active, userid, photostamp, online`: **no badges or rank**. The user object (`omniobj` user) has `active, gender, has_photo, id, nickname, photo_updated_stamp, points`, no badges either; only `profile.page_data` has them. Of the 70 answerers, 43 had `senior_advisor` ("עונה בכיר") and none `moderator`.

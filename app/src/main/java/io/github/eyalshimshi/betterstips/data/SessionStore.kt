@@ -210,6 +210,10 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
         if (current.signedIn) save(current.copy(safeFilter = on))
     }
 
+    /** Set by the app container: forgets what the phone kept about the account (#14). Only for signing out. */
+    @Volatile
+    var onSignedOut: (() -> Unit)? = null
+
     suspend fun signOut() {
         NetLog.event("session", "signed out by the user")
         try {
@@ -218,6 +222,7 @@ class SessionStore(context: Context, private val api: StipsApi, private val cook
             // Signing out locally is what matters.
         }
         clearLocal()
+        onSignedOut?.invoke()
     }
 
     private fun expire() {

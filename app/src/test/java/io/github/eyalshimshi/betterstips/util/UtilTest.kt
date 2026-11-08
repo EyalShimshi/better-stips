@@ -67,8 +67,8 @@ class UtilTest {
 
     @Test
     fun profileAndChatLinksBecomeDeepLinks() {
-        assertEquals(275580L, Links.profileId("https://stips.co.il/profile/275580"))
-        assertNull(Links.profileId("https://stips.co.il/ask/275580"))
+        assertEquals(123456L, Links.profileId("https://stips.co.il/profile/123456"))
+        assertNull(Links.profileId("https://stips.co.il/ask/123456"))
         assertEquals(DeepLink.Question(7L), Links.deepLink("https://stips.co.il/ask/7"))
         assertEquals(DeepLink.Profile(8L), Links.deepLink("https://www.stips.co.il/profile/8"))
         assertEquals(DeepLink.Messages, Links.deepLink("https://stips.co.il/messages"))

@@ -99,9 +99,11 @@ import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.account.BanScreen
+import io.github.eyalshimshi.betterstips.ui.components.ImageLinkViewer
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
+import io.github.eyalshimshi.betterstips.ui.components.LocalShowIntro
 import io.github.eyalshimshi.betterstips.ui.components.LocalTabReselects
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
@@ -119,11 +121,12 @@ import io.github.eyalshimshi.betterstips.ui.settings.NetLogScreen
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsPage
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsScreen
 import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
-import io.github.eyalshimshi.betterstips.ui.signin.WelcomeScreen
+import io.github.eyalshimshi.betterstips.ui.signin.IntroScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
 import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.DeepLink
+import io.github.eyalshimshi.betterstips.util.ImageLinks
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.Shortcuts
@@ -208,7 +211,8 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     // Tapping the open tab again sends its route here; that tab scrolls back to the top (v0.12).
     val tabReselects = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
 
-    // The first launch after installing asks to sign in or go on as a guest (#8). Links and shortcuts skip it.
+    // The first launch after installing shows the intro (#8, #12): set the app up, then sign in or go on as a guest.
+    // Links and shortcuts skip it; Settings → About shows it again.
     var welcome by rememberSaveable {
         mutableStateOf(
             !container.settings.settings.value.onboarded && !container.session.session.value.signedIn &&
@@ -219,9 +223,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         welcome = false
         container.settings.update { it.copy(onboarded = true) }
     }
-    LaunchedEffect(signedIn) {
-        if (signedIn && welcome) finishWelcome()
-    }
+    val showIntro = remember { { welcome = true } }
 
     // Stips blocks the account (v0.13): a screen over the app once per visit, and again whenever Stips refuses an
     // action for it. Its own block when it sends one; else 20–29 credibility points (temporary) or below 20 (for good).
@@ -285,12 +287,19 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
     }
 
-    // Stips links inside the app (questions, profiles, chats) open here; everything else goes to the browser.
+    // Stips links inside the app (questions, profiles, chats) open here; picture links open in the viewer (#15);
+    // everything else goes to the browser.
+    val imageLink = remember { mutableStateOf<ImageLinks.Source?>(null) }
     val uriHandler = remember(navController) {
         object : UriHandler {
             override fun openUri(uri: String) {
                 val link = Links.deepLink(uri)
-                if (link != null) openLink(navController, link) else openInBrowser(context, uri)
+                val image = if (link == null) ImageLinks.classify(uri) else null
+                when {
+                    link != null -> openLink(navController, link)
+                    image != null -> imageLink.value = image
+                    else -> openInBrowser(context, uri)
+                }
             }
         }
     }
@@ -302,6 +311,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         LocalUnreadCounts provides counts,
         LocalNow provides now,
         LocalTabReselects provides tabReselects,
+        LocalShowIntro provides showIntro,
     ) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
@@ -330,10 +340,11 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
             }
             AnimatedVisibility(
                 visible = welcome,
-                enter = EnterTransition.None,
+                // On a fresh install it's there from the start; shown again from Settings, it fades in.
+                enter = if (animate) fadeIn() else EnterTransition.None,
                 exit = if (animate) fadeOut() else ExitTransition.None,
             ) {
-                WelcomeScreen(onGuest = ::finishWelcome)
+                IntroScreen(onFinish = ::finishWelcome)
             }
             AnimatedVisibility(
                 visible = banVisible,
@@ -355,6 +366,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
     }
     CrashDialog()
+    imageLink.value?.let { source -> ImageLinkViewer(source, onDismiss = { imageLink.value = null }) }
     // Once: phone notifications on, and allowed to run in the background (v0.11).
     NotificationsPrompt(active = !welcome && !banVisible, snackbar = snackbar)
 }

@@ -159,6 +159,7 @@ import io.github.eyalshimshi.betterstips.ui.components.authorName
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.memberForText
 import io.github.eyalshimshi.betterstips.ui.components.onlineColor
+import io.github.eyalshimshi.betterstips.ui.components.reveal
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.delay
@@ -334,13 +335,16 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     val positions = remember(state.messages) { state.messages.withIndex().associate { (i, m) -> m.id to i } }
     var highlight by remember { mutableStateOf<ChatHighlight?>(null) }
 
-    /** Scrolls to a message a reply points at and lights it up for a moment. */
+    /**
+     * Shows a message a reply points at and lights it up for a moment: no scroll when it's already in sight whole,
+     * otherwise the least scroll that shows it, with some room above it (#12).
+     */
     fun jumpTo(messageId: Long) {
         val position = positions[messageId] ?: return
         // The list is reversed: the newest message is item 0.
         val item = state.messages.size - 1 - position
         scope.launch {
-            listState.animateScrollToItem(item)
+            listState.reveal(item, animate)
             highlight = ChatHighlight(messageId, System.nanoTime())
         }
     }

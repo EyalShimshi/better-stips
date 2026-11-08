@@ -18,6 +18,7 @@ import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AnswerRules
+import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.CancellationException
@@ -301,7 +302,8 @@ class QuestionViewModel(
         val current = _state.value
         if (current.posting) return
         val replyTo = current.replyTo.takeIf { current.editing == null }
-        var text = current.draft.trim()
+        // Emojis never reach Stips: it would cut the answer at the first one (#12).
+        var text = EmojiFilter.strip(current.draft).trim()
         if (replyTo != null) {
             // Counted again: a pull to refresh since the swipe may have brought answers in between.
             val index = current.answers.indexOfFirst { it.id == replyTo.id }

@@ -21,6 +21,12 @@ class AnonymousAnswers(context: Context) {
         editor.apply()
     }
 
+    /**
+     * Signing out forgets them (#14): on a shared phone, the next person's answer box mustn't start anonymous on the
+     * questions the last one answered anonymously, nor show which those were. Backups leave them out too.
+     */
+    fun clear() = prefs.edit().clear().apply()
+
     private companion object {
         const val MAX_KEPT = 500
     }

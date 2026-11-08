@@ -94,11 +94,10 @@ open_app() {
     verdict="NOT RUNNING after ${WAIT}s"
   fi
   if [ "$verdict" = "ok" ]; then
+    # The screen's text stays in the run's files: it shows Stips' live posts, and the summary goes into the public
+    # release notes and ci-status (#14). Only the checks below report on it, with the app's own words.
     screen_text "$label"
     say "- **$label:** opened, still running after ${WAIT}s"
-    if [ -s "$OUT/$label-text.txt" ]; then
-      say "  - on screen: $(head -n 14 "$OUT/$label-text.txt" | paste -sd '|' - | sed 's/|/ · /g' | cut -c1-400)"
-    fi
     return
   fi
   if [ "$mode" != "count" ]; then

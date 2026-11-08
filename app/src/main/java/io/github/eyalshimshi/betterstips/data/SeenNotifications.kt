@@ -16,6 +16,9 @@ class SeenNotifications(context: Context) {
         if (newestId > lastSeenId(userId)) prefs.edit().putLong(key(userId), newestId).apply()
     }
 
+    /** Signing out forgets what was seen (#14). */
+    fun clear() = prefs.edit().clear().apply()
+
     private fun key(userId: Long) = "u$userId"
 
     companion object {

@@ -118,12 +118,7 @@ class StipsApi(private val client: OkHttpClient) {
     companion object {
         const val BASE_URL = "https://stips.co.il/api"
 
-        /**
-         * Stips refuses an address after about 100 API calls without its site's Referer (in 6 minutes or more), but
-         * not calls that carry it, as every call from its website and official app does: test clients passed 200
-         * with it and none without it (SPEC-04 §2.10). The owner chose to send it (D-49); the User-Agent still says
-         * Stips+.
-         */
+        /** Every call carries the site's Referer, as its website's and official app's calls do (D-49); the User-Agent still says Stips+. */
         const val SITE_REFERER = "https://stips.co.il/"
 
         /** A request to Stips, with the site's Referer. */

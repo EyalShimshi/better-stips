@@ -28,6 +28,7 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
+import io.github.eyalshimshi.betterstips.ui.settings.ChatPreview
 import io.github.eyalshimshi.betterstips.widget.requestPinChatsWidget
 import kotlinx.coroutines.launch
 
@@ -45,6 +46,14 @@ fun ChatSettingsContent(snackbar: SnackbarHostState) {
     val toggleNotifications = rememberPhoneNotificationsToggle(snackbar)
     val phoneOn = settings.backgroundNotifications && Notifier.canPost(context)
     val widgetByHandText = stringResource(R.string.settings_widget_by_hand)
+
+    // How messages look with these switches (#12): it changes as they do.
+    ChatPreview(
+        easyReply = settings.chatEasyReply,
+        quotes = settings.chatReplyQuotes,
+        hideCarets = settings.chatHideReplyCarets,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 
     GroupLabel(stringResource(R.string.settings_chat_replies))
     val replies = if (settings.chatReplyQuotes) 3 else 2

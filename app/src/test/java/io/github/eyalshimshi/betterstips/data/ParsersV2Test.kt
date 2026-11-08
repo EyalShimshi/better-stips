@@ -73,7 +73,7 @@ class ParsersV2Test {
         val messages = Parsers.thanksMessages(
             data(
                 """{"status":"ok","data":[
-                {"objType":"thanksmsg","data":{"id":"77","fromuserid":5,"touserid":275580,"msg":" תודה רבה! ","time":"2026/10/20 10:00:00"},
+                {"objType":"thanksmsg","data":{"id":"77","fromuserid":5,"touserid":123456,"msg":" תודה רבה! ","time":"2026/10/20 10:00:00"},
                  "extra":{"item_profile":{"nickname":"Dana","userid":5,"photostamp":"123","anonflg":false}},
                  "meta":{"permissions":{"deleteWithoutMsg":true}}},
                 {"objType":"thanksmsg","data":{"msg":"no id"}},
@@ -129,9 +129,9 @@ class ParsersV2Test {
     @Test
     fun appUser_readsWordGender() {
         assertEquals(
-            AppUser(id = 275580, points = 93, flowers = 1387, safeFilter = false, female = true),
+            AppUser(id = 123456, points = 88, flowers = 1200, safeFilter = false, female = true),
             Parsers.appUser(
-                data("""{"status":"ok","data":{"appUser":{"id":275580,"points":93,"flowersCount":"1387","safeFilter":false,"gender":"female"}}}"""),
+                data("""{"status":"ok","data":{"appUser":{"id":123456,"points":88,"flowersCount":"1200","safeFilter":false,"gender":"female"}}}"""),
             ),
         )
         assertNull(Parsers.appUser(data("""{"status":"ok","data":{}}""")))

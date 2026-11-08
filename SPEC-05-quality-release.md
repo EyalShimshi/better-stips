@@ -17,13 +17,13 @@
 | #9 (`SessionCookieRaceTest`, MockWebServer) | A slow answer from before the sign-in, arriving after it, doesn't replace the signed-in session cookie; answers after the sign-in still set cookies |
 | v0.13 rules (`RulesV13Test`) | Credibility by the rule book: each rating's range and rate, editing from 50, blocks (23 points → 7 days, below 20 for good), the block screen's state from Stips' block or the points (unknown points never block), days to a target (3–7 a point from 90), milestones, months on Stips from the profile's phrase; the team's notices told apart (a question title saying "נמחק" doesn't make one) and opening at the top; the "unread" marks in questions (the user's own answers not counted) and chats (Stips' count, else the last visit); `appUser` with a block and a moderator rank, and missing points left unknown |
 | #10 (`EditHistoryTest`) | Earlier versions read from `jsonstring` (decoded once; links only when the edit changed them; unreadable JSON keeps nothing); answers marked edited by `revision_flg`; the versions newest first, each with the edit that made it, the oldest the original, unchanged fields as they are now; Stips' editor names |
-
+| v0.14 rules (`RulesV14Test`) | Emojis left out (surrogates, emoji-by-default symbols, ❤️ and keycaps with their selectors, ZWJ families; Hebrew and text symbols kept) with the cursor kept in place; jumps (stay when in sight, the least move, tall items, reversed lists, items not laid out); the special accounts list (Stips' creator, organizations, unique ids, short badges, opaque colors); the asker's nickname only on their own anonymous question; the bio line (gendered, below the bio, 250 characters); picture links (imgbb pages and files, Imgur and Postimages files; not albums, other sites, `user@host`, odd ports or schemes) and imgbb's oEmbed answer (only https files on `i.ibb.co`); link labels with the real host; the thread export (numbers, replies, hidden answers, Markdown and JSON) |
 **On the built APK (CI, before every release, D-55):**
 
 | Check | What it catches |
 |---|---|
 | `tools/check_apk.py` | Reads the APK's dex files: every class that a library creates by name (Room databases, WorkManager input mergers and workers, start-up initializers, Glance action callbacks) still has the constructor it's called with. R8 removed some in builds 7–9 (#7) |
-| `tools/launch_test.sh` on an Android 15 emulator | Opens the app over the newest earlier release that opens, as a fresh install (which must show the welcome screen, v0.9), a second time, and from each launcher shortcut (checking the screen's text). Fails on a crash, "not responding" or a process that quits; keeps screenshots, logcats and the screen's text |
+| `tools/launch_test.sh` on an Android 15 emulator | Opens the app over the newest earlier release that opens, as a fresh install (which must show the intro's "Welcome", v0.14), a second time, and from each launcher shortcut (checking the screen's text). Fails on a crash, "not responding" or a process that quits. Its summary has only verdicts; screenshots, logcats and the screen's text are kept only when it fails (they show Stips' live posts, #14) |
 
 Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §11 spikes): the emulator is signed out.
 
@@ -34,12 +34,12 @@ Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §
 
 ## 3. CI/CD
 
-`.github/workflows/build.yml`, on every push to `main` and on demand. A pre-release appears only when everything passes:
+`.github/workflows/build.yml`, on every push to `main` and on demand. A pre-release appears only when everything passes and the owner approves it (#14). The workflow's token is read-only; only the release and report jobs can write. Checkouts don't keep the token, and actions from outside GitHub are pinned to commits:
 
-1. **Build and test** (one runner): checkout, JDK 17, Gradle 9.5.0 (`gradle/actions/setup-gradle@v6`, `cache-provider: basic`); restore the signing key from `SIGNING_KEYSTORE_BASE64` (warns in the summary if missing); `gradle assembleRelease` (errors into a box on the run's Summary page); name the APK and record its certificate digest; `tools/check_apk.py`; `gradle testDebugUnitTest` (failures into the Summary box).
-2. **Open on an emulator** (a second runner with KVM, `reactivecircus/android-emulator-runner@v2`, API 35 `google_apis` x86_64): installs the emulator and the image first with retries (sdkmanager's downloads sometimes break, android-emulator-runner#496), downloads the four newest releases and runs `tools/launch_test.sh` (§1). If the emulator never starts, it tries once more; a failing app is never retried. Screenshots and logs are kept as the run's `launch-test` artifact for 14 days.
-3. **Publish the pre-release** `build-<run>` with `stipsplus-<run>.apk`. The notes are `RELEASE-NOTES.md` (the round's summary) followed by the launch test's results.
-4. **Report** (always): `status.md` on the `ci-status` branch with each job's result, the signing key and digest, the APK size, and the error lines.
+1. **Build and test** (one runner): checkout, JDK 17, Gradle 9.5.0 (`gradle/actions/setup-gradle`, v6 pinned to its commit, `cache-provider: basic`); restore the signing key from `SIGNING_KEYSTORE_BASE64` (warns in the summary if missing); `gradle assembleRelease` (errors into a box on the run's Summary page); name the APK and record its certificate digest; `tools/check_apk.py`; `gradle testDebugUnitTest` (failures into the Summary box).
+2. **Open on an emulator** (a second runner with KVM, `reactivecircus/android-emulator-runner` v2, pinned, API 35 `google_apis` x86_64): installs the emulator and the image first with retries (sdkmanager's downloads sometimes break, android-emulator-runner#496), downloads the four newest releases and runs `tools/launch_test.sh` (§1). If the emulator never starts, it tries once more; a failing app is never retried. Screenshots and logs are kept as the run's `launch-test` artifact for 5 days, only when it fails.
+3. **Publish the pre-release** `build-<run>` with `stipsplus-<run>.apk`, in the `release` environment: it waits for the owner's approval. The notes are `RELEASE-NOTES.md` (the round's summary) followed by the launch test's results.
+4. **Report** (always, without waiting for the approval): `status.md` on the `ci-status` branch with each job's result, the signing key and digest, the APK size, and the error lines.
 
 `.github/workflows/launch-test.yml` opens any release by hand, on any emulator API level (for example 37.0, Android 17, which is slow to boot on these runners).
 
@@ -53,8 +53,8 @@ Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §
 
 | Channel | Status |
 |---|---|
-| GitHub pre-releases (private repo) | Every build that passes the checks above |
-| Obtainium | Works with the private repo only with a GitHub token; simpler to open the release page on the phone |
+| GitHub pre-releases (public repository since v0.14) | Every build that passes the checks above, once the owner approves it |
+| Obtainium | Can follow the public repository's pre-releases |
 | Google Play / F-Droid | Not before Stips' permission (D-02) |
 
 **Install on the phone:** open the release page in the phone's browser (signed in to GitHub), tap the APK, allow "Install unknown apps" for the browser, and choose *Install anyway* if Play Protect asks.

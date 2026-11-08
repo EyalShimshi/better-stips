@@ -5,15 +5,18 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Read-only by default (#14): only the jobs that publish (release, report) can write, each saying so itself.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
 # A pre-release is published only when the APK builds, passes the unit tests and the APK check, and opens on an
-# emulator. Build 9 compiled and passed its tests, then crashed on every launch (#7).
+# emulator. Build 9 compiled and passed its tests, then crashed on every launch (#7). Then it waits for the owner's
+# approval: the release job runs in the "release" environment, which has the owner as its required reviewer (#14).
+# Actions from outside GitHub are pinned to a commit (#14): a tag can be moved to other code, a commit can't.
 jobs:
   build:
     name: Build and test
@@ -26,6 +29,8 @@ jobs:
       signing: ${{ steps.key.outputs.source }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@v6
         with:
@@ -33,7 +38,7 @@ jobs:
           java-version: "17"
 
       # "basic" = the open-source cache on GitHub's own cache storage (the default is a commercial service).
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
         with:
           gradle-version: "9.5.0"
           cache-provider: basic
@@ -143,6 +148,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@v8
         with:
@@ -199,7 +206,7 @@ jobs:
       - name: Open the app
         id: launch1
         continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2 (2.38.0)
         env:
           SHORTCUTS: "yes"
         with:
@@ -214,7 +221,7 @@ jobs:
       - name: Open the app (second try, the emulator didn't start)
         id: launch2
         if: steps.launch1.outcome == 'failure' && hashFiles('launch-test/summary.md') == ''
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2 (2.38.0)
         env:
           SHORTCUTS: "yes"
         with:
@@ -230,13 +237,15 @@ jobs:
           echo "::error::The launch test failed; its summary (above, and in the launch-test artifact) says why."
           exit 1
 
+      # Only when it failed (#14): the screenshots show Stips' live posts, and a public repository's artifacts are
+      # public.
       - name: Keep the screenshots and logs
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: launch-test
           path: launch-test/
-          retention-days: 14
+          retention-days: 5
 
       - name: Keep the summary for the release notes
         if: always()
@@ -252,8 +261,14 @@ jobs:
     needs: [build, launch]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Waits for the owner's approval (Settings → Environments → release → Required reviewers), #14.
+    environment: release
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@v8
         with:
@@ -282,7 +297,7 @@ jobs:
           } > release-notes.md
 
       - name: Publish a pre-release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3 (3.0.4)
         with:
           tag_name: build-${{ github.run_number }}
           name: Stips+ ${{ needs.build.outputs.version }}
@@ -290,13 +305,16 @@ jobs:
           body_path: release-notes.md
           files: stipsplus-${{ github.run_number }}.apk
 
-  # The outcome on the ci-status branch, which git can fetch. It never contains secrets: only error lines.
+  # The outcome on the ci-status branch, which git can fetch. It never contains secrets: only error lines. It doesn't
+  # wait for the release, which waits for the owner's approval: the release shows on the Releases page.
   report:
     name: Report to the ci-status branch
-    needs: [build, launch, release]
+    needs: [build, launch]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v8
         continue-on-error: true
@@ -312,7 +330,6 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.build.result }}
           LAUNCH_RESULT: ${{ needs.launch.result }}
-          RELEASE_RESULT: ${{ needs.release.result }}
           SIGNING_SOURCE: ${{ needs.build.outputs.signing }}
           APK_CERT: ${{ needs.build.outputs.cert }}
           APK_BYTES: ${{ needs.build.outputs.bytes }}
@@ -324,7 +341,9 @@ jobs:
             echo "sha: ${{ github.sha }}"
             echo "build-and-tests: ${BUILD_RESULT:-skipped}"
             echo "launch-test: ${LAUNCH_RESULT:-skipped}"
-            echo "release: ${RELEASE_RESULT:-skipped}"
+            # The release waits for the owner's approval; this report doesn't wait for it.
+            if [ "$BUILD_RESULT" = "success" ] && [ "$LAUNCH_RESULT" = "success" ]; then release="waiting for approval"; else release="skipped"; fi
+            echo "release: $release"
             echo "signing: ${SIGNING_SOURCE:-unknown}"
             echo "cert-sha256: ${APK_CERT:-unknown}"
             echo "apk-bytes: ${APK_BYTES:-unknown}"
@@ -350,5 +369,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cp "$report" status.md
           git add status.md
-          git commit -q -m "Run ${{ github.run_number }}: build ${BUILD_RESULT:-skipped}, launch ${LAUNCH_RESULT:-skipped}, release ${RELEASE_RESULT:-skipped}"
+          git commit -q -m "Run ${{ github.run_number }}: build ${BUILD_RESULT:-skipped}, launch ${LAUNCH_RESULT:-skipped}"
           git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-status
