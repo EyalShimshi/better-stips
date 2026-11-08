@@ -28,6 +28,14 @@ class BlockStore(context: Context) {
         _version.value = _version.value + 1
     }
 
+    /** Takes back a hide right after it was made: its message's *Undo* (#18). */
+    fun unblock(objType: String, id: Long, authorId: Long?) {
+        val editor = prefs.edit().remove(itemKey(objType, id))
+        if (authorId != null) editor.remove(userKey(authorId))
+        editor.apply()
+        _version.value = _version.value + 1
+    }
+
     val count: Int get() = prefs.all.size
 
     /** "Remove all content blocks", as in the site's settings. Message blocks are separate and stay. */

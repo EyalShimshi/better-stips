@@ -139,7 +139,7 @@ fun IntroScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
     }
     BackHandler(enabled = index > 0 && step != IntroStep.Done) { back() }
 
-    val animate = settings.animations
+    val animate = settings.motion.screens
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val notificationsOn = settings.backgroundNotifications && Notifier.canPost(context)
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

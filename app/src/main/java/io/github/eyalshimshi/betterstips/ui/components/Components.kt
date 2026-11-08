@@ -112,7 +112,7 @@ private const val RESELECT_ANIMATE_LIMIT = 30
 @Composable
 fun ScrollToTopOnReselect(route: String, listState: LazyListState, onRefresh: (() -> Unit)? = null) {
     val reselects = LocalTabReselects.current
-    val animate by rememberUpdatedState(LocalAppSettings.current.animations)
+    val animate by rememberUpdatedState(LocalAppSettings.current.motion.scrolls)
     val refresh by rememberUpdatedState(onRefresh)
     LaunchedEffect(reselects, listState, route) {
         reselects.collect { tapped ->

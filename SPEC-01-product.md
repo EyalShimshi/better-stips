@@ -129,7 +129,9 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-75 | Settings rethought and an intro (#12, v0.14) | P1 | Settings in three groups with summaries and pictures; a first-run intro to choose the look, Home and replies, then sign in; shown again from About |
 | F-76 | Pictures from links (#15, v0.14) | P1 | imgbb links and image files open in the app's zoomable viewer; attached ones get *Show image* |
 | F-77 | Export a thread (#16, v0.14) | P2 | ⋮ → *Export thread*: Markdown or JSON, copied or shared |
-## 7. Non-functional requirements
+| F-78 | Notifications in categories (#13, v0.15) | P1 | The bell's list: category chips, a summary of what's new, Stips' team's notices pinned until opened, sections by day, long-press *Mark as read* and *Stop updates*; optional titles and photos; one phone channel per category |
+| F-79 | Animation presets (#18, v0.15) | P1 | Full (with short transitions), Less (no screen transitions, the rest faster), None, or each kind chosen |
+| F-80 | Swipe actions (#18, v0.15) | P1 | Questions in lists swipe both ways (pin and report by default, each configurable); answers swipe left too (nothing on others' by default, edit on your own) |## 7. Non-functional requirements
 
 | Area | Requirement |
 |---|---|

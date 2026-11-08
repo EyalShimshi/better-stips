@@ -9,11 +9,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -160,6 +158,7 @@ import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.memberForText
 import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.components.reveal
+import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.delay
@@ -311,7 +310,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val openProfile = LocalOpenProfile.current
     val context = LocalContext.current
-    val animate = LocalAppSettings.current.animations
+    val motion = LocalAppSettings.current.motion
     val snackbar = remember { SnackbarHostState() }
     val profile = state.profile
     val other = profile?.avatar ?: Author(name, userId, null, anonymous = false, online = false)
@@ -344,7 +343,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
         // The list is reversed: the newest message is item 0.
         val item = state.messages.size - 1 - position
         scope.launch {
-            listState.reveal(item, animate)
+            listState.reveal(item, motion.jumps, quick = motion.quick)
             highlight = ChatHighlight(messageId, System.nanoTime())
         }
     }
@@ -561,8 +560,8 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
             }
             AnimatedVisibility(
                 visible = awayFromNewest,
-                enter = if (animate) fadeIn() + scaleIn() else EnterTransition.None,
-                exit = if (animate) fadeOut() + scaleOut() else ExitTransition.None,
+                enter = if (motion.elements) fadeIn() + scaleIn() else EnterTransition.None,
+                exit = if (motion.elements) fadeOut() + scaleOut() else ExitTransition.None,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
@@ -864,7 +863,7 @@ private fun Bubble(
     modifier: Modifier = Modifier,
 ) {
     val settings = LocalAppSettings.current
-    val animations = settings.animations
+    val motion = settings.motion
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val threshold = with(density) { BUBBLE_SWIPE_THRESHOLD.toPx() }
@@ -876,17 +875,7 @@ private fun Bubble(
     val glow = remember { Animatable(0f) }
     LaunchedEffect(highlightKey) {
         if (highlightKey == null) return@LaunchedEffect
-        if (animations) {
-            glow.snapTo(0f)
-            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
-            glow.animateTo(0.35f, tween(450, easing = FastOutSlowInEasing))
-            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
-            glow.animateTo(0f, tween(850, easing = FastOutSlowInEasing))
-        } else {
-            glow.snapTo(1f)
-            delay(CHAT_HIGHLIGHT_MS)
-            glow.snapTo(0f)
-        }
+        glow.glowOnce(motion, CHAT_HIGHLIGHT_MS)
     }
     val container = lerp(base, MaterialTheme.colorScheme.tertiaryContainer, glow.value)
 
@@ -985,8 +974,8 @@ private fun Bubble(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = if (animations) expandVertically() + fadeIn() else EnterTransition.None,
-                exit = if (animations) shrinkVertically() + fadeOut() else ExitTransition.None,
+                enter = if (motion.elements) expandVertically() + fadeIn() else EnterTransition.None,
+                exit = if (motion.elements) shrinkVertically() + fadeOut() else ExitTransition.None,
             ) {
                 Text(
                     bubbleTime(message.time),

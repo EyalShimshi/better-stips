@@ -147,7 +147,6 @@
     <string name="settings_images">הצגת תמונות</string>
     <string name="settings_images_summary">תמונות של שאלות ותמונות פרופיל. כ־30KB לשאלה; כיבוי חוסך נתונים.</string>
     <string name="settings_animations">אנימציות</string>
-    <string name="settings_animations_summary">מעברי מסך. כבוי: מעברים מיידיים.</string>
     <string name="settings_performance">ביצועים</string>
     <string name="settings_performance_empty">זמני הטעינה יופיעו כאן תוך כדי שימוש.</string>
     <string name="timing_feed">עמוד בפיד</string>
@@ -226,8 +225,6 @@
     <string name="notifications_phone_body">Stips+ בודק אם יש תשובות, פרחים, תודות והודעות חדשים כל כמה דקות בזמן שמשתמשים בטלפון, ובערך כל 15 דקות בשאר הזמן. אפשר לכבות את זה בהגדרות.</string>
     <string name="notifications_phone_turn_on">הפעלה</string>
     <string name="notifications_permission_denied">ההתראות של Stips+ כבויות. אפשר להפעיל אותן בהגדרות של אנדרואיד.</string>
-    <string name="notification_channel_activity">תשובות ופעילות</string>
-    <string name="notification_channel_activity_description">תשובות חדשות, פרחים ותודות בסטיפס.</string>
     <string name="notification_channel_messages">הודעות</string>
     <string name="notification_channel_messages_description">הודעות פרטיות חדשות בסטיפס.</string>
     <string name="notification_title">סטיפס</string>
@@ -397,7 +394,6 @@
     <string name="time_short_minutes">%1$d דק׳</string>
     <string name="time_short_hours">%1$d שע׳</string>
     <string name="time_short_days">%1$d ימ׳</string>
-    <string name="time_yesterday">אתמול</string>
     <string name="search_hint">חיפוש נושא או משתמש</string>
     <string name="search_people">משתמשים</string>
     <string name="tab_penpals">חברים לעט</string>
@@ -503,7 +499,6 @@
     <string name="penpals_cooldown_unknown">פרסמת מסר לא מזמן. אפשר לנסות שוב בעוד קצת.</string>
 
     <!-- v0.3: notifications, profile, settings -->
-    <string name="notifications_new">חדשים</string>
     <string name="notifications_earlier">קודם לכן</string>
     <string name="notifications_points_removed">הופחתו %1$d נקודות אמינות</string>
     <string name="profile_view_photo">הצגת התמונה</string>
@@ -810,4 +805,88 @@
     <string name="intro_notifications_later">אפשר להפעיל ולכבות אותן בכל רגע בהגדרות ← התראות.</string>
     <string name="intro_done_title">הכול מוכן</string>
     <string name="intro_done_body">כל מה שבחרת, ועוד, נמצא בהגדרות בלשונית הפרופיל. גם ההיכרות הזאת נמצאת שם, תחת אודות.</string>
+    <string name="motion_full">אנימציות מלאות</string>
+    <string name="motion_full_summary">הכול זז, עם מעברים מהירים בין מסכים.</string>
+    <string name="motion_less">פחות אנימציות</string>
+    <string name="motion_less_summary">בלי מעברים בין מסכים. קפיצות, ההבהוב והגלילה נשארים, ומהירים יותר.</string>
+    <string name="motion_off">בלי אנימציות</string>
+    <string name="motion_off_summary">הכול משתנה מיד.</string>
+    <string name="motion_custom">בהתאמה אישית</string>
+    <string name="motion_custom_summary">בוחרים כל סוג של אנימציה בעצמך.</string>
+    <string name="motion_screens">מעברים בין מסכים</string>
+    <string name="motion_screens_summary">מסכים שנכנסים ויוצאים, הסרגל התחתון, ההיכרות</string>
+    <string name="motion_jumps">קפיצה לתשובה או להודעה</string>
+    <string name="motion_jumps_summary">גלילה אל מה שתגובה או התראה מצביעה עליו</string>
+    <string name="motion_scrolls">גלילה למעלה</string>
+    <string name="motion_scrolls_summary">כשמקישים שוב על הלשונית הפתוחה או מרעננים, וכפתור ↓ ↑ בשרשור</string>
+    <string name="motion_glow">הבהוב</string>
+    <string name="motion_glow_summary">האור שנושם על מה שקפצת אליו</string>
+    <string name="motion_elements">אלמנטים בתנועה</string>
+    <string name="motion_elements_summary">כפתורים שמופיעים, שאלות חדשות שנכנסות, גרפים שמתמלאים, הנקודה של Live</string>
+    <string name="motion_quick">מהיר</string>
+    <string name="motion_quick_summary">קפיצות, גלילה וההבהוב, בערך פי שניים מהר יותר</string>
+    <string name="settings_swipe_questions">החלקה על שאלה</string>
+    <string name="settings_swipe_right">החלקה ימינה</string>
+    <string name="settings_swipe_left">החלקה שמאלה</string>
+    <string name="settings_swipe_answers">החלקה על תשובה</string>
+    <string name="settings_swipe_others_answer">החלקה שמאלה על תשובה של מישהו</string>
+    <string name="settings_swipe_my_answer">החלקה שמאלה על התשובה שלך</string>
+    <string name="swipe_none">כלום</string>
+    <string name="swipe_pin">נעיצה או ביטול נעיצה</string>
+    <string name="swipe_copy_link">העתקת הקישור</string>
+    <string name="swipe_pinned">השאלה ננעצה</string>
+    <string name="swipe_unpinned">הנעיצה בוטלה</string>
+    <string name="swipe_already_following">כבר מקבלים עדכונים על השאלה הזאת.</string>
+    <string name="swipe_undo">ביטול</string>
+    <string name="swipe_link_copied">הקישור הועתק</string>
+    <string name="swipe_export_loading">מביאים את התשובות…</string>
+    <string name="settings_notification_kinds">סוגי התראות</string>
+    <string name="notif_category_updates">עדכונים</string>
+    <string name="notif_category_updates_summary">תשובות חדשות בשאלות ששאלת, שענית בהן או שביקשת עליהן עדכונים</string>
+    <string name="notif_category_flowers">פרחים ותודות</string>
+    <string name="notif_category_flowers_summary">פרח על תשובה שלך, הודעה בקיר התודות שלך</string>
+    <string name="notif_category_system">הודעות מערכת</string>
+    <string name="notif_category_system_summary">מצוות סטיפס (הסרות, תוצאות של דיווחים, הערות), וכל השאר</string>
+    <string name="settings_notification_list">רשימת ההתראות</string>
+    <string name="settings_notification_details">הצגת הכותרות והתמונות של השאלות</string>
+    <string name="settings_notification_details_summary">התראות על שאלה מציגות את הכותרת והתמונה שלה. כל שאלה נקראת מסטיפס פעם אחת (בערך 2KB).</string>
+    <string name="notif_mark_read">סימון כנקרא</string>
+    <string name="notif_pinned">מצוות סטיפס</string>
+    <string name="notif_filter_all">הכול</string>
+    <string name="notif_today">היום</string>
+    <string name="notif_yesterday">אתמול</string>
+    <string name="notif_this_week">השבוע</string>
+    <string name="notif_empty_category">אין כאלה במה שנטען עד עכשיו.</string>
+    <string name="notif_load_older">טעינת התראות ישנות יותר</string>
+    <string name="notif_summary">חדש מאז הביקור הקודם: %1$s</string>
+    <plurals name="notif_sum_answers">
+        <item quantity="one">תשובה חדשה אחת</item>
+        <item quantity="two">%d תשובות חדשות</item>
+        <item quantity="many">%d תשובות חדשות</item>
+        <item quantity="other">%d תשובות חדשות</item>
+    </plurals>
+    <plurals name="notif_sum_questions">
+        <item quantity="one">בשאלה אחת</item>
+        <item quantity="two">ב־%d שאלות</item>
+        <item quantity="many">ב־%d שאלות</item>
+        <item quantity="other">ב־%d שאלות</item>
+    </plurals>
+    <plurals name="notif_sum_flowers">
+        <item quantity="one">פרח אחד</item>
+        <item quantity="two">%d פרחים</item>
+        <item quantity="many">%d פרחים</item>
+        <item quantity="other">%d פרחים</item>
+    </plurals>
+    <plurals name="notif_sum_thanks">
+        <item quantity="one">הודעת תודה אחת</item>
+        <item quantity="two">%d הודעות תודה</item>
+        <item quantity="many">%d הודעות תודה</item>
+        <item quantity="other">%d הודעות תודה</item>
+    </plurals>
+    <plurals name="notif_sum_system">
+        <item quantity="one">הודעת מערכת אחת</item>
+        <item quantity="two">%d הודעות מערכת</item>
+        <item quantity="many">%d הודעות מערכת</item>
+        <item quantity="other">%d הודעות מערכת</item>
+    </plurals>
 </resources>

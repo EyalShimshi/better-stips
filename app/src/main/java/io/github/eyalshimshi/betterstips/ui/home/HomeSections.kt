@@ -49,7 +49,10 @@ import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.FooterNote
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
-import io.github.eyalshimshi.betterstips.ui.components.QuestionRow
+import io.github.eyalshimshi.betterstips.ui.question.SwipeableQuestionRow
+import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
+import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.ui.components.SkeletonRows
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import kotlinx.coroutines.CancellationException
@@ -182,7 +185,15 @@ fun HomeSectionsList(
     header: LazyListScope.() -> Unit = {},
 ) {
     val error = state.error
-    val sections = state.sections
+    // Questions hidden with a swipe leave the list at once (#18).
+    val container = LocalAppContainer.current
+    val blockVersion by container.blocks.version.collectAsStateWithLifecycle()
+    val sections = remember(state.sections, blockVersion) {
+        state.sections
+            .map { section -> section.copy(questions = section.questions.filterNot { container.blocks.isBlocked("ask", it.id, it.author.userId) }) }
+            .filter { it.questions.isNotEmpty() }
+    }
+    val moving = LocalAppSettings.current.motion.elements
     PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = modifier) {
         LazyColumn(
             state = listState,
@@ -202,14 +213,14 @@ fun HomeSectionsList(
             } else {
                 sections.forEach { section ->
                     item(key = "section|${section.title}") {
-                        SectionHeading(section, onOpenTopic, Modifier.animateItem())
+                        SectionHeading(section, onOpenTopic, if (moving) Modifier.animateItem() else Modifier)
                     }
                     items(section.questions, key = { "section|${section.title}|${it.id}" }) { question ->
-                        QuestionRow(
+                        SwipeableQuestionRow(
                             question,
                             channels.firstOrNull { it.id == question.channelId },
                             onClick = { onOpen(question) },
-                            modifier = Modifier.animateItem(),
+                            modifier = if (moving) Modifier.animateItem() else Modifier,
                         )
                     }
                 }

@@ -59,6 +59,8 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -643,7 +645,11 @@ private fun ProfileHeaderBody(
         }
         if (onMessage != null || isMe) {
             Spacer(Modifier.height(14.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (onMessage != null) {
                     FilledTonalButton(onClick = onMessage) {
                         Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -703,7 +709,7 @@ private fun InfoPill(icon: ImageVector, text: String, highlighted: Boolean = fal
  */
 @Composable
 private fun CredibilityCard(points: Int, onClick: () -> Unit) {
-    val animate = LocalAppSettings.current.animations
+    val animate = LocalAppSettings.current.motion.elements
     val value = points.coerceIn(0, 100)
     val sweep = remember { Animatable(0f) }
     LaunchedEffect(value, animate) {
@@ -828,7 +834,7 @@ private fun chartLabel(action: ChartAction): String = stringResource(
  */
 @Composable
 private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifier) {
-    val animate = LocalAppSettings.current.animations
+    val animate = LocalAppSettings.current.motion.elements
     var selected by remember(points) { mutableIntStateOf(-1) }
     val grow = remember(points) { Animatable(if (animate) 0f else 1f) }
     LaunchedEffect(points) {
@@ -1097,17 +1103,19 @@ private val PromoColors = listOf(Color(0xFF09A872), Color(0xFF2F7BF6), Color(0xF
 /** The bio button (#12): a colored pill, like a special badge, that offers to add "גם אני משתמש בסטיפס+". */
 @Composable
 private fun PromoButton(onClick: () -> Unit) {
+    // Shaped like the buttons beside it (#18): a 40 dp pill centered in a 48 dp touch target, as Material's are.
     Row(
         Modifier
-            .heightIn(min = 40.dp)
+            .minimumInteractiveComponentSize()
+            .height(ButtonDefaults.MinHeight)
             .clip(RoundedCornerShape(50))
             .background(Brush.horizontalGradient(PromoColors))
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(ButtonDefaults.ButtonWithIconContentPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(ButtonDefaults.IconSize))
+        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
         Text(
             stringResource(R.string.bio_promo_button),
             color = Color.White,

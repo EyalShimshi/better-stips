@@ -1,6 +1,6 @@
 # SPEC-07 — Proposals (v0.14)
 
-*Planning answers to issues that asked "what do you think?" rather than "do it". Nothing here is built yet; each part ends with what the owner decides. Links: [SPEC.md](SPEC.md) (decisions), [SPEC-04](SPEC-04-data.md) (data).*
+*Planning answers to issues that asked "what do you think?" rather than "do it". §1 was built in v0.15; §2 waits for the owner; §3 was discarded. Links: [SPEC.md](SPEC.md) (decisions), [SPEC-04](SPEC-04-data.md) (data).*
 
 ---
 
@@ -74,13 +74,14 @@ Leave G for later: an Activity tab is a big change to how the app is organized, 
 | Richer rows (H) | **Yes, as an option** in the notification settings, **off by default** (it costs requests) |
 | An Activity tab (G) | **Never:** the bell stays |
 
-### 1.7 The plan for v0.15
+### 1.7 Built in v0.15
 
-- **The bell's screen:** chips on top, *All · Updates · Flowers and thanks · System messages* (the categories are the filters; *All* first). Under them, in *All*: the summary line ("Since yesterday: 12 updates on 3 questions, 2 flowers, 1 thanks"), then the team's unopened notices pinned as cards, then the list in day sections, each row with its category's icon and a "new" dot.
+- **The bell's screen:** chips on top, *All · Updates · Flowers and thanks · System messages* (the categories are the filters; *All* first). Under them, in *All*: the summary line ("New since your last visit: 12 new answers on 3 questions · 2 flowers · a thanks message"), then the team's unopened notices from the last 30 days pinned as cards, then the list in day sections, each row with its category's icon and a "new" dot.
 - **Categories** come from `NotificationKinds`: Answers and Question → Updates; Flower and Thanks → Flowers and thanks; Removal, Report, TeamNote, Badge, Message and Other → System messages. Pure, unit-tested, so a new type lands in System messages until it's known.
-- **Row actions** (long-press or ⋮): *Mark as read* (Stips+'s own mark, as the "new" dots are) and, on an update, *Stop updates* (Stips' follow switch for that question, with an undo snackbar).
+- **Row actions** (long press): *Mark as read* (Stips+'s own mark, as the "new" dots are) and, on an update, *Stop updates* (Stips' follow switch for that question, with an undo snackbar).
 - **Richer rows (option):** Settings → Notifications → *Show questions' titles and photos*: rows on screen read their question (cached for the session, at most one request every 1.5 s, only while the budget has room), adding its title and cover thumbnail.
-- **Phone notifications:** unchanged, but their Android channels follow the same three categories, so each can be silenced on its own.
+- **Phone notifications:** unchanged, but their Android channels follow the same three categories, so each can be silenced on its own (*Messages* keeps its channel).
+
 ---
 
 ## 2. Uploading pictures to imgbb from the app (#15, part 2)
@@ -111,6 +112,8 @@ imgbb has an upload API: `POST https://api.imgbb.com/1/upload` with an **API key
 ---
 
 ## 3. An iPhone version (#17)
+
+*Discarded by the owner after v0.14 (#17 closed): Stips+ stays an Android app. The analysis is kept for the record.*
 
 ### 3.1 What we have
 

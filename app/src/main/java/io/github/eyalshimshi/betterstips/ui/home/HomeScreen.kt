@@ -400,10 +400,10 @@ private fun HotSection(
             else -> {
                 val rowState = rememberLazyListState()
                 // A refresh brings the row back to the hottest question (#12).
-                val animations = LocalAppSettings.current.animations
+                val animate = LocalAppSettings.current.motion.scrolls
                 LaunchedEffect(state.version) {
                     if (rowState.firstVisibleItemIndex == 0 && rowState.firstVisibleItemScrollOffset == 0) return@LaunchedEffect
-                    if (animations) rowState.animateScrollToItem(0) else rowState.scrollToItem(0)
+                    if (animate) rowState.animateScrollToItem(0) else rowState.scrollToItem(0)
                 }
                 LazyRow(
                     state = rowState,
@@ -546,7 +546,7 @@ private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onL
 
 @Composable
 private fun LiveDot(active: Boolean) {
-    val animate = LocalAppSettings.current.animations
+    val animate = LocalAppSettings.current.motion.elements
     val transition = rememberInfiniteTransition(label = "live")
     val pulse by transition.animateFloat(
         initialValue = 1f,

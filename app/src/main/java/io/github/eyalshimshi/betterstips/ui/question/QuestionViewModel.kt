@@ -22,6 +22,7 @@ import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -35,6 +36,8 @@ enum class QuestionMessage {
     AnswerPosted, AnswerEdited, AnswerDetached, VoteFailed, ActionFailed, Following, NotFollowing,
     Reported, Hidden, AnswerDeleted, QuestionEdited, QuestionDetached, FlowerSent, ReplyFixed,
 }
+
+private data class PendingHide(val objType: String, val id: Long, val authorId: Long?)
 
 data class QuestionUiState(
     val question: Question? = null,
@@ -90,6 +93,8 @@ class QuestionViewModel(
     private val anonymousAnswers: AnonymousAnswers,
     private val readMarks: ReadMarks,
     private val replyTargets: ReplyTargets,
+    /** The app's scope: telling Stips about a hide outlives this screen (#18). */
+    private val appScope: CoroutineScope,
     private val questionId: Long,
     focus: QuestionFocus?,
 ) : ViewModel() {
@@ -113,6 +118,9 @@ class QuestionViewModel(
 
     /** Easy replies already corrected on this visit: each at most once. */
     private val fixedReplies = HashSet<Long>()
+
+    /** A hide whose message still offers *Undo* (#18). */
+    private var pendingHide: PendingHide? = null
 
     private fun initialState(): QuestionUiState {
         val cached = repository.cachedQuestion(questionId)
@@ -393,11 +401,28 @@ class QuestionViewModel(
         runAction(QuestionMessage.Reported) { repository.report(objType, id, reason) }
     }
 
-    /** Hides an item (and everything by [authorId] when given) on this phone, and tells Stips. */
+    /**
+     * Hides an item (and everything by [authorId] when given) on this phone at once. Its message offers *Undo* (#18);
+     * [settleHide] runs when the message goes. A hide still waiting on an earlier message is kept and sent to Stips;
+     * that message's *Undo* then takes back this one, the newest.
+     */
     fun block(objType: String, id: Long, authorId: Long?) {
-        viewModelScope.launch {
-            repository.blockContent(objType, id, authorId)
-            _state.update { it.copy(message = QuestionMessage.Hidden) }
+        pendingHide?.let { earlier -> repository.tellStipsHiddenLater(appScope, earlier.objType, earlier.id, earlier.authorId) }
+        repository.blocks.block(objType, id, authorId)
+        pendingHide = PendingHide(objType, id, authorId)
+        _state.update { it.copy(message = QuestionMessage.Hidden) }
+    }
+
+    /** The hide's message is gone: [undo] brings the item back; otherwise Stips is told, as the site does. */
+    fun settleHide(undo: Boolean) {
+        // A message cut short (another screen opened, the phone turned) isn't shown again: its Undo would do nothing.
+        _state.update { if (it.message == QuestionMessage.Hidden) it.copy(message = null) else it }
+        val hide = pendingHide ?: return
+        pendingHide = null
+        if (undo) {
+            repository.blocks.unblock(hide.objType, hide.id, hide.authorId)
+        } else {
+            repository.tellStipsHiddenLater(appScope, hide.objType, hide.id, hide.authorId)
         }
     }
 

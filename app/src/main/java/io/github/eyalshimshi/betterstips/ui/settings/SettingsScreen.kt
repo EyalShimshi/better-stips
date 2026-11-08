@@ -84,6 +84,8 @@ import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.AnswersOrder
 import io.github.eyalshimshi.betterstips.data.AppSettings
 import io.github.eyalshimshi.betterstips.data.HomeLayout
+import io.github.eyalshimshi.betterstips.data.Motion
+import io.github.eyalshimshi.betterstips.data.MotionPreset
 import io.github.eyalshimshi.betterstips.data.StartTab
 import io.github.eyalshimshi.betterstips.data.ThemeMode
 import io.github.eyalshimshi.betterstips.data.Timings
@@ -105,6 +107,11 @@ import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificat
 import io.github.eyalshimshi.betterstips.ui.profile.GroupLabel
 import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
 import io.github.eyalshimshi.betterstips.util.CredRules
+import io.github.eyalshimshi.betterstips.util.SwipeRules
+import io.github.eyalshimshi.betterstips.util.NotificationCategories
+import io.github.eyalshimshi.betterstips.ui.question.answerSwipeLabel
+import io.github.eyalshimshi.betterstips.ui.question.questionSwipeIcon
+import io.github.eyalshimshi.betterstips.ui.question.questionSwipeLabel
 import io.github.eyalshimshi.betterstips.widget.requestPinChatsWidget
 import io.github.eyalshimshi.betterstips.widget.requestPinHotWidget
 import kotlinx.coroutines.CancellationException
@@ -527,18 +534,70 @@ private fun LookPage(settings: AppSettings) {
         title = stringResource(R.string.settings_images),
         summary = stringResource(R.string.settings_images_summary),
         index = 0,
-        count = 2,
+        count = 1,
         onClick = { store.update { it.copy(showImages = !it.showImages) } },
         trailing = { Switch(checked = settings.showImages, onCheckedChange = null) },
     )
-    GroupRow(
-        title = stringResource(R.string.settings_animations),
-        summary = stringResource(R.string.settings_animations_summary),
-        index = 1,
-        count = 2,
-        onClick = { store.update { it.copy(animations = !it.animations) } },
-        trailing = { Switch(checked = settings.animations, onCheckedChange = null) },
+    MotionGroup(settings)
+}
+
+/**
+ * Animations (#18): three presets first; "Customized" shows every kind of animation with its own switch, starting
+ * from what plays now.
+ */
+@Composable
+private fun MotionGroup(settings: AppSettings) {
+    val store = LocalAppContainer.current.settings
+    GroupLabel(stringResource(R.string.settings_animations))
+    val presets = listOf(
+        Triple(MotionPreset.Full, R.string.motion_full, R.string.motion_full_summary),
+        Triple(MotionPreset.Less, R.string.motion_less, R.string.motion_less_summary),
+        Triple(MotionPreset.Off, R.string.motion_off, R.string.motion_off_summary),
+        Triple(MotionPreset.Custom, R.string.motion_custom, R.string.motion_custom_summary),
     )
+    val custom = settings.motionPreset == MotionPreset.Custom
+    val m = settings.customMotion
+    val kinds: List<Triple<Int, Int, Pair<Boolean, (Motion) -> Motion>>> = listOf(
+        Triple(R.string.motion_screens, R.string.motion_screens_summary, m.screens to { x: Motion -> x.copy(screens = !x.screens) }),
+        Triple(R.string.motion_jumps, R.string.motion_jumps_summary, m.jumps to { x: Motion -> x.copy(jumps = !x.jumps) }),
+        Triple(R.string.motion_scrolls, R.string.motion_scrolls_summary, m.scrolls to { x: Motion -> x.copy(scrolls = !x.scrolls) }),
+        Triple(R.string.motion_glow, R.string.motion_glow_summary, m.glow to { x: Motion -> x.copy(glow = !x.glow) }),
+        Triple(R.string.motion_elements, R.string.motion_elements_summary, m.elements to { x: Motion -> x.copy(elements = !x.elements) }),
+        Triple(R.string.motion_quick, R.string.motion_quick_summary, m.quick to { x: Motion -> x.copy(quick = !x.quick) }),
+    )
+    val rows = presets.size + if (custom) kinds.size else 0
+    presets.forEachIndexed { index, (preset, title, summary) ->
+        GroupRow(
+            title = stringResource(title),
+            summary = stringResource(summary),
+            index = index,
+            count = rows,
+            onClick = {
+                store.update { s ->
+                    // Customizing starts from what plays now.
+                    if (preset == MotionPreset.Custom && s.motionPreset != MotionPreset.Custom) {
+                        s.copy(motionPreset = preset, customMotion = s.motion)
+                    } else {
+                        s.copy(motionPreset = preset)
+                    }
+                }
+            },
+            trailing = { RadioButton(selected = settings.motionPreset == preset, onClick = null) },
+        )
+    }
+    if (custom) {
+        kinds.forEachIndexed { i, (title, summary, state) ->
+            val (on, flip) = state
+            GroupRow(
+                title = stringResource(title),
+                summary = stringResource(summary),
+                index = presets.size + i,
+                count = rows,
+                onClick = { store.update { it.copy(customMotion = flip(it.customMotion)) } },
+                trailing = { Switch(checked = on, onCheckedChange = null) },
+            )
+        }
+    }
 }
 
 /** Home: its layout as pictures to pick from (#12), its hot questions, Live, and where the app opens. */
@@ -612,6 +671,73 @@ private fun HomePage(settings: AppSettings) {
         index = 1,
         count = 2,
     )
+
+    // Swiping a question in a list (#18): Home, topics, channels and your lists.
+    GroupLabel(stringResource(R.string.settings_swipe_questions))
+    SwipePreview(
+        right = questionSwipeLabel(settings.swipeRight) to questionSwipeIcon(settings.swipeRight),
+        left = questionSwipeLabel(settings.swipeLeft) to questionSwipeIcon(settings.swipeLeft),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+    SwipeChoiceRow(
+        title = stringResource(R.string.settings_swipe_right),
+        options = SwipeRules.QUESTION_CHOICES.map { it to questionSwipeLabel(it) },
+        selected = settings.swipeRight,
+        onSelect = { action -> store.update { it.copy(swipeRight = action) } },
+        index = 0,
+        count = 2,
+    )
+    SwipeChoiceRow(
+        title = stringResource(R.string.settings_swipe_left),
+        options = SwipeRules.QUESTION_CHOICES.map { it to questionSwipeLabel(it) },
+        selected = settings.swipeLeft,
+        onSelect = { action -> store.update { it.copy(swipeLeft = action) } },
+        index = 1,
+        count = 2,
+    )
+}
+
+/** A setting picked from a list in a dialog (#18): the row says what's picked now. */
+@Composable
+private fun <T> SwipeChoiceRow(
+    title: String,
+    options: List<Pair<T, Int>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    index: Int,
+    count: Int,
+) {
+    var open by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.first == selected }?.second ?: options.first().second
+    GroupRow(title = title, summary = stringResource(current), index = index, count = count, onClick = { open = true })
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(title) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    options.forEach { (value, label) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    onSelect(value)
+                                    open = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = value == selected, onClick = null)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(label), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
+        )
+    }
 }
 
 /** Answers: a picture of two answers that changes with the switches (#12), their order, replies and times. */
@@ -669,6 +795,25 @@ private fun AnswersPage(settings: AppSettings) {
         count = repliesCount,
         onClick = { store.update { it.copy(moderatorBadges = !it.moderatorBadges) } },
         trailing = { Switch(checked = settings.moderatorBadges, onCheckedChange = null) },
+    )
+
+    // Swiping an answer to the left (#18); to the right it replies (easy reply, above).
+    GroupLabel(stringResource(R.string.settings_swipe_answers))
+    SwipeChoiceRow(
+        title = stringResource(R.string.settings_swipe_others_answer),
+        options = SwipeRules.OTHERS_ANSWER_CHOICES.map { it to answerSwipeLabel(it) },
+        selected = settings.answerSwipe,
+        onSelect = { action -> store.update { it.copy(answerSwipe = action) } },
+        index = 0,
+        count = 2,
+    )
+    SwipeChoiceRow(
+        title = stringResource(R.string.settings_swipe_my_answer),
+        options = SwipeRules.MY_ANSWER_CHOICES.map { it to answerSwipeLabel(it) },
+        selected = settings.myAnswerSwipe,
+        onSelect = { action -> store.update { it.copy(myAnswerSwipe = action) } },
+        index = 1,
+        count = 2,
     )
 
     GroupLabel(stringResource(R.string.settings_answers_order))
@@ -734,6 +879,35 @@ private fun NotificationsPage(settings: AppSettings, snackbar: SnackbarHostState
             PhoneNotificationsStatus(snackbar, Modifier.padding(16.dp))
         }
     }
+
+    // The three kinds of notifications (#13): each has its own sound and pop-up in Android's settings.
+    GroupLabel(stringResource(R.string.settings_notification_kinds))
+    val kinds = listOf(
+        Triple(NotificationCategories.Category.Updates, R.string.notif_category_updates, R.string.notif_category_updates_summary),
+        Triple(NotificationCategories.Category.FlowersAndThanks, R.string.notif_category_flowers, R.string.notif_category_flowers_summary),
+        Triple(NotificationCategories.Category.System, R.string.notif_category_system, R.string.notif_category_system_summary),
+    )
+    kinds.forEachIndexed { index, (category, title, summary) ->
+        GroupRow(
+            title = stringResource(title),
+            summary = stringResource(summary),
+            index = index,
+            count = kinds.size,
+            onClick = { Notifier.openCategorySettings(context, category) },
+            trailing = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null) },
+        )
+    }
+
+    // The list behind the bell (#13).
+    GroupLabel(stringResource(R.string.settings_notification_list))
+    GroupRow(
+        title = stringResource(R.string.settings_notification_details),
+        summary = stringResource(R.string.settings_notification_details_summary),
+        index = 0,
+        count = 1,
+        onClick = { store.update { it.copy(notificationDetails = !it.notificationDetails) } },
+        trailing = { Switch(checked = settings.notificationDetails, onCheckedChange = null) },
+    )
     Text(
         stringResource(R.string.settings_notifications_chats_hint),
         style = MaterialTheme.typography.bodySmall,

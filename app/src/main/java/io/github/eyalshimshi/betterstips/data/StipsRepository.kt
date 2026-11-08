@@ -574,11 +574,11 @@ class StipsRepository(
     }
 
     /**
-     * "Block content": hides the item (and, with [authorId], everything by its author) on this phone, and tells
-     * Stips as its app does (`ask/BlockContent`), so it can show less of it. The answer is ignored, like on the site.
+     * Tells Stips that the user hid an item (and, with [authorId], everything by its author), as its app does
+     * (`ask/BlockContent`), so it can show less of it. The hiding itself is [blocks]', made first so it can be undone
+     * (#18). The answer is ignored, like on the site, and so is a failure: the item is hidden here either way.
      */
-    suspend fun blockContent(objType: String, id: Long, authorId: Long?) {
-        blocks.block(objType, id, authorId)
+    suspend fun tellStipsHidden(objType: String, id: Long, authorId: Long?) {
         if (!session.session.value.signedIn) return
         try {
             withSession {

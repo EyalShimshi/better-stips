@@ -60,7 +60,8 @@ import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.FooterNote
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
-import io.github.eyalshimshi.betterstips.ui.components.QuestionRow
+import io.github.eyalshimshi.betterstips.ui.question.SwipeableQuestionRow
+import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.components.SkeletonRows
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.channelLabel
@@ -79,7 +80,13 @@ fun QuestionList(
     header: LazyListScope.() -> Unit = {},
 ) {
     val error = state.error
-    val questions = state.items
+    // Questions hidden with a swipe or ⋮ leave the list at once (#18).
+    val container = LocalAppContainer.current
+    val blockVersion by container.blocks.version.collectAsStateWithLifecycle()
+    val questions = remember(state.items, blockVersion) {
+        state.items.filterNot { container.blocks.isBlocked("ask", it.id, it.author.userId) }
+    }
+    val moving = LocalAppSettings.current.motion.elements
     PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = onRefresh, modifier = modifier) {
         LazyColumn(
             state = listState,
@@ -98,11 +105,11 @@ fun QuestionList(
                 }
             } else {
                 items(questions, key = { it.id }) { question ->
-                    QuestionRow(
+                    SwipeableQuestionRow(
                         question,
                         channels.firstOrNull { it.id == question.channelId },
                         onClick = { onOpen(question) },
-                        modifier = Modifier.animateItem(),
+                        modifier = if (moving) Modifier.animateItem() else Modifier,
                     )
                 }
                 when {

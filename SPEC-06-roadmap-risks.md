@@ -15,7 +15,7 @@
 | M3.8 v0.12 | Easy reply in chats, DM settings, back to the top, text as written; #9 | Chats work as answers do, and stay signed in |
 | M3.9 v0.13 | "Unread" bars, notices from Stips' team, block screens, credibility explained and projected, the 50-point and 5-flower limits; #10: edit history, reload on re-tapping a tab, colored scores, a scroll button on threads | The app says what Stips' rules mean for the user before they hit them |
 | M3.10 v0.14 | #12: settings rethought with pictures, a first-run intro, gentle jumps, no emojis where Stips drops them, the asker's nickname, bio links and "I use Stips+", Stips' creator's badge; #15: pictures from links; #16: exporting a thread; #14: the public repository made safe (releases on approval, least-privilege CI, personal data out); proposals for #13, #15 and #17 (SPEC-07) | The owner sets the app up in a minute, and a public repository can't change what's on phones without the owner || M4 Public | Only with Stips' written permission | Playbook §7 checklist, README in Hebrew and English |
-
+| M3.11 v0.15 | #13: the bell's list in categories, with the team's notices pinned and channels per category; #18: animation presets and a custom set, short transitions, swipe actions on questions and answers, the bio button aligned; #19 answered; #17 closed | The owner finds what matters in the bell at a glance, and the app moves as much as they like |
 ## 2. Spikes
 
 See SPEC-03 §11 (S-01…S-06). All need the owner's Stips account on the phone; the agent never handles the password.

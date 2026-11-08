@@ -12,7 +12,7 @@
 | [SPEC-04-data.md](SPEC-04-data.md) | The Stips API (verified calls), data model, pipeline, legal |
 | [SPEC-05-quality-release.md](SPEC-05-quality-release.md) | Tests, CI, versioning, signing, distribution, privacy |
 | [SPEC-06-roadmap-risks.md](SPEC-06-roadmap-risks.md) | Milestones, risks, open questions, the permission request |
-| [SPEC-07-proposals.md](SPEC-07-proposals.md) | Plans waiting for the owner: notifications rethought (#13), uploading pictures (#15), an iPhone version (#17) |
+| [SPEC-07-proposals.md](SPEC-07-proposals.md) | Proposals: notifications rethought (#13, built in v0.15), uploading pictures (#15, waiting for the owner), an iPhone version (#17, discarded) |
 
 ## At a glance
 
@@ -133,18 +133,33 @@
 | D-101 | **Export a thread (#16):** ⋮ → *Export thread*: Markdown (for AI chats and notes) or JSON, previewed, then copied or shared. Answers numbered in Stips' order with "replies to #N" from their carets; words as written; hidden answers as numbered placeholders; no account ids or votes | The owner's ask ("easily AI importable") | Owner (ask), agent |
 | D-102 | **The public repository (#14):** releases wait for the owner's approval (a GitHub environment); the workflow's token is read-only except for publishing; actions from outside GitHub are pinned to commits; the launch test's public outputs carry only verdicts; the probe tool and the write-up of how Stips' limit works are gone (D-50); the owner's name, email and Stips id are out of the docs and tests, and commits use the noreply address; signing out clears the account's notifications and local lists; link labels show the real host. Not changed: expert mode's raw fields (the owner's call) | A security review of the code, the repository and CI (9 findings) | Owner (decisions), agent |
 | D-103 | **The playbook's "check the open issues before finishing" step is gone (#14)** | With a public repository, anyone can write an issue; the agent works on the issues the owner points to | Owner |
+| D-104 | **The bell's list in categories (#13, the owner's decisions):** chips *All · Updates · Flowers and thanks · System messages*, each with how many are new; sections by day (Today · Yesterday · This week · Earlier) with "new" dots instead of a "New" section; a line on top, "New since your last visit: 12 new answers on 3 questions · 2 flowers…"; Stips' team's notices pinned on top as cards until opened (opened marks kept per account; only notices from the last 30 days pin); a long press offers *Mark as read* and, on an update, *Stop updates* with *Undo*. Optional, off by default: each question's title and photo on its rows (read from the app's memory, else from Stips, one every 1.5 s, only while the budget has room). Phone notifications get one Android channel per category, each with its own sound and pop-up (Settings → Notifications → Kinds of notifications) | The owner's ask ("messy… split… not organized at all") and choices in SPEC-07 §1.6. Not grouped per question: the owner preferred categories. No Activity tab | Owner (decisions), agent |
+| D-105 | **Animations in presets (#18):** *Full* (everything, with screen transitions cut from 350 to 200 ms on a decelerating curve), *Less* (no screen transitions; jumps, scrolls, the glow and moving elements stay, about twice as fast), *None*, and *Customized*, which shows a switch for each kind (screens, jumps, scrolling to the top, glow, moving elements, quick) and starts from what plays now. The old switch maps on to *Full* and off to *None* | The owner's ask: transitions felt slow, but turning everything off lost the jumps and glows | Owner (ask), agent |
+| D-106 | **Swipe actions (#18):** questions in every list (Home, topics, channels, your lists) take a swipe each way, as in Gmail: right pins (or unpins), left reports, by default; either can be set to nothing, pin, get updates, share, copy link, open on Stips, export, report, hide the question or everything from its asker. Behind the row the action's color, icon and words show; past the line the phone ticks. Answers keep swipe-right-to-reply and take a left swipe too: nothing by default on others' answers, *Edit* on your own; the choices are their ⋮ menus' entries, and a swipe is offered only where the menu offers it | The owner's ask. Hiding (from a swipe or a menu) takes the item away at once and its message offers *Undo*, as in Gmail; Stips is told only once the message goes without it, since Stips has no way to unhide one item | Owner (ask), agent |
+| D-107 | **The bio button lines up with *Edit bio* (#18):** the same 40 dp shape in a 48 dp touch target as Material's buttons, centered in its row | It sat 4 dp higher | Owner |
+| D-108 | **"Online" and "active" explained (#19):** Stips' server sends only true or false for online; the rule behind it isn't visible; `active` is an item that wasn't removed, or an account that exists (SPEC-04 §2.14) | The owner's question | Owner (ask), agent |
+| D-109 | **No iPhone version (#17 closed)** | The owner's decision after SPEC-07 §3 | Owner |
 ## Next steps
 
-1. Owner: in the repository's Settings → Environments → **release**, add yourself as a required reviewer (the first v0.14 run creates the environment). From then on each release waits for your *Approve* in the GitHub app (MAINTAINING.md).
+1. Owner: in the repository's Settings → Environments → **release**, add yourself as a required reviewer if you haven't yet. Then each release waits for your *Approve* in the GitHub app (MAINTAINING.md).
 2. Owner: send the permission request to Stips (SPEC-06 §4). It also says how Stips+ makes its requests (D-49) and asks whether that's acceptable.
 3. Owner: on GitHub, turn on two-factor sign-in and protect `main` (Settings → Branches), and edit issue #12 so it doesn't tie your GitHub account to your Stips account (#14).
-4. Owner: decide #15 part 2 (SPEC-07 §2.3) and #17 (SPEC-07 §3.4). #13 is decided (SPEC-07 §1.6): v0.15 builds it (§1.7).
-5. Owner: try v0.14: the intro (Settings → About → *Show the intro again*), the new Settings and its pictures, *Show image* on an imgbb link, ⋮ → *Export thread*, typing an emoji in an answer, *I use Stips+* on your profile, a reply's quote in a chat when the message is already on screen (it should only light up), and Stips' creator's badge (user 2042).
-6. Owner: if the "Stips paused this phone" banner still appears, report the network log on GitHub (Settings → About → expert mode → Diagnostics).
+4. Owner: decide #15 part 2 (SPEC-07 §2.3).
+5. Owner: try v0.15: the bell (chips, the summary line, day sections, a long press on a row, a pinned notice from Stips' team when one comes), Settings → Appearance → Animations (*Less animations*, and *Customized*), swiping questions on Home both ways (and changing the actions in Settings → Home), swiping your own answer left (it edits), and the *I use Stips+* button next to *Edit bio*.
+6. Owner: if you want to know what shows you as online (#19), watch your dot from a second account while Stips+ stays closed with phone notifications on (SPEC-04 §2.14).
 7. Owner: when a notice from Stips' team arrives (a removal, a report's outcome, a note), check that Stips+ labels it right; if not, turn on expert mode, tap { } on it, and send me what it shows (D-82).
-8. Next round (v0.15): #13 as planned in SPEC-07 §1.7. Candidates after it: "Upload a picture on imgbb" in the link dialog (SPEC-07 §2.3 a); the Android 17 emulator in the release check; "Add to home screen" for one question or chat; stacking two easy replies in one answer; an optional "instant" mode for notifications with the screen off; gentle hints from the rule book while writing; a question's own edit history.
+8. Candidates: "Upload a picture on imgbb" in the link dialog (SPEC-07 §2.3 a); the Android 17 emulator in the release check; "Add to home screen" for one question or chat; stacking two easy replies in one answer; an optional "instant" mode for notifications with the screen off; gentle hints from the rule book while writing; a question's own edit history.
 ## Implementation notes
 
+### Fifteenth build (v0.15, notifications in categories, animation presets, swipe actions; #13, #18, #19)
+
+| Spec says / the site does | v0.15 does | Why / next step |
+|---|---|---|
+| v0.4–v0.14: the bell's list split "New" / "Earlier" | Category chips, a summary line, the team's notices pinned, sections by day, long-press actions; titles and photos as an option (D-104) | The owner's decisions (SPEC-07 §1.6) |
+| v0.11: one Android channel for everything but messages | One per category (D-104); the old one is deleted, so its sound settings start over | Each kind can be silenced on its own |
+| v0.9: one switch for all animations; screens slid in 350 ms | Presets and a custom set (D-105); 200 ms | The owner's ask |
+| Answers swiped only to reply | Questions swipe both ways in every list, answers swipe left too (D-106) | The owner's ask, like Gmail |
+| The site shows the green ring from `online` | Explained (D-108, SPEC-04 §2.14) | Measuring what counts as online needs two accounts |
 ### Fourteenth build (v0.14, tweaks, pictures, export, the public repository; #12, #14, #15, #16)
 
 | Spec says / the site does | v0.14 does | Why / next step |

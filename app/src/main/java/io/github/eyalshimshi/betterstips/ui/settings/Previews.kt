@@ -430,3 +430,70 @@ fun NotificationPreview(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** Swiping a question (#18): a row slid to the right over its action, and one slid to the left over the other. */
+@Composable
+fun SwipePreview(
+    right: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>,
+    left: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>,
+    modifier: Modifier = Modifier,
+) {
+    PreviewFrame(modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SwipedRow(right, toRight = true)
+            SwipedRow(left, toRight = false)
+        }
+    }
+}
+
+@Composable
+private fun SwipedRow(action: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>, toRight: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.secondaryContainer),
+    ) {
+        Row(
+            Modifier
+                .align(if (toRight) androidx.compose.ui.AbsoluteAlignment.CenterLeft else androidx.compose.ui.AbsoluteAlignment.CenterRight)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(action.second, contentDescription = null, tint = colors.onSecondaryContainer, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                stringResource(action.first),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.onSecondaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 120.dp),
+            )
+        }
+        // The question's row, slid aside.
+        Row(
+            Modifier
+                .fillMaxWidth(0.6f)
+                .height(52.dp)
+                .align(if (toRight) androidx.compose.ui.AbsoluteAlignment.CenterRight else androidx.compose.ui.AbsoluteAlignment.CenterLeft)
+                .background(colors.surfaceContainerLow)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.primaryContainer),
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                ListLine(1f, thickness = 7.dp)
+                ListLine(0.6f, thickness = 6.dp)
+            }
+        }
+    }
+}

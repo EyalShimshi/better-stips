@@ -116,6 +116,7 @@ import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsPrompt
 import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsScreen
 import io.github.eyalshimshi.betterstips.ui.penpals.PenPalsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
+import io.github.eyalshimshi.betterstips.ui.question.QuestionActionsHost
 import io.github.eyalshimshi.betterstips.ui.question.QuestionScreen
 import io.github.eyalshimshi.betterstips.ui.settings.NetLogScreen
 import io.github.eyalshimshi.betterstips.ui.settings.SettingsPage
@@ -201,7 +202,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     val backStack by navController.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     val showBar = tabs.any { it.route == route }
-    val animate = LocalAppSettings.current.animations
+    val animate = LocalAppSettings.current.motion.screens
     val snackbar = remember { SnackbarHostState() }
     val signedOutText = stringResource(R.string.error_signed_out)
     val session by container.session.session.collectAsStateWithLifecycle()
@@ -313,6 +314,8 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         LocalTabReselects provides tabReselects,
         LocalShowIntro provides showIntro,
     ) {
+        // Swiping a question in any list runs the actions picked in Settings (#18); their dialogs show over the app.
+        QuestionActionsHost(snackbar, onSignIn = { navController.navigate(Routes.SIGN_IN) { launchSingleTop = true } }) {
         Box(Modifier.fillMaxSize()) {
             Scaffold(
                 // Under the welcome screen the app stays ready (links may open into it) but hidden from TalkBack.
@@ -363,6 +366,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
                     )
                 }
             }
+        }
         }
     }
     CrashDialog()
@@ -477,11 +481,12 @@ private fun BottomBar(navController: NavHostController, route: String?, counts: 
 /**
  * Screen-to-screen motion (DESIGN-PHILOSOPHY §5). A new screen slides in over the current one, which drifts a
  * quarter of the way back; going back reverses it. Tabs cross-fade. During the predictive back gesture the screen
- * follows the finger toward the side it was swiped from, instead of shrinking.
+ * follows the finger toward the side it was swiped from, instead of shrinking. Short since v0.15 (#18): 200 ms with
+ * Material's decelerating curve, so most of the move happens at once.
  */
 private class NavMotion(private val animate: Boolean) {
     private val tabRoutes = tabs.map { it.route }.toSet()
-    private val emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    private val emphasized = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
     private val slide = tween<IntOffset>(SLIDE_MS, easing = emphasized)
     private val follow = tween<IntOffset>(SLIDE_MS, easing = LinearEasing)
 
@@ -534,16 +539,16 @@ private class NavMotion(private val animate: Boolean) {
     }
 
     private companion object {
-        const val SLIDE_MS = 350
-        const val FADE_OUT_MS = 90
-        const val FADE_IN_MS = 210
+        const val SLIDE_MS = 200
+        const val FADE_OUT_MS = 60
+        const val FADE_IN_MS = 120
         const val EDGE_LEFT = 0
     }
 }
 
 @Composable
 private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit) {
-    val animate = LocalAppSettings.current.animations
+    val animate = LocalAppSettings.current.motion.screens
     val container = LocalAppContainer.current
     val session by container.session.session.collectAsStateWithLifecycle()
     val signedIn = session.signedIn

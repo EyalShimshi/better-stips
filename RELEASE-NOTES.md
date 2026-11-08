@@ -1,51 +1,44 @@
-## Stips+ 0.14: settings rethought, an intro, pictures from links, thread export, and a safer public repository (#12, #14, #15, #16)
+## Stips+ 0.15: notifications in order, animations your way, and swipe actions (#13, #18, #19)
 
-**From issue #12**
-- **Settings, rethought:** an account card on top, then three groups: *Make it yours* (appearance, Home, questions and answers, DM settings), *On your phone* (notifications, widgets) and *More* (privacy and safety, Stips, about). Each row says what's chosen now ("Theme: System · Dynamic color").
-- **Pictures in Settings:** Appearance shows a piece of the app in your colors. Home shows its three layouts to pick from. Questions and answers shows two answers, one replying to the other, and it changes as you flip the switches (quote, carets, moderator badge, swipe). DM settings shows two chat bubbles the same way, also in the ⚙ sheet on the chats screens. Notifications shows what a phone notification looks like.
-- **Expert mode moved into About**, with Diagnostics. Live new questions moved to Home; deleting the account to the account page.
-- **An intro on first launch:** pick the look, Home's layout and how replies show, each with its picture, then sign in or look around as a guest, and phone notifications. Settings → About → *Show the intro again* replays it.
-- **Gentle jumps:** tapping a reply's quote or carets (in chats and in questions) doesn't move anything when the message is already on screen in full; it only lights it up. Otherwise the screen moves just enough to show it whole, about a tenth of the screen from the edge.
-- **No emojis in questions and answers:** they're left out as you type or paste, with a short line saying why. Chats keep them.
-  - **Is there a way around it?** No. Stips' server keeps question and answer text in a form that can't hold emojis and cuts the text at the first one, which is why your answer came out empty (`"a": ""`). Writing them as HTML codes doesn't work either, because Stips escapes `&` on the way in.
-- **The asker's nickname:** on an anonymous question asked under a nickname, the asker's own anonymous answers show that nickname instead of "אנונימי", still without a profile link.
-- **Pen pals:** a post only opens a chat with its writer. Report, hide and block are gone; your own post keeps *Delete*.
-- **Home:** refreshing scrolls the hot questions back to the first card.
-- **Profiles:** links in bios open. The activity graph has the newest on the right. On your own profile, a colorful **I use Stips+** button next to *Edit bio* adds "גם אני משתמש בסטיפס+" (or משתמשת) and the app's Google Play link below your bio. A dialog first shows the exact line and promises the bio stays as it is.
-- **Stips' creator (user 2042) has a badge**, "יוצר סטיפס", by his name on his profile, his questions and his answers. The list is [SpecialAccounts.kt](app/src/main/java/io/github/eyalshimshi/betterstips/SpecialAccounts.kt), at the top of the code: one line per account. Edit it and it reaches phones with the next release. It isn't downloaded while the app runs, so nobody can put a badge or a blue check on an account without a signed release.
+**#13: the notifications list, as you decided**
+- **Chips on top:** *All · Updates · Flowers and thanks · System messages*, each with a count of what's new. Tap one to see only that kind (older ones of that kind come with *Load older notifications*); tap it again for everything.
+- **A summary line** in *All*: "New since your last visit: 12 new answers on 3 questions · 2 flowers · a thanks message".
+- **Stips' team's notices stay on top** (a removal, a report's outcome, a note) as cards, until you open them or mark them read. Only notices from the last 30 days stay pinned.
+- **Sections by day:** Today, Yesterday, This week, Earlier. New ones are still bold, with a dot.
+- **Long-press a row** for *Mark as read*, and on an update for *Stop updates* on that question (with *Undo*).
+- **Optional, off by default:** Settings → Notifications → *Show questions' titles and photos*. Rows about a question then show its title and photo. The app reads each question from Stips once (about 2 KB), one every 1.5 seconds.
+- **Phone notifications by kind:** Android now has a channel for each kind: *Updates*, *Flowers and thanks*, *System messages*, and *Messages* as before. Settings → Notifications → *Kinds of notifications* opens each one, so you can give it its own sound or silence it.
 
-**#15: pictures from links**
-- An imgbb link (`ibb.co/…`), or an image file on imgbb, Imgur or Postimages, opens in the app's viewer: pinch or double-tap to zoom, with *Open in browser* at the top.
-- An attached link that's a picture gets a **Show image** button next to it; the link itself still opens the browser. Picture links inside text open the viewer.
-- Nothing is loaded until you tap. For an imgbb page the app first reads imgbb's short description of it (under 1 KB) to find the picture.
-- **Uploading from the app:** my recommendation is in [SPEC-07 §2](SPEC-07-proposals.md#2-uploading-pictures-to-imgbb-from-the-app-15-part-2). A built-in upload needs an imgbb key, and in an open app that key would be public. It would also put pictures from (mostly young) users online in one tap. Safer: a button in the link dialog that opens imgbb's own upload page, and you paste the link back.
+**#18: more tweaks**
+- **Animations** (Settings → Appearance → Animations):
+  - *Full animations*: everything, with screen changes about twice as fast as before.
+  - *Less animations*: no sliding between screens. Jumping to an answer, the glow, scrolling up on refresh and the moving elements stay, and they're quicker.
+  - *No animations*.
+  - *Customized*: a switch for each kind (screens, jumps, scrolling to the top, glow, moving elements, quick). It starts from what you had.
+  - If you had animations turned off, you're now on *No animations*.
+- **Swiping questions, like Gmail:** in every list (Home, topics, channels, your lists), swipe a question right to pin it (or unpin it) and left to report it. Settings → Home → *Swiping a question* changes each side: nothing, pin, get updates, share, copy link, open on Stips, export, report, hide the question, or hide everything from its asker. The action's color, icon and name show behind the row, and the phone ticks once you've swiped far enough.
+- **Swiping answers left:** swiping right still replies. Swiping left does what you pick in Settings → Questions and answers → *Swiping an answer*: on others' answers nothing by default (or report, hide, hide everything from them, edit history), and on your own *Edit* by default (or detach, delete, edit history). A swipe only offers what the answer's ⋮ menu offers.
+- **Hiding can be undone:** a hidden question or answer disappears at once, and its message offers *Undo* for a few seconds. Stips is told only after that.
+- **The *I use Stips+* button** now lines up with *Edit bio*.
 
-**#16: export a thread**
-- ⋮ → *Export thread*: the question and its answers as **Text** (Markdown, good for pasting into an AI chat) or **JSON**, with a preview, then *Copy* or *Share*.
-- Answers are numbered in Stips' order, with "replies to #N" worked out from their carets. Answers you hid stay out.
+**#19: how does Stips know who's online?**
+- Stips' server decides, and sends a plain yes or no (`online`) with each profile, answer and chat. The site draws it as the pulsing green ring; Stips+ shows the same value as its green dot. The server never says what counts as online, or when someone was last seen, so neither the site nor the app can show "last seen".
+- "Active" is something else: in Stips' data it means a question or answer that wasn't removed, or an account that wasn't closed. "On Stips for" is Stips' own phrase for how old the account is.
+- My guess is that any signed-in request in the last few minutes makes you online. That would include Stips+'s background checks for phone notifications. It's not measured yet; [SPEC-04 §2.14](SPEC-04-data.md#214-online-active-and-on-stips-for-19-from-the-sites-code-2026-11) has the details and a simple test with a second account.
 
-**#14: the public repository**
-I ran a full security review of the code, the repository and CI, and fixed what you chose:
-- **Releases wait for your approval.** Each one now needs your tap. One-time setup: Settings → Environments → **release** → *Required reviewers* → add yourself. Then approve each release in the GitHub app: the run → *Review deployments*.
-- **CI:** the workflow's token is read-only except for publishing, and the actions from outside GitHub are pinned to exact versions. The emulator test no longer copies live Stips posts into the release notes or `ci-status`; its screenshots are kept only when it fails.
-- **Docs:** the measurements and the tool that re-measured Stips' rate limit are gone, as is the playbook step about checking issues before finishing. Personal details are out of the docs and tests, and commits use your GitHub noreply address.
-- **Signing out** now clears the account's phone notifications and what the phone kept about it: which questions it answered anonymously (never backed up now), what it read, and its easy replies.
-- **Link labels** show the real site: a link like `https://stips.co.il@other.site/` now reads "other.site", and a link's title shows its site next to it.
-
-**#13 and #17: planning**
-- [SPEC-07 §1](SPEC-07-proposals.md#1-stips-notifications-inside-the-app-rethought-13) is the notifications deep dive. It covers what Stips sends, why the list feels messy (one row per burst of answers, the team's notices lost among them), the options, and my recommendation: one row per question, the team's notices on top, sections by day.
-- [SPEC-07 §3](SPEC-07-proposals.md#3-an-iphone-version-17) is the iPhone question. It's possible with Kotlin Multiplatform, and about half the code can be shared. It needs an Apple developer account ($99 a year), and on iPhone notifications can't be checked every few minutes. My recommendation: Google Play first.
+**#17: closed**, as you decided. The iPhone plan stays in [SPEC-07 §3](SPEC-07-proposals.md#3-an-iphone-version-17), marked discarded.
 
 **To test**
-1. Settings: open each group and flip switches while watching the pictures. Find Expert mode under About.
-2. Settings → About → *Show the intro again*: go through it, change the look, and see the app change behind it.
-3. In a question with an imgbb link, tap *Show image* and zoom.
-4. ⋮ → *Export thread* → *Copy*, and paste it into a note or an AI chat.
-5. Type an emoji into an answer: it doesn't go in, and a line explains why.
-6. In a chat or a question, tap a reply's quote when the message is already on screen: it only lights up.
-7. Your profile → *I use Stips+* (cancel, or add it and remove it with *Edit bio*). Open user 2042's profile to see the badge.
+1. The bell: tap each chip, read the summary line, long-press a row → *Mark as read*, and long-press an update → *Stop updates* → *Undo*.
+2. Settings → Notifications → *Show questions' titles and photos*, then open the bell again.
+3. Settings → Notifications → *Kinds of notifications*: each row opens Android's settings for that kind.
+4. Settings → Appearance → Animations: try *Less animations*, then *Customized*.
+5. Home: swipe a question right (pinned), swipe it right again (unpinned), and swipe one left (the report dialog; cancel it). Then change the swipes in Settings → Home.
+6. In a question, swipe your own answer left: the editor opens.
+7. Hide a question from ⋮ or a swipe, then tap *Undo*.
+8. Your profile: *I use Stips+* next to *Edit bio*.
 
 **Heads-up**
-- This release waits for your approval, so it appears on the Releases page only after you approve it.
-- The Google Play link in "I use Stips+" works once the app is on Google Play.
-- Nothing was tested on a real phone. The CI emulator is signed out.
+- This release waits for your approval: in the GitHub app, open the run → *Review deployments* → *Approve*. It appears on the Releases page only after that.
+- Android's old *Answers and activity* channel is replaced by the three new ones. If you gave it a sound, set it again on the new ones.
+- Nothing was tested on a real phone. The CI emulator is signed out, so it never sees the bell, swipes on your own answers, or pins.

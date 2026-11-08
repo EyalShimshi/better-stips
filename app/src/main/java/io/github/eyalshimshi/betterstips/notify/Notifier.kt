@@ -42,6 +42,7 @@ import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.diag.NetLog
 import io.github.eyalshimshi.betterstips.util.JumpRules
+import io.github.eyalshimshi.betterstips.util.NotificationCategories
 import io.github.eyalshimshi.betterstips.util.NotificationKinds
 import io.github.eyalshimshi.betterstips.util.NotifyRules
 import io.github.eyalshimshi.betterstips.util.Shortcuts
@@ -67,11 +68,17 @@ private const val ALARM_BUDGET_MS = 9_000L
  * [NotifyRules] decides what's new.
  */
 object Notifier {
-    private const val CHANNEL_ACTIVITY = "stips_activity"
+    /** One channel per kind of notification (#13), so each can be silenced or given its own sound. */
+    private const val CHANNEL_UPDATES = "stips_answers"
+    private const val CHANNEL_FLOWERS = "stips_flowers"
+    private const val CHANNEL_SYSTEM = "stips_system"
     private const val CHANNEL_MESSAGES = "stips_messages"
 
-    /** v0.2–v0.10's one channel, at default importance (nothing popped up); replaced by the two above. */
+    /** v0.2–v0.10's one channel, at default importance (nothing popped up); replaced since v0.11. */
     private const val LEGACY_CHANNEL = "stips_updates"
+
+    /** v0.11–v0.14's channel for everything but messages; split into the three above in v0.15. */
+    private const val LEGACY_ACTIVITY_CHANNEL = "stips_activity"
 
     /**
      * Far above the ids WorkManager gives its own jobs (0, 1, 2…, for the widgets): scheduling a job with a taken id
@@ -121,28 +128,31 @@ object Notifier {
     fun focusFrom(intent: Intent): QuestionFocus? =
         JumpRules.decode(intent.getStringExtra(EXTRA_FOCUS), intent.getIntExtra(EXTRA_FOCUS_COUNT, -1), intent.getLongExtra(EXTRA_FOCUS_AT, -1L))
 
-    /** Answers and activity, and messages: both pop up (v0.11). The old channel goes. */
+    /** Updates, flowers and thanks, Stips' messages, and chat messages: all pop up. The old channels go. */
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(LEGACY_CHANNEL) != null) manager.deleteNotificationChannel(LEGACY_CHANNEL)
-        if (manager.getNotificationChannel(CHANNEL_ACTIVITY) == null) {
-            val channel = NotificationChannel(
-                CHANNEL_ACTIVITY,
-                context.getString(R.string.notification_channel_activity),
-                NotificationManager.IMPORTANCE_HIGH,
-            )
-            channel.description = context.getString(R.string.notification_channel_activity_description)
+        for (old in listOf(LEGACY_CHANNEL, LEGACY_ACTIVITY_CHANNEL)) {
+            if (manager.getNotificationChannel(old) != null) manager.deleteNotificationChannel(old)
+        }
+        val channels = listOf(
+            Triple(CHANNEL_UPDATES, R.string.notif_category_updates, R.string.notif_category_updates_summary),
+            Triple(CHANNEL_FLOWERS, R.string.notif_category_flowers, R.string.notif_category_flowers_summary),
+            Triple(CHANNEL_SYSTEM, R.string.notif_category_system, R.string.notif_category_system_summary),
+            Triple(CHANNEL_MESSAGES, R.string.notification_channel_messages, R.string.notification_channel_messages_description),
+        )
+        for ((id, name, description) in channels) {
+            if (manager.getNotificationChannel(id) != null) continue
+            val channel = NotificationChannel(id, context.getString(name), NotificationManager.IMPORTANCE_HIGH)
+            channel.description = context.getString(description)
             manager.createNotificationChannel(channel)
         }
-        if (manager.getNotificationChannel(CHANNEL_MESSAGES) == null) {
-            val channel = NotificationChannel(
-                CHANNEL_MESSAGES,
-                context.getString(R.string.notification_channel_messages),
-                NotificationManager.IMPORTANCE_HIGH,
-            )
-            channel.description = context.getString(R.string.notification_channel_messages_description)
-            manager.createNotificationChannel(channel)
-        }
+    }
+
+    /** The channel for a category of Stips notifications (#13). */
+    private fun channelOf(category: NotificationCategories.Category): String = when (category) {
+        NotificationCategories.Category.Updates -> CHANNEL_UPDATES
+        NotificationCategories.Category.FlowersAndThanks -> CHANNEL_FLOWERS
+        NotificationCategories.Category.System -> CHANNEL_SYSTEM
     }
 
     fun canPost(context: Context): Boolean =
@@ -153,7 +163,7 @@ object Notifier {
     fun blockedInAndroid(context: Context): Boolean {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return true
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
-        return listOf(CHANNEL_ACTIVITY, CHANNEL_MESSAGES)
+        return listOf(CHANNEL_UPDATES, CHANNEL_FLOWERS, CHANNEL_SYSTEM, CHANNEL_MESSAGES)
             .mapNotNull { manager.getNotificationChannel(it) }
             .any { it.importance == NotificationManager.IMPORTANCE_NONE }
     }
@@ -200,11 +210,16 @@ object Notifier {
     }
 
     /** Android's own settings for message notifications: sound, pop-up, lock screen (v0.12, the DM settings). */
-    fun openMessageSettings(context: Context) {
+    fun openMessageSettings(context: Context) = openChannelSettings(context, CHANNEL_MESSAGES)
+
+    /** Android's own settings for one kind of Stips notification (#13): sound, pop-up, on or off. */
+    fun openCategorySettings(context: Context, category: NotificationCategories.Category) = openChannelSettings(context, channelOf(category))
+
+    private fun openChannelSettings(context: Context, channel: String) {
         ensureChannels(context)
         val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            .putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_MESSAGES)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, channel)
         if (!start(context, intent)) openNotificationSettings(context)
     }
 
@@ -430,7 +445,7 @@ object Notifier {
         } else {
             notification.text
         }
-        val builder = NotificationCompat.Builder(context, CHANNEL_ACTIVITY)
+        val builder = NotificationCompat.Builder(context, channelOf(NotificationCategories.of(notification)))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
@@ -486,7 +501,7 @@ object Notifier {
     /** A sample, so the user sees that (and how) notifications arrive. False without Android's permission. */
     fun postTest(context: Context): Boolean {
         if (!canPost(context)) return false
-        val builder = NotificationCompat.Builder(context, CHANNEL_ACTIVITY)
+        val builder = NotificationCompat.Builder(context, CHANNEL_UPDATES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_test_title))
             .setContentText(context.getString(R.string.notification_test_text))

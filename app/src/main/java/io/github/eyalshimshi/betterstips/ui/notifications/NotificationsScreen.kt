@@ -93,6 +93,26 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewModelScope
 import io.github.eyalshimshi.betterstips.R
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.Badge
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
+import io.github.eyalshimshi.betterstips.ui.components.currentTime
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
+import io.github.eyalshimshi.betterstips.util.NotificationCategories
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
@@ -134,7 +154,23 @@ data class NotificationsState(
     val error: ApiException? = null,
     /** New since the user last looked (kept for this visit, even after a refresh). */
     val newIds: Set<Long> = emptySet(),
+    /** Opened or marked read in the app, on this account (#13): Stips' team's notices stay pinned until then. */
+    val opened: Set<Long> = emptySet(),
+    /** The category chip that's on (#13); null shows all. */
+    val filter: NotificationCategories.Category? = null,
+    /** Questions' titles and photos for their rows, when that option is on (#13). */
+    val glances: Map<Long, QuestionGlance> = emptyMap(),
 )
+
+/** A question's title and photo, for its notifications' rows (#13, an option). */
+data class QuestionGlance(val title: String, val thumbnail: String?)
+
+/** Messages from the list's actions (#13). */
+sealed interface NotificationsEvent {
+    data class UpdatesStopped(val questionId: Long) : NotificationsEvent
+
+    data object Failed : NotificationsEvent
+}
 
 class NotificationsViewModel(
     private val repository: StipsRepository,
@@ -143,13 +179,21 @@ class NotificationsViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(NotificationsState())
     val state: StateFlow<NotificationsState> = _state.asStateFlow()
+    private val _events = MutableSharedFlow<NotificationsEvent>(extraBufferCapacity = 4)
+    val events: SharedFlow<NotificationsEvent> = _events.asSharedFlow()
     private var generation = 0
 
     /** Opened during this visit: read, whatever Stips' flag says on a refresh. */
-    private val opened = mutableSetOf<Long>()
+    private val openedNow = mutableSetOf<Long>()
+
+    /** Questions whose title and photo were asked for, and the queue that reads them one at a time. */
+    private val asked = mutableSetOf<Long>()
+    private val glanceQueue = Channel<Long>(Channel.UNLIMITED)
 
     init {
+        userId?.let { me -> _state.update { it.copy(opened = seen.opened(me)) } }
         refresh()
+        viewModelScope.launch { readGlances() }
     }
 
     /** [verify]: the user pulled to refresh, so the session is checked with Stips first (#9: a lost one lists nothing). */
@@ -174,15 +218,77 @@ class NotificationsViewModel(
     /** Remembers which items are new now, then records the newest one as seen. */
     private fun markNew(list: List<StipsNotification>) {
         val me = userId ?: return
-        val fresh = SeenNotifications.newIds(list.map { it.id to it.viewed }, seen.lastSeenId(me)) - opened
+        val fresh = SeenNotifications.newIds(list.map { it.id to it.viewed }, seen.lastSeenId(me)) - openedNow
         _state.update { it.copy(newIds = it.newIds + fresh) }
         list.maxOfOrNull { it.id }?.let { seen.markSeen(me, it) }
     }
 
-    /** The user opened this one: it's read, so it leaves "New" right away rather than on the next visit (#6). */
+    /**
+     * The user opened this one, or marked it read (#13): it leaves "new" right away rather than on the next visit
+     * (#6), and a notice from Stips' team stops being pinned, from now on.
+     */
     fun markRead(id: Long) {
-        opened += id
-        _state.update { it.copy(newIds = it.newIds - id) }
+        openedNow += id
+        userId?.let { seen.markOpened(it, id) }
+        _state.update { it.copy(newIds = it.newIds - id, opened = it.opened + id) }
+    }
+
+    fun setFilter(category: NotificationCategories.Category?) {
+        _state.update { it.copy(filter = category) }
+    }
+
+    /** Stops updates on a question from its notification (#13); the message offers to undo it. */
+    fun stopUpdates(questionId: Long) {
+        viewModelScope.launch {
+            try {
+                repository.setFollowing(questionId, false)
+                _events.emit(NotificationsEvent.UpdatesStopped(questionId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _events.emit(NotificationsEvent.Failed)
+            }
+        }
+    }
+
+    fun resumeUpdates(questionId: Long) {
+        viewModelScope.launch {
+            try {
+                repository.setFollowing(questionId, true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _events.emit(NotificationsEvent.Failed)
+            }
+        }
+    }
+
+    /** Rows on screen ask for their question's title and photo (an option, #13). Each question is read once. */
+    fun wantGlance(questionId: Long) {
+        if (asked.add(questionId)) glanceQueue.trySend(questionId)
+    }
+
+    /**
+     * Reads the questions rows asked for: from the app's memory when it has them, else from Stips, one every
+     * [GLANCE_GAP_MS] at most and only while the request budget has room for background work.
+     */
+    private suspend fun readGlances() {
+        for (id in glanceQueue) {
+            val question = repository.cachedQuestion(id) ?: run {
+                while (!RateGuard.allowBackground()) delay(GLANCE_GAP_MS)
+                val read = try {
+                    repository.question(id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
+                delay(GLANCE_GAP_MS)
+                read
+            } ?: continue
+            val glance = QuestionGlance(question.title, question.cover?.thumbnailUrl)
+            _state.update { it.copy(glances = it.glances + (id to glance)) }
+        }
     }
 
     fun loadMore() {
@@ -207,6 +313,9 @@ class NotificationsViewModel(
         }
     }
 }
+
+/** At most one question read every this many ms for the richer rows (#13), as for moderator badges (v0.10). */
+private const val GLANCE_GAP_MS = 1_500L
 
 /**
  * Stips' notification bell (answers to your questions, flowers, thanks, badges). Opening the list is what marks
@@ -290,6 +399,27 @@ private fun NotificationsList(
             Notifier.clearUpdates(context)
         }
     }
+    // Stopping updates from a row says so, with a way back (#13).
+    val messageScope = rememberCoroutineScope()
+    val stoppedText = stringResource(R.string.following_off)
+    val undoText = stringResource(R.string.swipe_undo)
+    val failedText = stringResource(R.string.action_failed)
+    LaunchedEffect(vm) {
+        vm.events.collect { event ->
+            when (event) {
+                is NotificationsEvent.UpdatesStopped -> messageScope.launch {
+                    val result = snackbar.showSnackbar(stoppedText, actionLabel = undoText, duration = SnackbarDuration.Short)
+                    if (result == SnackbarResult.ActionPerformed) vm.resumeUpdates(event.questionId)
+                }
+                NotificationsEvent.Failed -> messageScope.launch { snackbar.showSnackbar(failedText) }
+            }
+        }
+    }
+    val markReadLabel = stringResource(R.string.notif_mark_read)
+    val stopUpdatesLabel = stringResource(R.string.stop_updates)
+    val now = currentTime()
+    val zone = ZoneId.systemDefault()
+    val today = now.atZone(zone).toLocalDate()
     PullToRefreshBox(isRefreshing = state.refreshing && state.page > 0, onRefresh = { vm.refresh(verify = true) }, modifier = modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             if (!settings.backgroundNotifications || !Notifier.canPost(context)) {
@@ -325,7 +455,6 @@ private fun NotificationsList(
                     )
                 }
                 else -> {
-                    val (fresh, earlier) = state.items.partition { it.id in state.newIds }
                     // Stips' team's notices (a removal, a report's outcome, a note) open in full here; the rest open
                     // where they point (v0.13).
                     val open = { item: StipsNotification ->
@@ -338,13 +467,70 @@ private fun NotificationsList(
                             targetAction(item, onOpenQuestion, onOpenProfile)?.let { action -> { vm.markRead(item.id); action() } }
                         }
                     }
-                    if (fresh.isNotEmpty()) {
-                        item(key = "new-label") { SectionLabel(stringResource(R.string.notifications_new)) }
-                        items(fresh, key = { it.id }) { item -> NotificationRow(item, isNew = true, onClick = open(item), onDetails = onDetails) }
+                    // A long press (#13): mark as read, and stop updates on the question an update is about.
+                    val rowMenu = { item: StipsNotification, pinned: Boolean ->
+                        buildList {
+                            if (item.id in state.newIds || pinned) add(RowAction(markReadLabel) { vm.markRead(item.id) })
+                            val questionId = NotificationCategories.questionId(item)
+                            if (questionId != null && NotificationCategories.of(item) == NotificationCategories.Category.Updates) {
+                                add(RowAction(stopUpdatesLabel) { vm.stopUpdates(questionId) })
+                            }
+                        }
                     }
-                    if (earlier.isNotEmpty()) {
-                        if (fresh.isNotEmpty()) item(key = "earlier-label") { SectionLabel(stringResource(R.string.notifications_earlier)) }
-                        items(earlier, key = { it.id }) { item -> NotificationRow(item, isNew = false, onClick = open(item), onDetails = onDetails) }
+                    val filter = state.filter
+                    val shown = if (filter == null) state.items else state.items.filter { NotificationCategories.of(it) == filter }
+                    val pinned = NotificationCategories.pinned(shown, state.opened, now)
+                    val pinnedIds = pinned.map { it.id }.toSet()
+                    val newItems = state.items.filter { it.id in state.newIds }
+                    item(key = "chips") {
+                        CategoryChips(filter, newItems.groupingBy { NotificationCategories.of(it) }.eachCount(), vm::setFilter)
+                    }
+                    if (filter == null) {
+                        val summary = NotificationCategories.summary(newItems)
+                        if (!summary.isEmpty) item(key = "summary") { SummaryLine(summary) }
+                    }
+                    if (pinned.isNotEmpty()) {
+                        item(key = "pinned-label") { SectionLabel(stringResource(R.string.notif_pinned)) }
+                        items(pinned, key = { "pin-${it.id}" }) { item ->
+                            NotificationRow(
+                                item,
+                                isNew = item.id in state.newIds,
+                                onClick = open(item),
+                                onDetails = onDetails,
+                                menu = rowMenu(item, true),
+                                pinned = true,
+                            )
+                        }
+                    }
+                    val rest = shown.filterNot { it.id in pinnedIds }
+                    NotificationCategories.sections(rest, today, zone).forEach { (day, list) ->
+                        item(key = "day-${day.name}") { SectionLabel(stringResource(dayLabel(day))) }
+                        items(list, key = { it.id }) { item ->
+                            // The question's title and photo, read when the row shows (an option, #13).
+                            val questionId = if (settings.notificationDetails) NotificationCategories.questionId(item) else null
+                            if (questionId != null) LaunchedEffect(questionId) { vm.wantGlance(questionId) }
+                            NotificationRow(
+                                item,
+                                isNew = item.id in state.newIds,
+                                onClick = open(item),
+                                onDetails = onDetails,
+                                menu = rowMenu(item, false),
+                                glance = questionId?.let { state.glances[it] },
+                            )
+                        }
+                    }
+                    if (shown.isEmpty()) {
+                        item(key = "empty-category") {
+                            Text(
+                                stringResource(R.string.notif_empty_category),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                            )
+                        }
                     }
                     item(key = "more") {
                         when {
@@ -360,6 +546,14 @@ private fun NotificationsList(
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center,
                             ) { TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.action_retry)) } }
+                            // With a category chosen, older pages load on a tap, one at a time: a rare kind may never
+                            // fill the screen, and loading as the list's end shows would read every page at once.
+                            !state.end && (filter != null || shown.isEmpty()) -> Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) { TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.notif_load_older)) } }
                             !state.end -> LaunchedEffect(state.page) { vm.loadMore() }
                         }
                     }
@@ -369,6 +563,83 @@ private fun NotificationsList(
     }
 }
 
+/** The category chips on top (#13), each with how many of its notifications are new. Tapping the one that's on turns it off. */
+@Composable
+private fun CategoryChips(
+    selected: NotificationCategories.Category?,
+    newCounts: Map<NotificationCategories.Category, Int>,
+    onSelect: (NotificationCategories.Category?) -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(selected = selected == null, onClick = { onSelect(null) }, label = { Text(stringResource(R.string.notif_filter_all)) })
+        NotificationCategories.Category.entries.forEach { category ->
+            val count = newCounts[category] ?: 0
+            FilterChip(
+                selected = selected == category,
+                onClick = { onSelect(if (selected == category) null else category) },
+                label = { Text(stringResource(categoryLabel(category))) },
+                trailingIcon = if (count > 0) {
+                    { Badge { Text(if (count > 99) "99+" else count.toString()) } }
+                } else {
+                    null
+                },
+            )
+        }
+    }
+}
+
+private fun categoryLabel(category: NotificationCategories.Category): Int = when (category) {
+    NotificationCategories.Category.Updates -> R.string.notif_category_updates
+    NotificationCategories.Category.FlowersAndThanks -> R.string.notif_category_flowers
+    NotificationCategories.Category.System -> R.string.notif_category_system
+}
+
+private fun dayLabel(day: NotificationCategories.Day): Int = when (day) {
+    NotificationCategories.Day.Today -> R.string.notif_today
+    NotificationCategories.Day.Yesterday -> R.string.notif_yesterday
+    NotificationCategories.Day.ThisWeek -> R.string.notif_this_week
+    NotificationCategories.Day.Earlier -> R.string.notifications_earlier
+}
+
+/** What's new since the last visit, in one line (#13): "12 new answers on 3 questions · 2 flowers · a thanks message". */
+@Composable
+private fun SummaryLine(summary: NotificationCategories.Summary) {
+    val resources = LocalContext.current.resources
+    val parts = buildList {
+        if (summary.answers > 0) {
+            val answers = resources.getQuantityString(R.plurals.notif_sum_answers, summary.answers, summary.answers)
+            add(
+                if (summary.questions > 0) {
+                    answers + " " + resources.getQuantityString(R.plurals.notif_sum_questions, summary.questions, summary.questions)
+                } else {
+                    answers
+                },
+            )
+        }
+        if (summary.flowers > 0) add(resources.getQuantityString(R.plurals.notif_sum_flowers, summary.flowers, summary.flowers))
+        if (summary.thanks > 0) add(resources.getQuantityString(R.plurals.notif_sum_thanks, summary.thanks, summary.thanks))
+        if (summary.system > 0) add(resources.getQuantityString(R.plurals.notif_sum_system, summary.system, summary.system))
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.notif_summary, parts.joinToString(" · ")), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
 private fun targetAction(item: StipsNotification, onOpenQuestion: (Long, QuestionFocus?) -> Unit, onOpenProfile: (Long) -> Unit): (() -> Unit)? =
     when (val target = item.target) {
         // New answers open at the first new one, a flower at the answer that got it (v0.10); the team's notices at
@@ -410,128 +681,212 @@ private fun SectionLabel(text: String) {
     )
 }
 
+/** A long-press action on a notification (#13). */
+private data class RowAction(val label: String, val onClick: () -> Unit)
+
 /**
- * One notification: the same layout for all, two lines at most, new ones highlighted (#4). Stips' team's notices say
- * so, and show the team's words in a box under the text, as the site does, and the credibility points taken (v0.13).
+ * One notification: the same layout for all, two lines at most, new ones marked with a dot (#4). Stips' team's
+ * notices say so, and show the team's words in a box under the text, as the site does, and the credibility points
+ * taken (v0.13). [pinned]: a card on top until it's opened (#13). A long press offers [menu] (#13); with the option on,
+ * [glance] adds the question's title and photo (#13).
  */
 @Composable
-private fun NotificationRow(item: StipsNotification, isNew: Boolean, onClick: (() -> Unit)?, onDetails: ((StipsNotification) -> Unit)?) {
+private fun NotificationRow(
+    item: StipsNotification,
+    isNew: Boolean,
+    onClick: (() -> Unit)?,
+    onDetails: ((StipsNotification) -> Unit)?,
+    menu: List<RowAction> = emptyList(),
+    pinned: Boolean = false,
+    glance: QuestionGlance? = null,
+) {
     val kind = remember(item) { NotificationKinds.kind(item) }
     val team = NotificationKinds.fromTeam(kind)
-    val background = if (isNew) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f) else Color.Transparent
-    Row(
+    val haptics = LocalHapticFeedback.current
+    val colors = MaterialTheme.colorScheme
+    var menuOpen by remember { mutableStateOf(false) }
+    val background = when {
+        pinned && kind == NotificationKinds.Kind.Removal -> colors.errorContainer.copy(alpha = 0.55f)
+        pinned -> colors.tertiaryContainer.copy(alpha = 0.6f)
+        isNew -> colors.primaryContainer.copy(alpha = 0.35f)
+        else -> Color.Transparent
+    }
+    val press = if (onClick != null || menu.isNotEmpty()) {
+        Modifier.combinedClickable(
+            onClick = { onClick?.invoke() },
+            onLongClick = if (menu.isNotEmpty()) {
+                {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    menuOpen = true
+                }
+            } else {
+                null
+            },
+        )
+    } else {
+        Modifier
+    }
+    Box(
         Modifier
             .fillMaxWidth()
-            .background(background)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 72.dp)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        isNew -> MaterialTheme.colorScheme.primary
-                        kind == NotificationKinds.Kind.Removal -> MaterialTheme.colorScheme.errorContainer
-                        else -> MaterialTheme.colorScheme.surfaceContainerHigh
-                    },
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                notificationIcon(kind),
-                contentDescription = null,
-                tint = when {
-                    isNew -> MaterialTheme.colorScheme.onPrimary
-                    kind == NotificationKinds.Kind.Removal -> MaterialTheme.colorScheme.onErrorContainer
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+            .then(
+                if (pinned) {
+                    Modifier
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                } else {
+                    Modifier
                 },
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            if (team) {
-                Text(
-                    stringResource(teamLabel(kind)),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (kind == NotificationKinds.Kind.Removal) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
+            ),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(background)
+                .then(press)
+                .heightIn(min = 72.dp)
+                .padding(horizontal = if (pinned) 12.dp else 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            isNew -> colors.primary
+                            kind == NotificationKinds.Kind.Removal -> colors.errorContainer
+                            else -> colors.surfaceContainerHigh
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    notificationIcon(kind),
+                    contentDescription = null,
+                    tint = when {
+                        isNew -> colors.onPrimary
+                        kind == NotificationKinds.Kind.Removal -> colors.onErrorContainer
+                        else -> colors.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(22.dp),
                 )
             }
-            Text(
-                item.text,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = if (team) 3 else 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val note = item.note?.takeIf { it.isNotBlank() }
-            if (note != null && team) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                if (team) {
                     Text(
-                        note,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        stringResource(teamLabel(kind)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (kind == NotificationKinds.Kind.Removal) colors.error else colors.primary,
+                        maxLines = 1,
                     )
                 }
-            } else if (note != null) {
                 Text(
-                    note,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    item.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = if (team) 3 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // The question's title, when its sentence doesn't already say it (an option, #13).
+                val title = glance?.title?.takeIf { it.isNotBlank() && !item.text.contains(it) }
+                if (title != null) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                val note = item.note?.takeIf { it.isNotBlank() }
+                if (note != null && team) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.surfaceContainerHigh,
+                        modifier = Modifier.padding(top = 4.dp),
+                    ) {
+                        Text(
+                            note,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                } else if (note != null) {
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (item.pointsRemoved > 0) {
+                    Text(
+                        stringResource(R.string.notifications_points_removed, item.pointsRemoved),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.error,
+                        maxLines = 1,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                if (onDetails != null) ExpertLine("${item.type.ifBlank { "-" }} · ${kind.name} · #${item.id}")
             }
-            if (item.pointsRemoved > 0) {
-                Text(
-                    stringResource(R.string.notifications_points_removed, item.pointsRemoved),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 2.dp),
+            val thumbnail = glance?.thumbnail
+            if (thumbnail != null && LocalAppSettings.current.showImages) {
+                Spacer(Modifier.width(8.dp))
+                AsyncImage(
+                    model = thumbnail,
+                    contentDescription = null,
+                    imageLoader = LocalAppContainer.current.imageLoader,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(10.dp)),
                 )
             }
-            if (onDetails != null) ExpertLine("${item.type.ifBlank { "-" }} · ${kind.name} · #${item.id}")
-        }
-        if (onDetails != null) {
-            IconButton(onClick = { onDetails(item) }) {
-                Icon(Icons.Outlined.Code, contentDescription = stringResource(R.string.expert_details), modifier = Modifier.size(20.dp))
+            if (onDetails != null) {
+                IconButton(onClick = { onDetails(item) }) {
+                    Icon(Icons.Outlined.Code, contentDescription = stringResource(R.string.expert_details), modifier = Modifier.size(20.dp))
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    notificationTime(item.time),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isNew) colors.primary else colors.onSurfaceVariant,
+                    maxLines = 1,
+                )
+                if (isNew) {
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(colors.primary),
+                    )
+                }
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                notificationTime(item.time),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (isNew) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-            if (isNew) {
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            menu.forEach { action ->
+                DropdownMenuItem(
+                    text = { Text(action.label) },
+                    onClick = {
+                        menuOpen = false
+                        action.onClick()
+                    },
                 )
             }
         }
     }
 }
-
-/** Like the site: the time for today, "yesterday", or the date. */
+/** The time for today and yesterday (the section says which day, #13), or the date. */
 @Composable
 private fun notificationTime(time: Instant?): String {
     if (time == null) return ""
@@ -539,8 +894,8 @@ private fun notificationTime(time: Instant?): String {
     val day = time.atZone(zone).toLocalDate()
     val today = LocalDate.now(zone)
     return when (day) {
-        today -> time.atZone(zone).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
-        today.minusDays(1) -> stringResource(R.string.time_yesterday)
+        // The section's heading says the day (#13), so today and yesterday show the time.
+        today, today.minusDays(1) -> time.atZone(zone).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
         else -> day.format(DateTimeFormatter.ofPattern("d.M.yyyy"))
     }
 }

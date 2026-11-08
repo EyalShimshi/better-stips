@@ -104,8 +104,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -161,6 +163,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.data.AnswerSwipe
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.Author
@@ -184,6 +187,8 @@ import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.SpecialBadgePill
+import io.github.eyalshimshi.betterstips.ui.components.SwipeSpec
+import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
 import io.github.eyalshimshi.betterstips.ui.components.VerifiedBlue
@@ -242,8 +247,14 @@ private sealed interface PendingAction {
     data class AnswerDetails(val answer: Answer) : PendingAction
 }
 
-/** One row of a ⋮ menu. */
-private data class MenuEntry(val label: String, val icon: ImageVector, val destructive: Boolean = false, val onClick: () -> Unit)
+/** One row of a ⋮ menu; [swipe] marks an answer's entry that the left swipe can run (#18). */
+private data class MenuEntry(
+    val label: String,
+    val icon: ImageVector,
+    val destructive: Boolean = false,
+    val swipe: AnswerSwipe? = null,
+    val onClick: () -> Unit,
+)
 
 @Composable
 fun QuestionScreen(
@@ -255,7 +266,7 @@ fun QuestionScreen(
 ) {
     val container = LocalAppContainer.current
     val vm = appViewModel {
-        QuestionViewModel(it.repository, it.session, it.settings, it.anonymousAnswers, it.readMarks, it.replyTargets, questionId, focus)
+        QuestionViewModel(it.repository, it.session, it.settings, it.anonymousAnswers, it.readMarks, it.replyTargets, it.appScope, questionId, focus)
     }
     val state by vm.state.collectAsStateWithLifecycle()
     val session by container.session.session.collectAsStateWithLifecycle()
@@ -290,9 +301,24 @@ fun QuestionScreen(
             QuestionMessage.FlowerSent to stringResource(R.string.flower_sent),
             QuestionMessage.ReplyFixed to stringResource(R.string.reply_fixed),
         )
+        val undoLabel = stringResource(R.string.swipe_undo)
         LaunchedEffect(state.message) {
             val message = state.message ?: return@LaunchedEffect
-            snackbar.showSnackbar(texts[message].orEmpty())
+            if (message == QuestionMessage.Hidden) {
+                var undo = false
+                try {
+                    undo = snackbar.showSnackbar(
+                        texts[message].orEmpty(),
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Short,
+                    ) == SnackbarResult.ActionPerformed
+                } finally {
+                    // Also when another message or leaving the screen cuts this one short: the hide then stays.
+                    vm.settleHide(undo)
+                }
+            } else {
+                snackbar.showSnackbar(texts[message].orEmpty())
+            }
             vm.consumeMessage()
         }
         var showLinkDialog by remember { mutableStateOf(false) }
@@ -364,17 +390,21 @@ fun QuestionScreen(
             buildList {
                 if (canReply) add(MenuEntry(replyLabel, Icons.AutoMirrored.Filled.Reply) { vm.replyTo(answer) })
                 // Edited answers keep their earlier versions on Stips (v0.13, #10).
-                if (answer.edited) add(MenuEntry(historyLabel, Icons.Outlined.History) { historyFor = answer })
+                if (answer.edited) add(MenuEntry(historyLabel, Icons.Outlined.History, swipe = AnswerSwipe.History) { historyFor = answer })
                 if (answer.isOwner) {
-                    if (answer.canEdit) add(MenuEntry(editLabel, Icons.Filled.Edit) { vm.startEdit(answer) })
-                    if (!answer.author.anonymous) add(MenuEntry(detachLabel, Icons.Outlined.PersonOff) { pending = PendingAction.DetachAnswer(answer) })
-                    if (answer.canDelete) add(MenuEntry(deleteLabel, Icons.Outlined.Delete, destructive = true) { pending = PendingAction.DeleteAnswer(answer) })
+                    if (answer.canEdit) add(MenuEntry(editLabel, Icons.Filled.Edit, swipe = AnswerSwipe.Edit) { vm.startEdit(answer) })
+                    if (!answer.author.anonymous) {
+                        add(MenuEntry(detachLabel, Icons.Outlined.PersonOff, swipe = AnswerSwipe.Detach) { pending = PendingAction.DetachAnswer(answer) })
+                    }
+                    if (answer.canDelete) {
+                        add(MenuEntry(deleteLabel, Icons.Outlined.Delete, destructive = true, swipe = AnswerSwipe.Delete) { pending = PendingAction.DeleteAnswer(answer) })
+                    }
                 } else {
-                    add(MenuEntry(reportAnswerLabel, Icons.Outlined.Flag) { requireSignIn { pending = PendingAction.Report("ans", answer.id) } })
-                    add(MenuEntry(hideAnswerLabel, Icons.Outlined.VisibilityOff) { vm.block("ans", answer.id, null) })
+                    add(MenuEntry(reportAnswerLabel, Icons.Outlined.Flag, swipe = AnswerSwipe.Report) { requireSignIn { pending = PendingAction.Report("ans", answer.id) } })
+                    add(MenuEntry(hideAnswerLabel, Icons.Outlined.VisibilityOff, swipe = AnswerSwipe.Hide) { vm.block("ans", answer.id, null) })
                     val authorId = answer.author.userId
                     if (authorId != null && authorId != me) {
-                        add(MenuEntry(hideUserLabel, Icons.Outlined.Block) { pending = PendingAction.HideUser("ans", answer.id, answer.author) })
+                        add(MenuEntry(hideUserLabel, Icons.Outlined.Block, swipe = AnswerSwipe.HideUser) { pending = PendingAction.HideUser("ans", answer.id, answer.author) })
                     }
                 }
                 if (expert) add(MenuEntry(detailsLabel, Icons.Outlined.Code) { pending = PendingAction.AnswerDetails(answer) })
@@ -715,8 +745,10 @@ private fun QuestionContent(
     val scope = rememberCoroutineScope()
     val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
     var highlight by remember { mutableStateOf<Highlight?>(null) }
+    val settings = LocalAppSettings.current
+    val motion = settings.motion
     // Answers show as written; the reader may hide the opening carets that the quotes stand for (v0.11).
-    val hideCarets = LocalAppSettings.current.hideReplyCarets
+    val hideCarets = settings.hideReplyCarets
     // Carets count in Stips' order (oldest first), whatever order the answers are shown in (v0.10).
     val positions = remember(stipsOrder) { stipsOrder.withIndex().associate { (i, a) -> a.id to i } }
     val answersError = state.answersError
@@ -733,12 +765,11 @@ private fun QuestionContent(
         val index = answers.indexOfFirst { it.id == answerId }
         if (index < 0) return
         scope.launch {
-            listState.animateScrollToItem(headerKeys.size + index, -(topBarPx + gapPx).roundToInt())
+            val offset = -(topBarPx + gapPx).roundToInt()
+            if (motion.jumps) listState.animateScrollToItem(headerKeys.size + index, offset) else listState.scrollToItem(headerKeys.size + index, offset)
             if (glow) highlight = Highlight(answerId, System.nanoTime())
         }
     }
-
-    val animations = LocalAppSettings.current.animations
 
     /**
      * Shows the answer a reply points at and lights it up (#12): no scroll when it's already in sight whole, otherwise
@@ -748,7 +779,7 @@ private fun QuestionContent(
         val index = answers.indexOfFirst { it.id == answerId }
         if (index < 0) return
         scope.launch {
-            listState.reveal(headerKeys.size + index, animations, startInset = topBarPx.roundToInt())
+            listState.reveal(headerKeys.size + index, motion.jumps, startInset = topBarPx.roundToInt(), quick = motion.quick)
             highlight = Highlight(answerId, System.nanoTime())
         }
     }
@@ -853,11 +884,15 @@ private fun QuestionContent(
                             Modifier.padding(horizontal = 12.dp),
                         )
                     }
+                    val menu = answerMenu(answer)
+                    // Swiping left runs the ⋮ entry the reader picked in Settings, when this answer has it (#18).
+                    val swipeKind = if (answer.isOwner) settings.myAnswerSwipe else settings.answerSwipe
+                    val swipeEntry = menu.firstOrNull { it.swipe != null && it.swipe == swipeKind }
                     AnswerCard(
                         answer = answer,
                         signedIn = signedIn,
                         expert = expert,
-                        menu = answerMenu(answer),
+                        menu = menu,
                         showFlowerButton = canFlower(answer),
                         flowering = answer.id in state.flowering,
                         onVote = { direction -> onVote(answer, direction) },
@@ -871,6 +906,7 @@ private fun QuestionContent(
                         moderator = moderatorOf(answer),
                         onShowHistory = if (answer.edited) ({ onHistory(answer) }) else null,
                         special = if (answer.author.anonymous) null else SpecialAccounts.badge(answer.author.userId),
+                        swipeLeft = swipeEntry?.let { SwipeSpec(it.label, it.icon, it.destructive, it.onClick) },
                     )
                 }
             }
@@ -903,24 +939,24 @@ private const val JUMP_NEAR = 6
 @Composable
 private fun ScrollJumpButton(listState: LazyListState, up: Boolean, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
-    val animations = LocalAppSettings.current.animations
+    val motion = LocalAppSettings.current.motion
     val scrollable by remember(listState) { derivedStateOf { listState.canScrollForward || listState.canScrollBackward } }
     val rotation by animateFloatAsState(
         targetValue = if (up) 180f else 0f,
-        animationSpec = if (animations) tween(300, easing = FastOutSlowInEasing) else snap(),
+        animationSpec = if (motion.elements) tween(300, easing = FastOutSlowInEasing) else snap(),
         label = "scroll-jump",
     )
     AnimatedVisibility(
         visible = scrollable,
-        enter = if (animations) fadeIn() + scaleIn() else EnterTransition.None,
-        exit = if (animations) fadeOut() + scaleOut() else ExitTransition.None,
+        enter = if (motion.elements) fadeIn() + scaleIn() else EnterTransition.None,
+        exit = if (motion.elements) fadeOut() + scaleOut() else ExitTransition.None,
         modifier = modifier,
     ) {
         SmallFloatingActionButton(
             onClick = {
                 scope.launch {
                     val target = if (up) 0 else (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                    if (!animations) {
+                    if (!motion.scrolls) {
                         listState.scrollToItem(target)
                     } else {
                         if (abs(listState.firstVisibleItemIndex - target) > JUMP_ANIMATE_LIMIT) {
@@ -1223,10 +1259,11 @@ private fun AnswerCard(
     moderator: ModeratorBadge?,
     onShowHistory: (() -> Unit)? = null,
     special: SpecialAccounts.Entry? = null,
+    swipeLeft: SwipeSpec? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
-    val animations = LocalAppSettings.current.animations
+    val motion = LocalAppSettings.current.motion
     val density = LocalDensity.current
     val threshold = with(density) { SWIPE_THRESHOLD.toPx() }
     val maxDrag = with(density) { SWIPE_MAX.toPx() }
@@ -1235,27 +1272,21 @@ private fun AnswerCard(
     val glow = remember { Animatable(0f) }
     LaunchedEffect(highlightKey) {
         if (highlightKey == null) return@LaunchedEffect
-        if (animations) {
-            glow.snapTo(0f)
-            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
-            glow.animateTo(0.35f, tween(450, easing = FastOutSlowInEasing))
-            glow.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
-            glow.animateTo(0f, tween(850, easing = FastOutSlowInEasing))
-        } else {
-            glow.snapTo(1f)
-            delay(HIGHLIGHT_MS)
-            glow.snapTo(0f)
-        }
+        glow.glowOnce(motion, HIGHLIGHT_MS)
     }
 
-    // Easy reply (v0.10): dragging the card from left to right (in Hebrew too) past the line replies to it.
+    // Easy reply (v0.10): dragging the card from left to right (in Hebrew too) past the line replies to it. Dragging
+    // it the other way runs the action picked in Settings (#18).
+    val canRight = onSwipeReply != null
+    val canLeft = swipeLeft != null
     var dragX by remember { mutableFloatStateOf(0f) }
     var armed by remember { mutableStateOf(false) }
     val currentOnSwipeReply by rememberUpdatedState(onSwipeReply)
+    val currentSwipeLeft by rememberUpdatedState(swipeLeft)
     val dragState = rememberDraggableState { delta ->
-        val resisted = if (dragX >= threshold) delta * 0.3f else delta
-        dragX = (dragX + resisted).coerceIn(0f, maxDrag)
-        val nowArmed = dragX >= threshold
+        val resisted = if (abs(dragX) >= threshold) delta * 0.3f else delta
+        dragX = (dragX + resisted).coerceIn(if (canLeft) -maxDrag else 0f, if (canRight) maxDrag else 0f)
+        val nowArmed = abs(dragX) >= threshold
         if (nowArmed != armed) {
             armed = nowArmed
             if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
@@ -1273,15 +1304,18 @@ private fun AnswerCard(
             .draggable(
                 state = dragState,
                 orientation = Orientation.Horizontal,
-                enabled = onSwipeReply != null,
+                enabled = canRight || canLeft,
                 onDragStopped = {
-                    if (dragX >= threshold) currentOnSwipeReply?.invoke()
+                    when {
+                        dragX >= threshold -> currentOnSwipeReply?.invoke()
+                        dragX <= -threshold -> currentSwipeLeft?.onSwipe?.invoke()
+                    }
                     armed = false
                     animate(dragX, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> dragX = value }
                 },
             ),
     ) {
-        if (onSwipeReply != null) {
+        if (canRight) {
             Icon(
                 Icons.AutoMirrored.Filled.Reply,
                 contentDescription = null,
@@ -1298,6 +1332,24 @@ private fun AnswerCard(
                     },
             )
         }
+        val left = swipeLeft
+        if (left != null) {
+            Icon(
+                left.icon,
+                contentDescription = null,
+                tint = if (left.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .align(AbsoluteAlignment.CenterRight)
+                    .absolutePadding(right = 12.dp)
+                    .size(24.dp)
+                    .graphicsLayer {
+                        val progress = (-dragX / threshold).coerceIn(0f, 1f)
+                        alpha = progress
+                        scaleX = 0.6f + 0.4f * progress
+                        scaleY = 0.6f + 0.4f * progress
+                    },
+            )
+        }
         Card(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = container),
@@ -1306,15 +1358,20 @@ private fun AnswerCard(
                 .fillMaxWidth()
                 .absoluteOffset { IntOffset(dragX.roundToInt(), 0) }
                 .semantics {
-                    val action = onSwipeReply
-                    if (action != null) {
-                        customActions = listOf(
+                    customActions = listOfNotNull(
+                        onSwipeReply?.let { action ->
                             CustomAccessibilityAction(replyLabel) {
                                 action()
                                 true
-                            },
-                        )
-                    }
+                            }
+                        },
+                        swipeLeft?.let { spec ->
+                            CustomAccessibilityAction(spec.label) {
+                                spec.onSwipe()
+                                true
+                            }
+                        },
+                    )
                 },
         ) {
             Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
@@ -1783,7 +1840,7 @@ private const val EMOJI_NOTICE_MS = 4_000L
 
 /** Reporting a question or an answer: Stips wants a few words on what's wrong (5 to 500 characters). */
 @Composable
-private fun ReportDialog(objType: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
+internal fun ReportDialog(objType: String, onDismiss: () -> Unit, onSend: (String) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     val trimmed = text.trim()
     val valid = trimmed.length in REPORT_MIN..REPORT_MAX
@@ -1813,7 +1870,7 @@ private const val REPORT_MIN = 5
 private const val REPORT_MAX = 500
 
 @Composable
-private fun ConfirmDialog(title: String, body: String?, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun ConfirmDialog(title: String, body: String?, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },

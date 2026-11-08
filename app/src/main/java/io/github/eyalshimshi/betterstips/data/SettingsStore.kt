@@ -26,13 +26,72 @@ enum class StartTab { Home, PenPals, Chats, Profile }
 /** How a question's answers are ordered (#8). */
 enum class AnswersOrder { AsOnStips, Newest, Oldest, TopVoted }
 
+/** How much Stips+ animates (#18): three presets, or each kind of animation picked by hand ([Custom]). */
+enum class MotionPreset { Full, Less, Off, Custom }
+
+/**
+ * Which animations play (#18). [screens]: moving between screens, with the bottom bar, the intro and full-screen
+ * covers; [jumps]: scrolling to an answer or a message that a reply or a notification points at; [scrolls]: back to
+ * the top (tapping the open tab, refreshing) and the thread's ↓/↑ button; [glow]: the light on what was jumped to;
+ * [elements]: buttons appearing, graphs and gauges filling, new questions sliding in, the Live dot. [quick] makes
+ * jumps, scrolls and the glow faster. Pure.
+ */
+data class Motion(
+    val screens: Boolean = true,
+    val jumps: Boolean = true,
+    val scrolls: Boolean = true,
+    val glow: Boolean = true,
+    val elements: Boolean = true,
+    val quick: Boolean = false,
+) {
+    /** How long timed animations take, as a share of their usual time. */
+    val pace: Float get() = if (quick) QUICK_PACE else 1f
+
+    fun toBits(): Int = listOf(screens, jumps, scrolls, glow, elements, quick)
+        .foldIndexed(0) { i, bits, on -> if (on) bits or (1 shl i) else bits }
+
+    companion object {
+        const val QUICK_PACE = 0.55f
+
+        val FULL = Motion()
+
+        /** The owner's "less" (#18): no screen transitions; jumps, scrolls, the glow and moving elements stay, faster. */
+        val LESS = Motion(screens = false, quick = true)
+        val OFF = Motion(screens = false, jumps = false, scrolls = false, glow = false, elements = false)
+
+        fun of(preset: MotionPreset, custom: Motion): Motion = when (preset) {
+            MotionPreset.Full -> FULL
+            MotionPreset.Less -> LESS
+            MotionPreset.Off -> OFF
+            MotionPreset.Custom -> custom
+        }
+
+        fun fromBits(bits: Int): Motion {
+            fun on(i: Int) = bits and (1 shl i) != 0
+            return Motion(on(0), on(1), on(2), on(3), on(4), on(5))
+        }
+
+        /** The saved preset; v0.14 and earlier had one switch, so on is [MotionPreset.Full] and off [MotionPreset.Off]. */
+        fun presetFrom(saved: String?, legacyAnimations: Boolean): MotionPreset =
+            MotionPreset.entries.firstOrNull { it.name == saved } ?: if (legacyAnimations) MotionPreset.Full else MotionPreset.Off
+    }
+}
+
+/** What swiping a question in a list does (#18). */
+enum class QuestionSwipe { None, Pin, Follow, Share, CopyLink, OpenOnSite, Export, Report, Hide, HideUser }
+
+/** What swiping an answer to the left does (#18); swiping it to the right replies (easy reply). */
+enum class AnswerSwipe { None, Edit, Detach, Delete, History, Report, Hide, HideUser }
+
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
     val pureBlack: Boolean = false,
     val dynamicColor: Boolean = true,
     val accent: Int = DEFAULT_ACCENT,
     val showImages: Boolean = true,
-    val animations: Boolean = true,
+    /** How much the app animates (#18); [customMotion] is what "Customized" plays. See [motion]. */
+    val motionPreset: MotionPreset = MotionPreset.Full,
+    val customMotion: Motion = Motion.FULL,
     /** New questions appear on Home by themselves (polls every [liveIntervalSeconds] while Home is open). */
     val autoRefreshNew: Boolean = false,
     /** Phone notifications: Stips+ checks every [checkMinutes] while the phone is awake, and every 15 minutes anyway. */
@@ -75,8 +134,19 @@ data class AppSettings(
     val moderatorBadges: Boolean = true,
     /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
     val onboarded: Boolean = false,
+    /** Swiping a question in a list to the right (left to right, in Hebrew too) and to the left (#18). */
+    val swipeRight: QuestionSwipe = QuestionSwipe.Pin,
+    val swipeLeft: QuestionSwipe = QuestionSwipe.Report,
+    /** Swiping an answer to the left (#18): someone else's, and your own. Swiping one to the right replies. */
+    val answerSwipe: AnswerSwipe = AnswerSwipe.None,
+    val myAnswerSwipe: AnswerSwipe = AnswerSwipe.Edit,
+    /** Notifications about questions show the question's title and photo, read from Stips (#13); off by default. */
+    val notificationDetails: Boolean = false,
 ) {
     fun anonymousModeOn(now: Long = System.currentTimeMillis()): Boolean = anonymousUntil > now
+
+    /** The animations that play now (#18). */
+    val motion: Motion get() = Motion.of(motionPreset, customMotion)
 
     companion object {
         /**
@@ -136,7 +206,8 @@ class SettingsStore(context: Context) {
             .putBoolean("dynamicColor", next.dynamicColor)
             .putInt("accent", next.accent)
             .putBoolean("showImages", next.showImages)
-            .putBoolean("animations", next.animations)
+            .putString("motionPreset", next.motionPreset.name)
+            .putInt("motionCustom", next.customMotion.toBits())
             .putBoolean("autoRefreshNew", next.autoRefreshNew)
             .putBoolean("backgroundNotifications", next.backgroundNotifications)
             .putInt("checkMinutes", next.checkMinutes)
@@ -160,6 +231,11 @@ class SettingsStore(context: Context) {
             .putBoolean("chatNotifications", next.chatNotifications)
             .putBoolean("moderatorBadges", next.moderatorBadges)
             .putBoolean("onboarded", next.onboarded)
+            .putString("swipeRight", next.swipeRight.name)
+            .putString("swipeLeft", next.swipeLeft.name)
+            .putString("answerSwipe", next.answerSwipe.name)
+            .putString("myAnswerSwipe", next.myAnswerSwipe.name)
+            .putBoolean("notificationDetails", next.notificationDetails)
             .apply()
     }
 
@@ -171,7 +247,8 @@ class SettingsStore(context: Context) {
             dynamicColor = prefs.getBoolean("dynamicColor", defaults.dynamicColor),
             accent = prefs.getInt("accent", defaults.accent),
             showImages = prefs.getBoolean("showImages", defaults.showImages),
-            animations = prefs.getBoolean("animations", defaults.animations),
+            motionPreset = Motion.presetFrom(prefs.getString("motionPreset", null), prefs.getBoolean("animations", true)),
+            customMotion = prefs.getInt("motionCustom", -1).let { if (it < 0) defaults.customMotion else Motion.fromBits(it) },
             autoRefreshNew = prefs.getBoolean("autoRefreshNew", defaults.autoRefreshNew),
             backgroundNotifications = prefs.getBoolean("backgroundNotifications", defaults.backgroundNotifications),
             checkMinutes = prefs.getInt("checkMinutes", defaults.checkMinutes).takeIf { it in AppSettings.CHECK_MINUTES }
@@ -198,6 +275,11 @@ class SettingsStore(context: Context) {
             chatNotifications = prefs.getBoolean("chatNotifications", defaults.chatNotifications),
             moderatorBadges = prefs.getBoolean("moderatorBadges", defaults.moderatorBadges),
             onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
+            swipeRight = enumOr(prefs.getString("swipeRight", null), defaults.swipeRight),
+            swipeLeft = enumOr(prefs.getString("swipeLeft", null), defaults.swipeLeft),
+            answerSwipe = enumOr(prefs.getString("answerSwipe", null), defaults.answerSwipe),
+            myAnswerSwipe = enumOr(prefs.getString("myAnswerSwipe", null), defaults.myAnswerSwipe),
+            notificationDetails = prefs.getBoolean("notificationDetails", defaults.notificationDetails),
         )
     }
 

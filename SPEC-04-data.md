@@ -254,6 +254,15 @@ A CI probe read 24 busy questions (26–151 answers each, 1,203 answers) and the
 - **Notifications** (the rule book, p. 10): new answers, flowers, thanks-wall messages, removals by the team and notes by the team. Their type names aren't in the site's code (only `new_flower`), so Stips+ tells the team's notices apart by `msgText`, `pointsRemoved` and their words (D-82).
 - **Also in the rule book:** the senior answerer badge comes at 500 flowers; moderators are chosen from users aged 15+, with 100 points, 3,000+ flowers, a year and a half on the site and a year since their last block; 10 questions a day; flowers are removed with a deleted question or answer.
 
+### 2.14 "Online", "active" and "on Stips for" (#19, from the site's code, 2026-11)
+
+- **Online (the green ring):** Stips' server decides it and sends only `true` or `false`: `item_profile.online` on every question, answer and chat row; `extra.item_profile.online` on a user (`omniobj` user); `online` in people search and in the chats list (`itemProfile`). The site only copies it (`n.online = e.extra.item_profile.online`) and draws a pulsing green ring around the photo (`animation-profile-online`, 1.2 s); the chats page filters "online now" with it (`onlineFilterFlg`). No time and no "last seen" is ever sent, so the rule itself (how long after someone's last activity they stop counting as online) lives on Stips' server and can't be read from outside. A value is as fresh as the call that brought it: the site reloads the chats list every 5 s, and Stips+ reads the other person's profile once a minute in an open chat.
+- **What makes someone online:** most likely any signed-in request (a page or an API call) in the last few minutes. *Not measured.* To check it: watch an account's dot from a second account while the first stays idle, then has it make one request. That would include Stips+'s own background checks: with phone notifications on, it asks for the unread counts every few minutes while the phone is awake, signed in, so Stips may show the user as online then.
+- **`active` means two different things:**
+  - `meta.active` on a question or an answer: whether it's still up. A moderator's removal brings it back `active: false` with the team's messages (`meta.adminMsgs`), which the site shows in its place (`showAdminMsgs`). Stips+ leaves such items out.
+  - `active` in `item_profile` and on the user object: whether the account itself is active (not deleted or closed). The site's code reads it nowhere.
+- **"On Stips for":** `hebrew_active_since` in `profile.page_data`, Stips' own phrase for the account's age ("6 שנים ו-9 חודשים"); Stips+ shows it on profiles.
+
 ## 3. Data model (in the app)
 
 ```kotlin
