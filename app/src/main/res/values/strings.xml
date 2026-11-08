@@ -580,11 +580,6 @@
     <string name="settings_channel_chips_summary">The row of channels at the top of Home</string>
     <string name="settings_start_tab">Open the app on</string>
     <string name="settings_start_tab_summary">From the next time the app opens</string>
-    <string name="settings_answers_order">Order of answers</string>
-    <string name="answers_order_stips">As on Stips</string>
-    <string name="answers_order_newest">Newest first</string>
-    <string name="answers_order_oldest">Oldest first</string>
-    <string name="answers_order_top">Most votes first</string>
     <string name="settings_times">Times</string>
     <string name="settings_live_times">Count the seconds</string>
     <string name="settings_live_times_summary">Times tick every second while you look: \"12 s\" under a minute, then \"1 min\". From the phone\'s clock; no extra data.</string>
@@ -843,4 +838,21 @@
         <item quantity="one">a system message</item>
         <item quantity="other">%d system messages</item>
     </plurals>
+    <!-- v0.16 -->
+    <string name="sort_answers">Sort answers</string>
+    <string name="sort_default">Default</string>
+    <string name="sort_newest">Newest first</string>
+    <string name="sort_most_upvotes">Most upvotes</string>
+    <string name="sort_least_upvotes">Least upvotes</string>
+    <string name="settings_answers_summary">Replies, swipes and times</string>
+    <string name="preview_you">You</string>
+    <string name="preview_answer_mine">Thanks, I\'ll go tomorrow!</string>
+    <string name="intro_swipes_title">Swipe for quick actions</string>
+    <string name="intro_swipes_body">Swipe a question or an answer sideways to act on it at once. Pick what each swipe does; Settings has the same choices.</string>
+    <string name="live_penpals">Live pen pals</string>
+    <string name="live_penpals_what">New posts appear on the board by themselves while it\'s open.</string>
+    <string name="live_penpals_cost">Each check reads the board\'s newest 30 posts.</string>
+    <string name="live_shared_rate">Home and Pen pals check at the same rate.</string>
+    <string name="badge_stips_plus">Stips+</string>
+    <string name="badge_stips_plus_description">Stips+: their bio says they use it</string>
 </resources>

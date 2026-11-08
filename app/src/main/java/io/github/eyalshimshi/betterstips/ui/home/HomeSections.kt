@@ -55,6 +55,7 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.ui.components.SkeletonRows
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,12 +106,20 @@ class HomeSectionsViewModel(private val repository: StipsRepository, private val
     private var personal = false
     private var started = false
     private var job: Job? = null
+    private var loadedAt = 0L
 
     fun ensureLoaded() {
         if (!started) load(reset = true, refreshing = false)
     }
 
     fun refresh() = load(reset = true, refreshing = true)
+
+    /** Coming back to Home (v0.16): the sections again, unless they're loading or came in moments ago. */
+    fun refreshIfStale() {
+        val s = _state.value
+        if (!started || s.loading || s.refreshing || !AutoRefresh.due(loadedAt, System.currentTimeMillis())) return
+        refresh()
+    }
 
     fun retry() {
         if (_state.value.sections.isEmpty()) load(reset = true, refreshing = false) else loadMore(force = true)
@@ -151,6 +160,7 @@ class HomeSectionsViewModel(private val repository: StipsRepository, private val
                     list = repository.homeSections(next, order, personal = false)
                 }
                 page = next
+                if (reset) loadedAt = System.currentTimeMillis()
                 _state.update { s ->
                     s.copy(
                         sections = if (reset) list else HomeSectionsMerge.append(s.sections, list),

@@ -9,9 +9,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,9 +18,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,7 +76,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -93,13 +87,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -112,10 +104,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -148,6 +138,7 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
+import io.github.eyalshimshi.betterstips.ui.components.RefreshOnEnter
 import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
@@ -158,6 +149,8 @@ import io.github.eyalshimshi.betterstips.ui.components.errorMessage
 import io.github.eyalshimshi.betterstips.ui.components.memberForText
 import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.components.reveal
+import io.github.eyalshimshi.betterstips.ui.components.rememberSwipeDrag
+import io.github.eyalshimshi.betterstips.ui.components.swipeToAct
 import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
@@ -207,6 +200,10 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
     val unread = LocalUnreadCounts.current.messages
     LaunchedEffect(unread, session.signedIn) {
         if (session.signedIn) vm.refreshQuietly()
+    }
+    // Coming back to the app on Chats brings the list up to date too, unless it was just read (v0.16).
+    RefreshOnEnter(Routes.CHATS) {
+        if (session.signedIn) vm.refreshIfStale()
     }
     val listState = rememberLazyListState()
     // Tapping Chats again scrolls back to the top (v0.12) and reloads the list (v0.13, #10).
@@ -491,7 +488,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
     ) { padding ->
         val newestFirst = state.messages.asReversed()
         Box(
@@ -832,7 +829,7 @@ private fun ChatSummary(other: Author, name: String, state: ConversationUiState,
     }
 }
 
-/** How far a bubble is dragged to reply to it (easy reply in chats, v0.12), and how far it can go. */
+/** How far a bubble is dragged to reply to it (easy reply in chats, v0.12), and how far it can go; a flick works too (v0.16). */
 private val BUBBLE_SWIPE_THRESHOLD = 56.dp
 private val BUBBLE_SWIPE_MAX = 88.dp
 
@@ -864,10 +861,6 @@ private fun Bubble(
 ) {
     val settings = LocalAppSettings.current
     val motion = settings.motion
-    val haptics = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val threshold = with(density) { BUBBLE_SWIPE_THRESHOLD.toPx() }
-    val maxDrag = with(density) { BUBBLE_SWIPE_MAX.toPx() }
     val base = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
     val content = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
 
@@ -879,18 +872,7 @@ private fun Bubble(
     }
     val container = lerp(base, MaterialTheme.colorScheme.tertiaryContainer, glow.value)
 
-    var dragX by remember { mutableFloatStateOf(0f) }
-    var armed by remember { mutableStateOf(false) }
-    val currentOnSwipeReply by rememberUpdatedState(onSwipeReply)
-    val dragState = rememberDraggableState { delta ->
-        val resisted = if (dragX >= threshold) delta * 0.3f else delta
-        dragX = (dragX + resisted).coerceIn(0f, maxDrag)
-        val nowArmed = dragX >= threshold
-        if (nowArmed != armed) {
-            armed = nowArmed
-            if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-        }
-    }
+    val drag = rememberSwipeDrag(trigger = BUBBLE_SWIPE_THRESHOLD, max = BUBBLE_SWIPE_MAX)
     val replyLabel = stringResource(R.string.action_reply)
     val quoted = reply?.targets?.mapNotNull { messages.getOrNull(it) }.orEmpty()
     val inBody = remember(reply, messages) {
@@ -900,16 +882,7 @@ private fun Bubble(
     Box(
         modifier
             .fillMaxWidth()
-            .draggable(
-                state = dragState,
-                orientation = Orientation.Horizontal,
-                enabled = onSwipeReply != null,
-                onDragStopped = {
-                    if (dragX >= threshold) currentOnSwipeReply?.invoke()
-                    armed = false
-                    animate(dragX, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> dragX = value }
-                },
-            ),
+            .swipeToAct(drag, onRight = onSwipeReply, onLeft = null),
     ) {
         if (onSwipeReply != null) {
             Icon(
@@ -921,7 +894,7 @@ private fun Bubble(
                     .absolutePadding(left = 4.dp)
                     .size(22.dp)
                     .graphicsLayer {
-                        val progress = (dragX / threshold).coerceIn(0f, 1f)
+                        val progress = drag.rightProgress
                         alpha = progress
                         scaleX = 0.6f + 0.4f * progress
                         scaleY = 0.6f + 0.4f * progress
@@ -931,7 +904,7 @@ private fun Bubble(
         Column(
             Modifier
                 .fillMaxWidth()
-                .absoluteOffset { IntOffset(dragX.roundToInt(), 0) },
+                .absoluteOffset { IntOffset(drag.offset.roundToInt(), 0) },
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
         ) {
             Box(

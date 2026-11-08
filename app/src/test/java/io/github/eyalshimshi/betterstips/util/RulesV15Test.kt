@@ -52,9 +52,9 @@ class RulesV15Test {
         assertEquals(Motion.LESS, Motion.fromBits(Motion.LESS.toBits()))
         assertEquals(Motion.OFF, Motion.fromBits(0))
         assertEquals(MotionPreset.Less, Motion.presetFrom("Less", legacyAnimations = false))
-        assertEquals("v0.14 with animations on", MotionPreset.Full, Motion.presetFrom(null, legacyAnimations = true))
+        assertEquals("v0.14 with animations on: the default, Less since v0.16", MotionPreset.Less, Motion.presetFrom(null, legacyAnimations = true))
         assertEquals("v0.14 with animations off", MotionPreset.Off, Motion.presetFrom(null, legacyAnimations = false))
-        assertEquals(MotionPreset.Full, Motion.presetFrom("Bouncy", legacyAnimations = true))
+        assertEquals(MotionPreset.Less, Motion.presetFrom("Bouncy", legacyAnimations = true))
     }
 
     // --- Swipes (#18) ---

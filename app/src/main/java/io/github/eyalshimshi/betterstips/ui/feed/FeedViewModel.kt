@@ -7,6 +7,7 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +44,12 @@ class FeedViewModel(
     private var page = 0
     private var job: Job? = null
     private var started = false
+
+    /** When page 1 last came from Stips (a load, a refresh or Live), for coming back to Home (v0.16). */
+    private var pageOneAt = 0L
+
+    /** Whether coming back to the list should look for new questions: not when page 1 came in moments ago. */
+    fun isStale(now: Long = System.currentTimeMillis()): Boolean = AutoRefresh.due(pageOneAt, now)
 
     init {
         if (autoLoad) load(reset = true, refreshing = false, showCache = useCache)
@@ -96,6 +103,7 @@ class FeedViewModel(
             return -1
         }
         if (query != _query.value) return 0
+        pageOneAt = System.currentTimeMillis()
         var added = 0
         _state.update { current ->
             val known = current.items.mapTo(HashSet()) { it.id }
@@ -133,6 +141,7 @@ class FeedViewModel(
                 val next = if (reset) 1 else page + 1
                 val list = repository.feedPage(query, next)
                 page = next
+                if (next == 1) pageOneAt = System.currentTimeMillis()
                 _state.update { s ->
                     s.copy(
                         items = if (reset) list else (s.items + list).distinctBy { it.id },

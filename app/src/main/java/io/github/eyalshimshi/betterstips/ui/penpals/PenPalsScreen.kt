@@ -39,7 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +50,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,8 +60,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.data.AppSettings
+import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.AuthorName
@@ -68,11 +74,17 @@ import io.github.eyalshimshi.betterstips.ui.components.ErrorCard
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.PresenceAvatar
+import io.github.eyalshimshi.betterstips.ui.components.RefreshOnEnter
 import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
+import io.github.eyalshimshi.betterstips.ui.home.LiveChip
+import io.github.eyalshimshi.betterstips.ui.home.LivePlace
+import io.github.eyalshimshi.betterstips.ui.home.LiveSheet
+import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.AskRules
+import kotlinx.coroutines.delay
 
 /** חברים לעט (#4): short posts from people looking for someone to talk to. Tapping one opens a private chat. */
 @Composable
@@ -97,11 +109,61 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
         state.items.filterNot { container.blocks.isBlocked("penfriendsitem", it.id, it.author.userId) }
     }
     val listState = rememberLazyListState()
+    val settings = LocalAppSettings.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var liveSheet by rememberSaveable { mutableStateOf(false) }
     // Tapping חברים לעט again scrolls back to the top (v0.12) and reloads the board (v0.13, #10).
     ScrollToTopOnReselect(Routes.PENPALS, listState, onRefresh = vm::refresh)
 
+    suspend fun bringNewPosts(added: Int, atTop: Boolean) {
+        if (added > 0 && atTop) {
+            if (settings.motion.scrolls) listState.animateScrollToItem(0) else listState.scrollToItem(0)
+        }
+    }
+
+    // Entering Pen pals from the bottom bar, or coming back to the app on it, brings new posts in on top (v0.16).
+    RefreshOnEnter(Routes.PENPALS) {
+        if (vm.isStale()) {
+            val atTop = listState.firstVisibleItemIndex <= 1
+            bringNewPosts(vm.pollNew(), atTop)
+        }
+    }
+
+    // Live (v0.16), as on Home: while the board is on screen and the phone awake, new posts come in at the chosen
+    // rate. Failures slow it down, and it gives way when the request budget is low or Stips paused the phone.
+    LaunchedEffect(settings.penPalsLive, settings.liveIntervalSeconds, state.closedForAge) {
+        if (!settings.penPalsLive || state.closedForAge) return@LaunchedEffect
+        val seconds = settings.liveIntervalSeconds
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var misses = 0
+            while (true) {
+                delay(AppSettings.liveDelayMs(seconds, misses))
+                if (!RateGuard.allowBackground()) continue
+                val atTop = listState.firstVisibleItemIndex <= 1
+                val added = vm.pollNew()
+                misses = if (added < 0) misses + 1 else 0
+                bringNewPosts(added, atTop)
+            }
+        }
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.penpals_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.penpals_title)) },
+                actions = {
+                    if (!state.closedForAge) {
+                        LiveChip(
+                            live = settings.penPalsLive,
+                            seconds = settings.liveIntervalSeconds,
+                            onToggle = { container.settings.update { s -> s.copy(penPalsLive = !s.penPalsLive) } },
+                            onOptions = { liveSheet = true },
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                    }
+                },
+            )
+        },
         floatingActionButton = {
             if (!state.closedForAge) {
                 ExtendedFloatingActionButton(
@@ -111,7 +173,7 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         if (state.closedForAge) {
@@ -123,6 +185,14 @@ fun PenPalsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Un
         }
     }
     PenPalsDialogs(state, vm, onSignIn)
+    if (liveSheet) {
+        LiveSheet(
+            settings = settings,
+            onChange = { container.settings.update(it) },
+            onDismiss = { liveSheet = false },
+            place = LivePlace.PenPals,
+        )
+    }
 }
 
 @Composable

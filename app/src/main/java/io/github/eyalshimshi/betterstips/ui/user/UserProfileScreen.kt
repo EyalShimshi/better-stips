@@ -76,7 +76,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -261,7 +261,7 @@ fun UserProfileScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         PullToRefreshBox(
@@ -618,7 +618,9 @@ private fun ProfileHeaderBody(
         val memberFor = memberForText(page?.activeSince)
         // Stips+'s special accounts: their badge comes first (#12).
         val special = SpecialAccounts.badge(profile.userId)
-        if (badges.isNotEmpty() || verifiedLabel != null || age != null || memberFor != null || special != null) {
+        // Their bio says they use Stips+ (v0.16): read from the profile already loaded, no request of its own.
+        val usesStipsPlus = BioPromo.has(page?.bio)
+        if (badges.isNotEmpty() || verifiedLabel != null || age != null || memberFor != null || special != null || usesStipsPlus) {
             Spacer(Modifier.height(8.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -626,6 +628,7 @@ private fun ProfileHeaderBody(
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 if (special != null) SpecialBadgePill(special, large = true)
+                if (usesStipsPlus) StipsPlusPill()
                 if (verifiedLabel != null) InfoPill(Icons.Outlined.Verified, verifiedLabel, highlighted = true)
                 badges.forEach { InfoPill(Icons.Outlined.WorkspacePremium, it, highlighted = true) }
                 if (age != null) {
@@ -1099,6 +1102,30 @@ private const val THANKS_MAX = 500
 
 /** The colors of the Stips+ bio button: Stips green into blue and purple, bright enough on both themes (#12). */
 private val PromoColors = listOf(Color(0xFF09A872), Color(0xFF2F7BF6), Color(0xFF8E44EC))
+
+/** "Stips+" on the profile of someone whose bio says they use it (v0.16), in the bio button's colors. */
+@Composable
+private fun StipsPlusPill() {
+    val description = stringResource(R.string.badge_stips_plus_description)
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Brush.horizontalGradient(PromoColors))
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(
+            stringResource(R.string.badge_stips_plus),
+            color = Color.White,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+    }
+}
 
 /** The bio button (#12): a colored pill, like a special badge, that offers to add "גם אני משתמש בסטיפס+". */
 @Composable

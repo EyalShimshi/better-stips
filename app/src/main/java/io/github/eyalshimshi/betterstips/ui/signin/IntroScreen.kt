@@ -12,6 +12,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -45,7 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -68,6 +70,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
@@ -81,14 +85,21 @@ import io.github.eyalshimshi.betterstips.notify.Notifier
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.notifications.rememberPhoneNotificationsToggle
+import io.github.eyalshimshi.betterstips.ui.question.answerSwipeLabel
+import io.github.eyalshimshi.betterstips.ui.question.questionSwipeLabel
+import io.github.eyalshimshi.betterstips.ui.settings.AnswerSwipePicture
 import io.github.eyalshimshi.betterstips.ui.settings.HomeLayoutPicker
 import io.github.eyalshimshi.betterstips.ui.settings.LookPreview
 import io.github.eyalshimshi.betterstips.ui.settings.NotificationPreview
+import io.github.eyalshimshi.betterstips.ui.settings.OptionsDialog
+import io.github.eyalshimshi.betterstips.ui.settings.QuestionSwipePicture
 import io.github.eyalshimshi.betterstips.ui.settings.RepliesPreview
 import io.github.eyalshimshi.betterstips.ui.settings.Swatch
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
+import io.github.eyalshimshi.betterstips.util.SwipeRules
 
-/** The intro's steps, in order (#12). */
-private enum class IntroStep { Welcome, Look, Home, Replies, Account, Notifications, Done }
+/** The intro's steps, in order (#12); swipes since v0.16. */
+private enum class IntroStep { Welcome, Look, Home, Replies, Swipes, Account, Notifications, Done }
 
 /**
  * The first screen after installing (#8). Since #12 it's a short intro that sets the app up: the look, what Home
@@ -155,7 +166,7 @@ fun IntroScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
                     onBack = { back() },
                     position = index,
                     count = steps.size,
-                    onSkip = if (step == IntroStep.Look || step == IntroStep.Home || step == IntroStep.Replies) ({ skip() }) else null,
+                    onSkip = if (step in CHOICE_STEPS) ({ skip() }) else null,
                 )
                 AnimatedContent(
                     targetState = step,
@@ -185,6 +196,7 @@ fun IntroScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
                             IntroStep.Look -> LookStep(settings)
                             IntroStep.Home -> HomeStep(settings)
                             IntroStep.Replies -> RepliesStep(settings)
+                            IntroStep.Swipes -> SwipesStep(settings)
                             IntroStep.Account -> AccountStep(onGuest = { next() }, onNext = { next() })
                             IntroStep.Notifications -> NotificationsStep(notificationsOn)
                             IntroStep.Done -> DoneStep()
@@ -203,7 +215,7 @@ fun IntroScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
                             TextButton(onClick = { skip() }) { Text(stringResource(R.string.intro_skip)) }
                             Button(onClick = { next() }) { Text(stringResource(R.string.intro_start)) }
                         }
-                        IntroStep.Look, IntroStep.Home, IntroStep.Replies -> {
+                        IntroStep.Look, IntroStep.Home, IntroStep.Replies, IntroStep.Swipes -> {
                             Button(onClick = { next() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.intro_next)) }
                         }
                         // Signing in, or going on as a guest, are the step's own buttons.
@@ -237,7 +249,7 @@ fun IntroScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            SnackbarHost(
+            SwipeAwaySnackbarHost(
                 snackbar,
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -293,15 +305,54 @@ private fun IntroTopBar(showBack: Boolean, onBack: () -> Unit, position: Int, co
     }
 }
 
+/** The steps with choices, where "Skip" goes straight to signing in. */
+private val CHOICE_STEPS = setOf(IntroStep.Look, IntroStep.Home, IntroStep.Replies, IntroStep.Swipes)
+
+/** A step's title and words; with [accentCarets], the carets in the words show in the accent color, as in the picture. */
 @Composable
-private fun StepHeader(title: String, body: String) {
+private fun StepHeader(title: String, body: String, accentCarets: Boolean = false) {
     Text(
         title,
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.semantics { heading() },
     )
-    Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val accent = MaterialTheme.colorScheme.primary
+    val shown = remember(body, accentCarets, accent) {
+        buildAnnotatedString {
+            append(body)
+            // The carets Stips+ itself reads as pointers (v0.16), bold in the accent color.
+            if (accentCarets) {
+                ReplyRefs.parse(body).refs.forEach { ref ->
+                    addStyle(SpanStyle(color = accent, fontWeight = FontWeight.Bold), ref.range.first, ref.range.last + 1)
+                }
+            }
+        }
+    }
+    Text(shown, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** A line showing what's picked, the whole line tappable to pick another from a list (v0.16). */
+@Composable
+private fun <T> ChoiceLine(title: String, options: List<Pair<T, Int>>, selected: T, onSelect: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val current = options.firstOrNull { it.first == selected }?.second ?: options.first().second
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(role = Role.Button) { open = true }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(current), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.width(12.dp))
+        Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (open) OptionsDialog(title, options, selected, onSelect, onDismiss = { open = false })
 }
 
 /** A line with a switch, the whole line tappable. */
@@ -414,7 +465,7 @@ private fun HomeStep(settings: AppSettings) {
 @Composable
 private fun RepliesStep(settings: AppSettings) {
     val store = LocalAppContainer.current.settings
-    StepHeader(stringResource(R.string.intro_replies_title), stringResource(R.string.intro_replies_body))
+    StepHeader(stringResource(R.string.intro_replies_title), stringResource(R.string.intro_replies_body), accentCarets = true)
     RepliesPreview(
         easyReply = settings.easyReply,
         quotes = settings.replyQuotes,
@@ -443,6 +494,50 @@ private fun RepliesStep(settings: AppSettings) {
     }
     Text(
         stringResource(R.string.intro_replies_both),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/**
+ * Swipes on questions and on answers, on one page (v0.16), each with its picture; Settings → Home and Questions and
+ * answers have the same choices.
+ */
+@Composable
+private fun SwipesStep(settings: AppSettings) {
+    val store = LocalAppContainer.current.settings
+    StepHeader(stringResource(R.string.intro_swipes_title), stringResource(R.string.intro_swipes_body))
+    Text(stringResource(R.string.settings_swipe_questions), style = MaterialTheme.typography.titleSmall)
+    QuestionSwipePicture(settings)
+    val questionChoices = SwipeRules.QUESTION_CHOICES.map { it to questionSwipeLabel(it) }
+    ChoiceLine(
+        title = stringResource(R.string.settings_swipe_right),
+        options = questionChoices,
+        selected = settings.swipeRight,
+        onSelect = { action -> store.update { it.copy(swipeRight = action) } },
+    )
+    ChoiceLine(
+        title = stringResource(R.string.settings_swipe_left),
+        options = questionChoices,
+        selected = settings.swipeLeft,
+        onSelect = { action -> store.update { it.copy(swipeLeft = action) } },
+    )
+    Text(stringResource(R.string.settings_swipe_answers), style = MaterialTheme.typography.titleSmall)
+    AnswerSwipePicture(settings)
+    ChoiceLine(
+        title = stringResource(R.string.settings_swipe_others_answer),
+        options = SwipeRules.OTHERS_ANSWER_CHOICES.map { it to answerSwipeLabel(it) },
+        selected = settings.answerSwipe,
+        onSelect = { action -> store.update { it.copy(answerSwipe = action) } },
+    )
+    ChoiceLine(
+        title = stringResource(R.string.settings_swipe_my_answer),
+        options = SwipeRules.MY_ANSWER_CHOICES.map { it to answerSwipeLabel(it) },
+        selected = settings.myAnswerSwipe,
+        onSelect = { action -> store.update { it.copy(myAnswerSwipe = action) } },
+    )
+    Text(
+        stringResource(R.string.preview_swipe_answer),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

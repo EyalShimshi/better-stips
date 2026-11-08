@@ -132,7 +132,11 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-78 | Notifications in categories (#13, v0.15) | P1 | The bell's list: category chips, a summary of what's new, Stips' team's notices pinned until opened, sections by day, long-press *Mark as read* and *Stop updates*; optional titles and photos; one phone channel per category |
 | F-79 | Animation presets (#18, v0.15) | P1 | Full (with short transitions), Less (no screen transitions, the rest faster), None, or each kind chosen |
 | F-80 | Swipe actions (#18, v0.15) | P1 | Questions in lists swipe both ways (pin and report by default, each configurable); answers swipe left too (nothing on others' by default, edit on your own) |## 7. Non-functional requirements
-
+| F-81 | Swipes that feel right (v0.16) | P1 | Questions, answers and chat messages run their swipe past a short line or on a flick, as Material's lists do |
+| F-82 | Swipe messages away (v0.16) | P2 | Any message at the bottom goes at once when swiped down or sideways |
+| F-83 | Sort answers in the question (v0.16) | P1 | Default (Stips' order), newest first, most or least upvotes; for that visit only |
+| F-84 | Pen pals Live and tabs that refresh (v0.16) | P1 | New posts come in by themselves; Home, Pen pals and Chats refresh when entered and when the app comes back |
+| F-85 | Stips+ badge (v0.16) | P2 | Profiles whose bio says they use Stips+ show a badge |
 | Area | Requirement |
 |---|---|
 | Speed | Cached feed visible < 300 ms after launch; a network feed page < 1 s on 4G |

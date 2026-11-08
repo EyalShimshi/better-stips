@@ -1,6 +1,5 @@
 package io.github.eyalshimshi.betterstips.util
 
-import io.github.eyalshimshi.betterstips.data.AnswersOrder
 import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.Author
@@ -69,12 +68,13 @@ class RulesV9Test {
         val b = answer(2, "2026-11-05T11:00:00Z", score = 7)
         val c = answer(3, "2026-11-05T09:00:00Z", score = -1)
         val stips = listOf(a, b, c)
-        assertEquals(stips, AnswerDisplay.ordered(stips, AnswersOrder.AsOnStips))
-        assertEquals(listOf(2L, 1L, 3L), AnswerDisplay.ordered(stips, AnswersOrder.Newest).map { it.id })
-        assertEquals(listOf(3L, 1L, 2L), AnswerDisplay.ordered(stips, AnswersOrder.Oldest).map { it.id })
-        assertEquals(listOf(2L, 1L, 3L), AnswerDisplay.ordered(stips, AnswersOrder.TopVoted).map { it.id })
+        assertEquals(stips, AnswerDisplay.sorted(stips, AnswerSort.Default))
+        assertEquals(listOf(2L, 1L, 3L), AnswerDisplay.sorted(stips, AnswerSort.Newest).map { it.id })
+        assertEquals(listOf(2L, 1L, 3L), AnswerDisplay.sorted(stips, AnswerSort.MostUpvotes).map { it.id })
+        assertEquals(listOf(3L, 1L, 2L), AnswerDisplay.sorted(stips, AnswerSort.LeastUpvotes).map { it.id })
         val tie = listOf(answer(4, null, score = 1), answer(5, null, score = 1))
-        assertEquals("ties keep Stips' order", listOf(4L, 5L), AnswerDisplay.ordered(tie, AnswersOrder.TopVoted).map { it.id })
+        assertEquals("ties keep Stips' order", listOf(4L, 5L), AnswerDisplay.sorted(tie, AnswerSort.MostUpvotes).map { it.id })
+        assertEquals(listOf(4L, 5L), AnswerDisplay.sorted(tie, AnswerSort.LeastUpvotes).map { it.id })
     }
 
     @Test

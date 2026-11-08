@@ -45,7 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -105,6 +107,8 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
 import io.github.eyalshimshi.betterstips.ui.components.LocalShowIntro
 import io.github.eyalshimshi.betterstips.ui.components.LocalTabReselects
+import io.github.eyalshimshi.betterstips.ui.components.LocalTabRefreshes
+import io.github.eyalshimshi.betterstips.ui.components.TabRefreshes
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.feed.HotScreen
@@ -211,6 +215,21 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     // Tapping the open tab again sends its route here; that tab scrolls back to the top (v0.12).
     val tabReselects = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
+    // Entering Home, Pen pals or Chats, or coming back to the app on one, refreshes it (v0.16).
+    val tabRefreshes = remember { TabRefreshes() }
+    val currentRoute by rememberUpdatedState(route)
+    DisposableEffect(lifecycleOwner, tabRefreshes) {
+        var stopped = false
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) stopped = true
+            if (event == Lifecycle.Event.ON_START && stopped) {
+                stopped = false
+                currentRoute?.takeIf { it in REFRESHED_TABS }?.let(tabRefreshes::request)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // The first launch after installing shows the intro (#8, #12): set the app up, then sign in or go on as a guest.
     // Links and shortcuts skip it; Settings → About shows it again.
@@ -312,6 +331,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         LocalUnreadCounts provides counts,
         LocalNow provides now,
         LocalTabReselects provides tabReselects,
+        LocalTabRefreshes provides tabRefreshes,
         LocalShowIntro provides showIntro,
     ) {
         // Swiping a question in any list runs the actions picked in Settings (#18); their dialogs show over the app.
@@ -328,11 +348,17 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
                             enter = if (animate) expandVertically(expandFrom = Alignment.Top) + fadeIn() else EnterTransition.None,
                             exit = if (animate) shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut() else ExitTransition.None,
                         ) {
-                            BottomBar(navController, route, counts, onReselect = { tabReselects.tryEmit(it) })
+                            BottomBar(
+                                navController,
+                                route,
+                                counts,
+                                onReselect = { tabReselects.tryEmit(it) },
+                                onEnter = { if (it in REFRESHED_TABS) tabRefreshes.request(it) },
+                            )
                         }
                     }
                 },
-                snackbarHost = { SnackbarHost(snackbar) },
+                snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
             ) { padding ->
                 AppNavHost(
@@ -453,8 +479,17 @@ private fun RateLimitBanner() {
     }
 }
 
+/** The tabs that refresh when entered from the bottom bar or when the app comes back to them (v0.16); not Profile. */
+private val REFRESHED_TABS = setOf(Routes.HOME, Routes.PENPALS, Routes.CHATS)
+
 @Composable
-private fun BottomBar(navController: NavHostController, route: String?, counts: UnreadCounts, onReselect: (String) -> Unit) {
+private fun BottomBar(
+    navController: NavHostController,
+    route: String?,
+    counts: UnreadCounts,
+    onReselect: (String) -> Unit,
+    onEnter: (String) -> Unit,
+) {
     NavigationBar {
         tabs.forEach { tab ->
             val selected = route == tab.route
@@ -462,7 +497,14 @@ private fun BottomBar(navController: NavHostController, route: String?, counts: 
             NavigationBarItem(
                 selected = selected,
                 // The bar shows only on the tabs' own screens, so the open tab is at its top level: back to its top.
-                onClick = { if (selected) onReselect(tab.route) else navigateToTab(navController, tab.route) },
+                onClick = {
+                    if (selected) {
+                        onReselect(tab.route)
+                    } else {
+                        onEnter(tab.route)
+                        navigateToTab(navController, tab.route)
+                    }
+                },
                 icon = {
                     BadgedBox(
                         badge = {

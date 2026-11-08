@@ -1,44 +1,53 @@
-## Stips+ 0.15: notifications in order, animations your way, and swipe actions (#13, #18, #19)
+## Stips+ 0.16: swipes that feel right, sorting in the question, Pen pals Live, and a Stips+ badge
 
-**#13: the notifications list, as you decided**
-- **Chips on top:** *All · Updates · Flowers and thanks · System messages*, each with a count of what's new. Tap one to see only that kind (older ones of that kind come with *Load older notifications*); tap it again for everything.
-- **A summary line** in *All*: "New since your last visit: 12 new answers on 3 questions · 2 flowers · a thanks message".
-- **Stips' team's notices stay on top** (a removal, a report's outcome, a note) as cards, until you open them or mark them read. Only notices from the last 30 days stay pinned.
-- **Sections by day:** Today, Yesterday, This week, Earlier. New ones are still bold, with a dot.
-- **Long-press a row** for *Mark as read*, and on an update for *Stop updates* on that question (with *Undo*).
-- **Optional, off by default:** Settings → Notifications → *Show questions' titles and photos*. Rows about a question then show its title and photo. The app reads each question from Stips once (about 2 KB), one every 1.5 seconds.
-- **Phone notifications by kind:** Android now has a channel for each kind: *Updates*, *Flowers and thanks*, *System messages*, and *Messages* as before. Settings → Notifications → *Kinds of notifications* opens each one, so you can give it its own sound or silence it.
+**Swiping**
+- **Questions now swipe like answers.** Questions in lists, answers and chat messages share one swipe, built to Material's standard:
+  - The line is at 64 dp, the answers' distance (questions needed 96 before).
+  - A quick flick runs the swipe without reaching the line, and a flick back cancels it.
+  - A question's row slides further, so you can read the action behind it, and the icon pops at the line.
+- **Messages at the bottom swipe away:** swipe one down or to either side and it's gone at once. Everything else about them is the same.
 
-**#18: more tweaks**
-- **Animations** (Settings → Appearance → Animations):
-  - *Full animations*: everything, with screen changes about twice as fast as before.
-  - *Less animations*: no sliding between screens. Jumping to an answer, the glow, scrolling up on refresh and the moving elements stay, and they're quicker.
-  - *No animations*.
-  - *Customized*: a switch for each kind (screens, jumps, scrolling to the top, glow, moving elements, quick). It starts from what you had.
-  - If you had animations turned off, you're now on *No animations*.
-- **Swiping questions, like Gmail:** in every list (Home, topics, channels, your lists), swipe a question right to pin it (or unpin it) and left to report it. Settings → Home → *Swiping a question* changes each side: nothing, pin, get updates, share, copy link, open on Stips, export, report, hide the question, or hide everything from its asker. The action's color, icon and name show behind the row, and the phone ticks once you've swiped far enough.
-- **Swiping answers left:** swiping right still replies. Swiping left does what you pick in Settings → Questions and answers → *Swiping an answer*: on others' answers nothing by default (or report, hide, hide everything from them, edit history), and on your own *Edit* by default (or detach, delete, edit history). A swipe only offers what the answer's ⋮ menu offers.
-- **Hiding can be undone:** a hidden question or answer disappears at once, and its message offers *Undo* for a few seconds. Stips is told only after that.
-- **The *I use Stips+* button** now lines up with *Edit bio*.
+**Questions**
+- **A sort button** by the number of answers: *Default*, *Newest first*, *Most upvotes*, *Least upvotes*. It's only for that visit: leave the question and it's back to *Default*. The order setting is gone from Settings.
+  - **Is Default the same as oldest first?** Yes. Stips lists answers by id, which is the order they were posted; I measured this on 1,203 answers in 24 busy questions. Flowered answers stay where they were posted. Carets count in this order too, so replies and quotes stay right whatever you sort by.
+  - The upvote orders go by the score shown on each answer (ups minus downs, the only number Stips sends).
+- **Carets are hidden by default,** in answers and in chats; the quote above shows what they point at. Settings can show them again.
 
-**#19: how does Stips know who's online?**
-- Stips' server decides, and sends a plain yes or no (`online`) with each profile, answer and chat. The site draws it as the pulsing green ring; Stips+ shows the same value as its green dot. The server never says what counts as online, or when someone was last seen, so neither the site nor the app can show "last seen".
-- "Active" is something else: in Stips' data it means a question or answer that wasn't removed, or an account that wasn't closed. "On Stips for" is Stips' own phrase for how old the account is.
-- My guess is that any signed-in request in the last few minutes makes you online. That would include Stips+'s background checks for phone notifications. It's not measured yet; [SPEC-04 §2.14](SPEC-04-data.md#214-online-active-and-on-stips-for-19-from-the-sites-code-2026-11) has the details and a simple test with a second account.
+**Pen pals and refreshing**
+- **Live on Pen pals:** the chip at the top, as on Home. New posts come in by themselves, only while Pen pals is on screen and the phone is awake. It uses the same rate as Home's Live (long-press the chip to change it).
+- **Tabs refresh when you switch to them:** Home, Pen pals and Chats, and the open one when you come back to the app.
+  - New questions and posts come in on top, so what you were reading stays put.
+  - It doesn't happen on Profile, when you come back from a question, or if the tab loaded in the last 10 seconds.
 
-**#17: closed**, as you decided. The iPhone plan stays in [SPEC-07 §3](SPEC-07-proposals.md#3-an-iphone-version-17), marked discarded.
+**Settings and the intro**
+- **Less animations is the default**, and **Count the seconds** is on.
+- Settings → Questions and answers shows a **picture of swiping answers**: someone's, and one under your own nickname.
+- The intro has a **Swipes** page, with questions and answers together, and the carets on the replies page are in the accent color.
+
+**The Stips+ badge**
+- Profiles whose bio has the *I use Stips+* line (its words or its link) show a **Stips+** badge in the button's colors. It costs nothing, since the profile is already loaded. It isn't on answers, which would cost a request for each person who answered.
+- **Is there a better way to know who uses Stips+?** Not without a server of our own.
+  - Only Stips sees that a request comes from Stips+ (the app says so in every request). Stips could show it, so it's worth asking in the permission email.
+  - A list of our own would break the "no account of ours" promise, would list mostly teens' accounts, and couldn't confirm anyone.
+  - A hidden mark in posts would be secret tracking that changes people's words.
 
 **To test**
-1. The bell: tap each chip, read the summary line, long-press a row → *Mark as read*, and long-press an update → *Stop updates* → *Undo*.
-2. Settings → Notifications → *Show questions' titles and photos*, then open the bell again.
-3. Settings → Notifications → *Kinds of notifications*: each row opens Android's settings for that kind.
-4. Settings → Appearance → Animations: try *Less animations*, then *Customized*.
-5. Home: swipe a question right (pinned), swipe it right again (unpinned), and swipe one left (the report dialog; cancel it). Then change the swipes in Settings → Home.
-6. In a question, swipe your own answer left: the editor opens.
-7. Hide a question from ⋮ or a swipe, then tap *Undo*.
-8. Your profile: *I use Stips+* next to *Edit bio*.
+1. Home: flick a question right (it's pinned) and left (the report dialog; cancel it). Then drag one slowly past the line and back: nothing happens.
+2. Pin something, then swipe the message at the bottom down or to the side.
+3. In a busy question, try each order from the sort button by "N answers", then leave and come back (it's *Default* again).
+4. Settings → Questions and answers: the new picture, with your nickname.
+5. Settings → About → *Show the intro again*: the Swipes page, and the colored carets on the replies page.
+6. Pen pals: tap the Live chip, and long-press it for the rate.
+7. Switch between Home, Pen pals and Chats; leave the app and come back.
+8. Open a profile whose bio has the Stips+ line (yours, if you added it).
 
 **Heads-up**
-- This release waits for your approval: in the GitHub app, open the run → *Review deployments* → *Approve*. It appears on the Releases page only after that.
-- Android's old *Answers and activity* channel is replaced by the three new ones. If you gave it a sound, set it again on the new ones.
-- Nothing was tested on a real phone. The CI emulator is signed out, so it never sees the bell, swipes on your own answers, or pins.
+- **Some of your settings changed, once:**
+  - *Full animations* became *Less*.
+  - *Count the seconds* is on.
+  - Carets are hidden in answers and chats.
+
+  Stips+ saves every setting whenever one changes, so it can't tell a default from a choice. If you picked the old ones on purpose, set them again (Settings → Appearance, Questions and answers, DM settings).
+- A quick flick now runs a swipe on answers and chat messages too. If replying by swipe feels too eager now, tell me.
+- This release waits for your approval: in the GitHub app, open the run → *Review deployments* → *Approve*.
+- Nothing was tested on a real phone. The CI emulator is signed out.

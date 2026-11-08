@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,8 +24,6 @@ enum class HomeLayout {
 /** The tab the app opens on (#8). */
 enum class StartTab { Home, PenPals, Chats, Profile }
 
-/** How a question's answers are ordered (#8). */
-enum class AnswersOrder { AsOnStips, Newest, Oldest, TopVoted }
 
 /** How much Stips+ animates (#18): three presets, or each kind of animation picked by hand ([Custom]). */
 enum class MotionPreset { Full, Less, Off, Custom }
@@ -71,9 +70,12 @@ data class Motion(
             return Motion(on(0), on(1), on(2), on(3), on(4), on(5))
         }
 
-        /** The saved preset; v0.14 and earlier had one switch, so on is [MotionPreset.Full] and off [MotionPreset.Off]. */
+        /**
+         * The saved preset; v0.14 and earlier had one switch: off is [MotionPreset.Off], and on is the default,
+         * [MotionPreset.Less] since v0.16 (the owner's ask: closer to Stips itself).
+         */
         fun presetFrom(saved: String?, legacyAnimations: Boolean): MotionPreset =
-            MotionPreset.entries.firstOrNull { it.name == saved } ?: if (legacyAnimations) MotionPreset.Full else MotionPreset.Off
+            MotionPreset.entries.firstOrNull { it.name == saved } ?: if (legacyAnimations) MotionPreset.Less else MotionPreset.Off
     }
 }
 
@@ -89,11 +91,13 @@ data class AppSettings(
     val dynamicColor: Boolean = true,
     val accent: Int = DEFAULT_ACCENT,
     val showImages: Boolean = true,
-    /** How much the app animates (#18); [customMotion] is what "Customized" plays. See [motion]. */
-    val motionPreset: MotionPreset = MotionPreset.Full,
+    /** How much the app animates (#18); [customMotion] is what "Customized" plays. See [motion]. Less since v0.16. */
+    val motionPreset: MotionPreset = MotionPreset.Less,
     val customMotion: Motion = Motion.FULL,
     /** New questions appear on Home by themselves (polls every [liveIntervalSeconds] while Home is open). */
     val autoRefreshNew: Boolean = false,
+    /** New posts appear on Pen pals by themselves, at the same rate, while it's open (v0.16). */
+    val penPalsLive: Boolean = false,
     /** Phone notifications: Stips+ checks every [checkMinutes] while the phone is awake, and every 15 minutes anyway. */
     val backgroundNotifications: Boolean = false,
     /** Minutes between checks while the phone is awake: one of [CHECK_MINUTES]; 15 leaves only the job (v0.11). */
@@ -106,8 +110,8 @@ data class AppSettings(
     val anonymousUntil: Long = 0L,
     /** Expert mode (#8): diagnostics, load times, and ids and server data on questions, answers and profiles. */
     val expertMode: Boolean = false,
-    /** Times under an hour count up every second on screen, from the phone's clock (#8). */
-    val liveTimes: Boolean = false,
+    /** Times under an hour count up every second on screen, from the phone's clock (#8); on since v0.16. */
+    val liveTimes: Boolean = true,
     val homeLayout: HomeLayout = HomeLayout.HotAndNew,
     /** How many hot questions Home shows: one of [HOT_COUNTS]. */
     val hotCount: Int = 5,
@@ -115,19 +119,18 @@ data class AppSettings(
     val hotWindow: HotWindow = HotWindow.Now,
     val showChannelChips: Boolean = true,
     val startTab: StartTab = StartTab.Home,
-    val answersOrder: AnswersOrder = AnswersOrder.AsOnStips,
     /** Swipe an answer to the right to reply to it with Stips' carets (v0.10). */
     val easyReply: Boolean = true,
     /** Answers that point up with carets show the answer they reply to (v0.10). */
     val replyQuotes: Boolean = true,
-    /** The opening carets of an answer shown with quotes are left out; off, so answers show as written (v0.11). */
-    val hideReplyCarets: Boolean = false,
+    /** The opening carets of an answer shown with its quote are left out (v0.11); on since v0.16, the owner's ask. */
+    val hideReplyCarets: Boolean = true,
     /** Easy reply in private chats: swipe a message to reply to it with carets (v0.12). Apart from answers' switch. */
     val chatEasyReply: Boolean = true,
     /** Chat messages that point up with carets show the message they reply to (v0.12). */
     val chatReplyQuotes: Boolean = true,
-    /** The opening carets of a chat message shown with quotes are left out; off, so messages show as written (v0.12). */
-    val chatHideReplyCarets: Boolean = false,
+    /** The opening carets of a chat message shown with its quote are left out (v0.12); on since v0.16. */
+    val chatHideReplyCarets: Boolean = true,
     /** Phone notifications include new chat messages (v0.12); off, they're only about answers, flowers and thanks. */
     val chatNotifications: Boolean = true,
     /** "נאמן סטיפס" by moderators' names on answers; each answerer is looked up once every two weeks (v0.10). */
@@ -193,7 +196,7 @@ data class AppSettings(
 }
 
 class SettingsStore(context: Context) {
-    private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE).also { applyNewDefaults(it) }
     private val _settings = MutableStateFlow(read())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
@@ -209,6 +212,7 @@ class SettingsStore(context: Context) {
             .putString("motionPreset", next.motionPreset.name)
             .putInt("motionCustom", next.customMotion.toBits())
             .putBoolean("autoRefreshNew", next.autoRefreshNew)
+            .putBoolean("penPalsLive", next.penPalsLive)
             .putBoolean("backgroundNotifications", next.backgroundNotifications)
             .putInt("checkMinutes", next.checkMinutes)
             .putBoolean("notificationsPrompted", next.notificationsPrompted)
@@ -221,7 +225,7 @@ class SettingsStore(context: Context) {
             .putString("hotWindow", next.hotWindow.name)
             .putBoolean("showChannelChips", next.showChannelChips)
             .putString("startTab", next.startTab.name)
-            .putString("answersOrder", next.answersOrder.name)
+
             .putBoolean("easyReply", next.easyReply)
             .putBoolean("replyQuotes", next.replyQuotes)
             .putBoolean("hideReplyCarets", next.hideReplyCarets)
@@ -250,6 +254,7 @@ class SettingsStore(context: Context) {
             motionPreset = Motion.presetFrom(prefs.getString("motionPreset", null), prefs.getBoolean("animations", true)),
             customMotion = prefs.getInt("motionCustom", -1).let { if (it < 0) defaults.customMotion else Motion.fromBits(it) },
             autoRefreshNew = prefs.getBoolean("autoRefreshNew", defaults.autoRefreshNew),
+            penPalsLive = prefs.getBoolean("penPalsLive", defaults.penPalsLive),
             backgroundNotifications = prefs.getBoolean("backgroundNotifications", defaults.backgroundNotifications),
             checkMinutes = prefs.getInt("checkMinutes", defaults.checkMinutes).takeIf { it in AppSettings.CHECK_MINUTES }
                 ?: defaults.checkMinutes,
@@ -265,7 +270,7 @@ class SettingsStore(context: Context) {
                 ?: defaults.hotWindow,
             showChannelChips = prefs.getBoolean("showChannelChips", defaults.showChannelChips),
             startTab = enumOr(prefs.getString("startTab", null), defaults.startTab),
-            answersOrder = enumOr(prefs.getString("answersOrder", null), defaults.answersOrder),
+
             easyReply = prefs.getBoolean("easyReply", defaults.easyReply),
             replyQuotes = prefs.getBoolean("replyQuotes", defaults.replyQuotes),
             hideReplyCarets = prefs.getBoolean("hideReplyCarets", defaults.hideReplyCarets),
@@ -285,4 +290,35 @@ class SettingsStore(context: Context) {
 
     private inline fun <reified E : Enum<E>> enumOr(name: String?, fallback: E): E =
         enumValues<E>().firstOrNull { it.name == name } ?: fallback
+
+    companion object {
+        /** The defaults' version the saved settings were brought up to. */
+        private const val KEY_DEFAULTS = "defaultsVersion"
+        private const val DEFAULTS_VERSION = 16
+
+        /**
+         * v0.16's new defaults (the owner's ask): less animations, counting the seconds, and the carets hidden behind
+         * their quotes, in answers and in chats. Every change saves all the settings, so a value equal to the old default
+         * can't be told from a choice; those move to the new default, once. From [stored], the values to write. Pure.
+         */
+        fun v16DefaultChanges(stored: Map<String, *>): Map<String, Any> = buildMap {
+            if (stored["motionPreset"] == MotionPreset.Full.name) put("motionPreset", MotionPreset.Less.name)
+            for (key in listOf("liveTimes", "hideReplyCarets", "chatHideReplyCarets")) {
+                if (stored[key] == false) put(key, true)
+            }
+        }
+
+        private fun applyNewDefaults(prefs: SharedPreferences) {
+            if (prefs.getInt(KEY_DEFAULTS, 0) >= DEFAULTS_VERSION) return
+            val edit = prefs.edit()
+            v16DefaultChanges(prefs.all).forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> edit.putBoolean(key, value)
+                    is String -> edit.putString(key, value)
+                }
+            }
+            // The old order of answers is now picked in each question, for that visit (v0.16).
+            edit.remove("answersOrder").putInt(KEY_DEFAULTS, DEFAULTS_VERSION).apply()
+        }
+    }
 }

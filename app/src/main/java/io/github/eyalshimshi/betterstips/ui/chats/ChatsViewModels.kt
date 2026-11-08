@@ -12,6 +12,7 @@ import io.github.eyalshimshi.betterstips.data.model.ProfilePage
 import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -35,6 +36,9 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
     val state: StateFlow<ChatsUiState> = _state.asStateFlow()
     private var job: Job? = null
 
+    /** When the list last came from Stips, for coming back to the app on Chats (v0.16). */
+    private var loadedAt = 0L
+
     init {
         viewModelScope.launch {
             session.session.map { it.userId }.distinctUntilChanged().collect { userId ->
@@ -52,12 +56,18 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
 
     fun retry() = load(refreshing = false)
 
+    /** Coming back to the app on Chats (v0.16): the list again, quietly, unless it came in moments ago. */
+    fun refreshIfStale() {
+        if (AutoRefresh.due(loadedAt, System.currentTimeMillis())) refreshQuietly()
+    }
+
     /** A message came in or was read (the unread count changed): update the list without the spinner (#6). */
     fun refreshQuietly() {
         if (job?.isActive == true) return
         job = viewModelScope.launch {
             try {
                 val list = repository.conversations(page = 1)
+                loadedAt = System.currentTimeMillis()
                 _state.update { it.copy(conversations = list, error = null) }
             } catch (e: CancellationException) {
                 throw e
@@ -74,6 +84,7 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
             try {
                 // Pulling to refresh also makes sure the session is alive: a lost one answers with no chats (#9).
                 val list = repository.conversations(page = 1, verify = refreshing)
+                loadedAt = System.currentTimeMillis()
                 _state.update { it.copy(conversations = list, loading = false, refreshing = false) }
             } catch (e: CancellationException) {
                 throw e

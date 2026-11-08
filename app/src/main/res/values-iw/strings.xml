@@ -606,11 +606,6 @@
     <string name="settings_channel_chips_summary">הערוצים בראש מסך הבית</string>
     <string name="settings_start_tab">מסך הפתיחה</string>
     <string name="settings_start_tab_summary">מהפעם הבאה שהאפליקציה נפתחת</string>
-    <string name="settings_answers_order">סדר התשובות</string>
-    <string name="answers_order_stips">כמו בסטיפס</string>
-    <string name="answers_order_newest">החדשות קודם</string>
-    <string name="answers_order_oldest">הישנות קודם</string>
-    <string name="answers_order_top">הכי הרבה הצבעות קודם</string>
     <string name="settings_times">זמנים</string>
     <string name="settings_live_times">ספירת שניות</string>
     <string name="settings_live_times_summary">הזמנים מתעדכנים כל שנייה בזמן שמסתכלים: \"לפני 12 שניות\" בדקה הראשונה, ואז \"לפני דקה\". לפי השעון של הטלפון, בלי נתונים נוספים.</string>
@@ -889,4 +884,21 @@
         <item quantity="many">%d הודעות מערכת</item>
         <item quantity="other">%d הודעות מערכת</item>
     </plurals>
+    <!-- v0.16 -->
+    <string name="sort_answers">מיון התשובות</string>
+    <string name="sort_default">ברירת מחדל</string>
+    <string name="sort_newest">חדש תחילה</string>
+    <string name="sort_most_upvotes">הכי הרבה חיצים מעלה</string>
+    <string name="sort_least_upvotes">הכי מעט חיצים מעלה</string>
+    <string name="settings_answers_summary">תגובות, החלקות וזמנים</string>
+    <string name="preview_you">אני</string>
+    <string name="preview_answer_mine">תודה, אלך מחר!</string>
+    <string name="intro_swipes_title">פעולות בהחלקה</string>
+    <string name="intro_swipes_body">מחליקים שאלה או תשובה הצידה כדי לפעול עליה מיד. בוחרים מה כל החלקה עושה; בהגדרות יש את אותן בחירות.</string>
+    <string name="live_penpals">חברים לעט בלייב</string>
+    <string name="live_penpals_what">מסרים חדשים מופיעים בלוח מעצמם כל עוד הוא פתוח.</string>
+    <string name="live_penpals_cost">כל בדיקה קוראת את 30 המסרים החדשים בלוח.</string>
+    <string name="live_shared_rate">הבית וחברים לעט בודקים באותו קצב.</string>
+    <string name="badge_stips_plus">Stips+</string>
+    <string name="badge_stips_plus_description">Stips+: בביו כתוב שמשתמשים בו</string>
 </resources>

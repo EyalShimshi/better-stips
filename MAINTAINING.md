@@ -158,6 +158,15 @@ The log never contains request parameters, cookies, tokens or text the user wrot
 - **Hiding with Undo (#18):** `BlockStore.block` hides at once and `unblock` takes it back on *Undo*; Stips hears of it (`StipsRepository.tellStipsHidden`) only after the message goes, through `tellStipsHiddenLater` on the app's scope, so leaving the screen doesn't lose it. Stips has no call to unhide a single item, which is why it waits.
 - **Online (#19):** the green ring is Stips' `online` boolean (SPEC-04 §2.14); the app never guesses it.
 
+## Swipes, messages, sorting and refreshing (v0.16)
+
+- **One swipe (D-110):** [SwipeActions.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/components/SwipeActions.kt) has the engine: `rememberSwipeDrag` and `Modifier.swipeToAct(drag, onRight, onLeft)`, with `SWIPE_TRIGGER` (64 dp) and `SWIPE_FLING` (125 dp/s); how a release ends is `SwipeRules.release` (pure, `RulesV16Test`). Questions in lists use `SwipeActionsBox`; `AnswerCard` and the chat `Bubble` draw their own icons from `drag.rightProgress`/`leftProgress`. Change how swipes feel there, not in the screens.
+- **Messages at the bottom (D-111):** screens use `SwipeAwaySnackbarHost` ([SwipeAwaySnackbar.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/components/SwipeAwaySnackbar.kt)), not Material's `SnackbarHost`. The drag is read on a box that doesn't move while the snackbar is drawn moved, so the speed is right; where it goes is `SwipeRules.snackbarExit`.
+- **Defaults (D-112):** `SettingsStore.update` saves every setting, so a new default doesn't reach anyone who ever saved one. To move people still on an old default, add it to a migration like `v16DefaultChanges` and raise `DEFAULTS_VERSION`.
+- **Sorting answers (D-113):** `AnswerSort` in [AnswerDisplay.kt](app/src/main/java/io/github/eyalshimshi/betterstips/util/AnswerDisplay.kt), kept in `QuestionUiState.sort`, so it lasts as long as the visit. Carets always count in Stips' order (`stipsOrder`), whatever is shown.
+- **Refreshing tabs (D-115):** AppRoot marks a tab in `TabRefreshes` ([TabRefresh.kt](app/src/main/java/io/github/eyalshimshi/betterstips/ui/components/TabRefresh.kt)) when the bottom bar switches to it, and the open tab when the app comes back (`ON_START` after `ON_STOP`). A screen joins with `RefreshOnEnter(route) { … }`; merge new items on top (`pollNew`) rather than reload, and skip when its view model loaded less than `AutoRefresh.FRESH_MS` ago. Pen pals' Live is Home's loop: `repeatOnLifecycle(RESUMED)`, `RateGuard.allowBackground()`, `AppSettings.liveDelayMs`; both share `liveIntervalSeconds`.
+- **The Stips+ badge (D-116):** `BioPromo.has` decides, from the profile already loaded. Keep it off answers: it would cost a profile request per answerer.
+
 ## Data files
 
 | File | What | Rule |

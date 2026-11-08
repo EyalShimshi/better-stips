@@ -5,11 +5,8 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,9 +16,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,7 +55,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -105,7 +101,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -118,7 +114,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -188,6 +183,8 @@ import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
 import io.github.eyalshimshi.betterstips.ui.components.SpecialBadgePill
 import io.github.eyalshimshi.betterstips.ui.components.SwipeSpec
+import io.github.eyalshimshi.betterstips.ui.components.rememberSwipeDrag
+import io.github.eyalshimshi.betterstips.ui.components.swipeToAct
 import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
@@ -208,6 +205,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.SeededTheme
 import io.github.eyalshimshi.betterstips.util.AnswerDisplay
 import io.github.eyalshimshi.betterstips.util.AnswerRules
+import io.github.eyalshimshi.betterstips.util.AnswerSort
 import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import io.github.eyalshimshi.betterstips.util.Links
@@ -352,8 +350,9 @@ fun QuestionScreen(
         }
         // The asker's anonymous answers show the nickname the question was asked under (#12).
         val named = remember(state.answers, question?.author) { AnswerDisplay.withAskerNickname(question, state.answers) }
-        val answers = remember(named, blockVersion, settings.answersOrder) {
-            AnswerDisplay.ordered(named.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }, settings.answersOrder)
+        // Sorted as picked in this question, for this visit (v0.16); Stips' order otherwise.
+        val answers = remember(named, blockVersion, state.sort) {
+            AnswerDisplay.sorted(named.filterNot { container.blocks.isBlocked("ans", it.id, it.author.userId) }, state.sort)
         }
         val signedIn = session.signedIn
         val me = session.userId
@@ -431,7 +430,7 @@ fun QuestionScreen(
                     )
                 }
             },
-            snackbarHost = { SnackbarHost(snackbar) },
+            snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
         ) { padding ->
             Box(
@@ -498,6 +497,7 @@ fun QuestionScreen(
                         onVisibleAuthors = vm::wantBadges,
                         onJumpHandled = vm::consumeJump,
                         onHistory = { historyFor = it },
+                        onSort = vm::setSort,
                     )
                 }
                 QuestionTopBar(
@@ -741,6 +741,7 @@ private fun QuestionContent(
     onVisibleAuthors: (Collection<Long>) -> Unit,
     onJumpHandled: () -> Unit,
     onHistory: (Answer) -> Unit,
+    onSort: (AnswerSort) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
@@ -851,7 +852,7 @@ private fun QuestionContent(
                         )
                         KEY_BODY -> QuestionBody(question.body)
                         KEY_ANSWERS_HEADER -> Row(
-                            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+                            Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
@@ -861,6 +862,8 @@ private fun QuestionContent(
                                 modifier = Modifier.weight(1f),
                             )
                             if (state.loading && !state.refreshing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            // Sorting, for this visit (v0.16): a small menu by the count.
+                            if (answers.size > 1) AnswerSortButton(state.sort, onSort)
                         }
                         KEY_ANSWERS_ERROR -> answersError?.let { ErrorCard(it, onRetry) }
                         else -> Unit
@@ -875,8 +878,9 @@ private fun QuestionContent(
                     null
                 }
                 Column(Modifier.animateItem()) {
-                    // The new answers a notification led to start under a thin "unread" bar (v0.13).
-                    val unread = state.unread?.takeIf { it.id == answer.id }
+                    // The new answers a notification led to start under a thin "unread" bar (v0.13), in Stips' order,
+                    // where they follow it (v0.16).
+                    val unread = state.unread?.takeIf { it.id == answer.id && state.sort == AnswerSort.Default }
                     AnimatedVisibility(visible = unread != null, enter = EnterTransition.None, exit = shrinkVertically() + fadeOut()) {
                         val count = remember { unread?.count ?: 0 }
                         UnreadBar(
@@ -920,6 +924,54 @@ private fun QuestionContent(
             }
         }
     }
+}
+
+/** The sort menu by the number of answers (v0.16): Stips' order (the default), newest first, or by upvotes. */
+@Composable
+private fun AnswerSortButton(sort: AnswerSort, onSort: (AnswerSort) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val sorted = sort != AnswerSort.Default
+    val description = stringResource(R.string.sort_answers) + ": " + stringResource(answerSortLabel(sort))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Another order says so, so the replies' order isn't a surprise.
+        if (sorted) {
+            Text(
+                stringResource(answerSortLabel(sort)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+            )
+        }
+        Box {
+            IconButton(onClick = { open = true }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Sort,
+                    contentDescription = description,
+                    tint = if (sorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                AnswerSort.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(answerSortLabel(option))) },
+                        onClick = {
+                            open = false
+                            onSort(option)
+                        },
+                        trailingIcon = if (option == sort) ({ Icon(Icons.Filled.Check, contentDescription = null) }) else null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun answerSortLabel(sort: AnswerSort): Int = when (sort) {
+    AnswerSort.Default -> R.string.sort_default
+    AnswerSort.Newest -> R.string.sort_newest
+    AnswerSort.MostUpvotes -> R.string.sort_most_upvotes
+    AnswerSort.LeastUpvotes -> R.string.sort_least_upvotes
 }
 
 private const val KEY_HERO = "hero"
@@ -1236,10 +1288,6 @@ private fun ActionMenuButton(entries: List<MenuEntry>, description: String, coll
     }
 }
 
-/** How far an answer is dragged to reply to it (easy reply, v0.10), and how far it can go. */
-private val SWIPE_THRESHOLD = 64.dp
-private val SWIPE_MAX = 104.dp
-
 @Composable
 private fun AnswerCard(
     answer: Answer,
@@ -1262,11 +1310,7 @@ private fun AnswerCard(
     swipeLeft: SwipeSpec? = null,
     modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHapticFeedback.current
     val motion = LocalAppSettings.current.motion
-    val density = LocalDensity.current
-    val threshold = with(density) { SWIPE_THRESHOLD.toPx() }
-    val maxDrag = with(density) { SWIPE_MAX.toPx() }
 
     // A jump lights the card up: two slow breaths over two seconds, then back to normal (v0.10).
     val glow = remember { Animatable(0f) }
@@ -1275,23 +1319,10 @@ private fun AnswerCard(
         glow.glowOnce(motion, HIGHLIGHT_MS)
     }
 
-    // Easy reply (v0.10): dragging the card from left to right (in Hebrew too) past the line replies to it. Dragging
-    // it the other way runs the action picked in Settings (#18).
+    // Easy reply (v0.10): dragging the card from left to right (in Hebrew too) past the line, or flicking it, replies
+    // to it. Dragging it the other way runs the action picked in Settings (#18). The same swipe as questions (v0.16).
     val canRight = onSwipeReply != null
-    val canLeft = swipeLeft != null
-    var dragX by remember { mutableFloatStateOf(0f) }
-    var armed by remember { mutableStateOf(false) }
-    val currentOnSwipeReply by rememberUpdatedState(onSwipeReply)
-    val currentSwipeLeft by rememberUpdatedState(swipeLeft)
-    val dragState = rememberDraggableState { delta ->
-        val resisted = if (abs(dragX) >= threshold) delta * 0.3f else delta
-        dragX = (dragX + resisted).coerceIn(if (canLeft) -maxDrag else 0f, if (canRight) maxDrag else 0f)
-        val nowArmed = abs(dragX) >= threshold
-        if (nowArmed != armed) {
-            armed = nowArmed
-            if (nowArmed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-        }
-    }
+    val drag = rememberSwipeDrag()
     val replyLabel = stringResource(R.string.action_reply)
 
     // Organizations and Stips' own system answers get a thin blue outline next to their blue checkmark (#8).
@@ -1301,19 +1332,7 @@ private fun AnswerCard(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
-            .draggable(
-                state = dragState,
-                orientation = Orientation.Horizontal,
-                enabled = canRight || canLeft,
-                onDragStopped = {
-                    when {
-                        dragX >= threshold -> currentOnSwipeReply?.invoke()
-                        dragX <= -threshold -> currentSwipeLeft?.onSwipe?.invoke()
-                    }
-                    armed = false
-                    animate(dragX, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> dragX = value }
-                },
-            ),
+            .swipeToAct(drag, onRight = onSwipeReply, onLeft = swipeLeft?.onSwipe),
     ) {
         if (canRight) {
             Icon(
@@ -1325,7 +1344,7 @@ private fun AnswerCard(
                     .absolutePadding(left = 12.dp)
                     .size(24.dp)
                     .graphicsLayer {
-                        val progress = (dragX / threshold).coerceIn(0f, 1f)
+                        val progress = drag.rightProgress
                         alpha = progress
                         scaleX = 0.6f + 0.4f * progress
                         scaleY = 0.6f + 0.4f * progress
@@ -1343,7 +1362,7 @@ private fun AnswerCard(
                     .absolutePadding(right = 12.dp)
                     .size(24.dp)
                     .graphicsLayer {
-                        val progress = (-dragX / threshold).coerceIn(0f, 1f)
+                        val progress = drag.leftProgress
                         alpha = progress
                         scaleX = 0.6f + 0.4f * progress
                         scaleY = 0.6f + 0.4f * progress
@@ -1356,7 +1375,7 @@ private fun AnswerCard(
             border = border,
             modifier = Modifier
                 .fillMaxWidth()
-                .absoluteOffset { IntOffset(dragX.roundToInt(), 0) }
+                .absoluteOffset { IntOffset(drag.offset.roundToInt(), 0) }
                 .semantics {
                     customActions = listOfNotNull(
                         onSwipeReply?.let { action ->

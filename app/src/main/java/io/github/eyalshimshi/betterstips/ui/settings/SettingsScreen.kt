@@ -50,7 +50,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -81,7 +81,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
-import io.github.eyalshimshi.betterstips.data.AnswersOrder
+
+import io.github.eyalshimshi.betterstips.data.AnswerSwipe
 import io.github.eyalshimshi.betterstips.data.AppSettings
 import io.github.eyalshimshi.betterstips.data.HomeLayout
 import io.github.eyalshimshi.betterstips.data.Motion
@@ -109,6 +110,7 @@ import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
 import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.SwipeRules
 import io.github.eyalshimshi.betterstips.util.NotificationCategories
+import io.github.eyalshimshi.betterstips.ui.question.answerSwipeIcon
 import io.github.eyalshimshi.betterstips.ui.question.answerSwipeLabel
 import io.github.eyalshimshi.betterstips.ui.question.questionSwipeIcon
 import io.github.eyalshimshi.betterstips.ui.question.questionSwipeLabel
@@ -175,7 +177,7 @@ fun SettingsScreen(
     )
     Scaffold(
         topBar = { TopAppBar(title = { Text(title) }, navigationIcon = { BackButton(onBack) }) },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
     ) { padding ->
         Column(
             Modifier
@@ -253,10 +255,9 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
         4,
         { onOpenPage(SettingsPage.Answers) },
         summary = joined(
-            stringResource(orderLabel(settings.answersOrder)),
             if (settings.easyReply) stringResource(R.string.settings_easy_reply) else null,
             if (settings.replyQuotes) stringResource(R.string.settings_short_quotes) else null,
-        ),
+        ).ifEmpty { stringResource(R.string.settings_answers_summary) },
         icon = Icons.Outlined.Forum,
     )
     val phoneOn = settings.backgroundNotifications && Notifier.canPost(context)
@@ -462,12 +463,6 @@ private fun layoutSummary(layout: HomeLayout): Int = when (layout) {
     HomeLayout.NewOnly -> R.string.layout_new_only_summary
 }
 
-private fun orderLabel(order: AnswersOrder): Int = when (order) {
-    AnswersOrder.AsOnStips -> R.string.answers_order_stips
-    AnswersOrder.Newest -> R.string.answers_order_newest
-    AnswersOrder.Oldest -> R.string.answers_order_oldest
-    AnswersOrder.TopVoted -> R.string.answers_order_top
-}
 
 /** Colors and theme, with a picture of the app in them (#12), then images and animations. */
 @Composable
@@ -674,11 +669,7 @@ private fun HomePage(settings: AppSettings) {
 
     // Swiping a question in a list (#18): Home, topics, channels and your lists.
     GroupLabel(stringResource(R.string.settings_swipe_questions))
-    SwipePreview(
-        right = questionSwipeLabel(settings.swipeRight) to questionSwipeIcon(settings.swipeRight),
-        left = questionSwipeLabel(settings.swipeLeft) to questionSwipeIcon(settings.swipeLeft),
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-    )
+    QuestionSwipePicture(settings, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     SwipeChoiceRow(
         title = stringResource(R.string.settings_swipe_right),
         options = SwipeRules.QUESTION_CHOICES.map { it to questionSwipeLabel(it) },
@@ -710,37 +701,67 @@ private fun <T> SwipeChoiceRow(
     var open by remember { mutableStateOf(false) }
     val current = options.firstOrNull { it.first == selected }?.second ?: options.first().second
     GroupRow(title = title, summary = stringResource(current), index = index, count = count, onClick = { open = true })
-    if (open) {
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(title) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    options.forEach { (value, label) ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    onSelect(value)
-                                    open = false
-                                }
-                                .padding(vertical = 10.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = value == selected, onClick = null)
-                            Spacer(Modifier.width(12.dp))
-                            Text(stringResource(label), style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
-        )
-    }
+    if (open) OptionsDialog(title, options, selected, onSelect, onDismiss = { open = false })
 }
 
-/** Answers: a picture of two answers that changes with the switches (#12), their order, replies and times. */
+/** Picking one of [options] (a value and its words) in a dialog; choosing closes it. Settings and the intro (v0.16). */
+@Composable
+internal fun <T> OptionsDialog(title: String, options: List<Pair<T, Int>>, selected: T, onSelect: (T) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                options.forEach { (value, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                onSelect(value)
+                                onDismiss()
+                            }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = value == selected, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(label), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+    )
+}
+
+/** Swiping a question (#18), drawn from the current choices: Settings → Home and the intro (v0.16). */
+@Composable
+internal fun QuestionSwipePicture(settings: AppSettings, modifier: Modifier = Modifier) {
+    SwipePreview(
+        right = questionSwipeLabel(settings.swipeRight) to questionSwipeIcon(settings.swipeRight),
+        left = questionSwipeLabel(settings.swipeLeft) to questionSwipeIcon(settings.swipeLeft),
+        modifier = modifier,
+    )
+}
+
+/**
+ * Swiping an answer to the left (v0.16), drawn from the current choices: someone's answer, and one under the
+ * signed-in reader's own nickname. Settings → Questions and answers and the intro.
+ */
+@Composable
+internal fun AnswerSwipePicture(settings: AppSettings, modifier: Modifier = Modifier) {
+    val session by LocalAppContainer.current.session.session.collectAsStateWithLifecycle()
+    fun shown(action: AnswerSwipe) = if (action == AnswerSwipe.None) null else answerSwipeLabel(action) to answerSwipeIcon(action)
+    AnswerSwipePreview(
+        others = shown(settings.answerSwipe),
+        mine = shown(settings.myAnswerSwipe),
+        myName = session.profile?.nickname?.takeIf { it.isNotBlank() } ?: stringResource(R.string.preview_you),
+        modifier = modifier,
+    )
+}
+
+/** Answers: a picture of two answers that changes with the switches (#12), replies, swipes and times. */
 @Composable
 private fun AnswersPage(settings: AppSettings) {
     val store = LocalAppContainer.current.settings
@@ -797,8 +818,9 @@ private fun AnswersPage(settings: AppSettings) {
         trailing = { Switch(checked = settings.moderatorBadges, onCheckedChange = null) },
     )
 
-    // Swiping an answer to the left (#18); to the right it replies (easy reply, above).
+    // Swiping an answer to the left (#18); to the right it replies (easy reply, above). With a picture (v0.16).
     GroupLabel(stringResource(R.string.settings_swipe_answers))
+    AnswerSwipePicture(settings, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     SwipeChoiceRow(
         title = stringResource(R.string.settings_swipe_others_answer),
         options = SwipeRules.OTHERS_ANSWER_CHOICES.map { it to answerSwipeLabel(it) },
@@ -816,17 +838,6 @@ private fun AnswersPage(settings: AppSettings) {
         count = 2,
     )
 
-    GroupLabel(stringResource(R.string.settings_answers_order))
-    val orders = listOf(AnswersOrder.AsOnStips, AnswersOrder.Newest, AnswersOrder.Oldest, AnswersOrder.TopVoted)
-    orders.forEachIndexed { index, order ->
-        GroupRow(
-            title = stringResource(orderLabel(order)),
-            index = index,
-            count = orders.size,
-            onClick = { store.update { it.copy(answersOrder = order) } },
-            trailing = { RadioButton(selected = settings.answersOrder == order, onClick = null) },
-        )
-    }
 
     GroupLabel(stringResource(R.string.settings_times))
     GroupRow(

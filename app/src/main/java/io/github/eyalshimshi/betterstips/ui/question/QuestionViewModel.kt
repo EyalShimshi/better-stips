@@ -18,6 +18,7 @@ import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AnswerRules
+import io.github.eyalshimshi.betterstips.util.AnswerSort
 import io.github.eyalshimshi.betterstips.util.EmojiFilter
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
@@ -84,6 +85,8 @@ data class QuestionUiState(
     val closed: Boolean = false,
     /** Answers that just got a flower from the asker here (the list refreshes in the background). */
     val flowering: Set<Long> = emptySet(),
+    /** How the answers are sorted, for this visit only: each visit starts in Stips' order (v0.16). */
+    val sort: AnswerSort = AnswerSort.Default,
 )
 
 class QuestionViewModel(
@@ -394,6 +397,11 @@ class QuestionViewModel(
 
     fun consumeMessage() {
         _state.update { it.copy(message = null) }
+    }
+
+    /** Sorts the answers for this visit (v0.16); leaving the question forgets it. */
+    fun setSort(sort: AnswerSort) {
+        _state.update { it.copy(sort = sort) }
     }
 
     /** Sends the user's words to Stips' moderators. */

@@ -7,15 +7,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DoNotTouch
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.OpenInBrowser
+import androidx.compose.material.icons.outlined.PersonOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -347,6 +351,18 @@ fun questionSwipeIcon(action: QuestionSwipe, pinned: Boolean = false): ImageVect
     QuestionSwipe.Hide -> Icons.Outlined.VisibilityOff
     QuestionSwipe.HideUser -> Icons.Outlined.Block
     QuestionSwipe.None -> Icons.Outlined.DoNotTouch
+}
+
+/** The icon for an answer's left-swipe action, as its ⋮ menu has it (v0.16, for the pictures in Settings and the intro). */
+fun answerSwipeIcon(action: AnswerSwipe): ImageVector = when (action) {
+    AnswerSwipe.None -> Icons.Outlined.DoNotTouch
+    AnswerSwipe.Edit -> Icons.Filled.Edit
+    AnswerSwipe.Detach -> Icons.Outlined.PersonOff
+    AnswerSwipe.Delete -> Icons.Outlined.Delete
+    AnswerSwipe.History -> Icons.Outlined.History
+    AnswerSwipe.Report -> Icons.Outlined.Flag
+    AnswerSwipe.Hide -> Icons.Outlined.VisibilityOff
+    AnswerSwipe.HideUser -> Icons.Outlined.Block
 }
 
 /** The words for an answer's left-swipe action, as Settings lists them (#18). */

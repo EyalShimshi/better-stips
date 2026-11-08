@@ -9,7 +9,7 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SnackbarHost
+import io.github.eyalshimshi.betterstips.ui.components.SwipeAwaySnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -140,7 +140,7 @@ fun ChatSettingsSheet(onDismiss: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
             ChatSettingsContent(snackbar)
-            SnackbarHost(snackbar, Modifier.padding(horizontal = 16.dp))
+            SwipeAwaySnackbarHost(snackbar, Modifier.padding(horizontal = 16.dp))
         }
     }
 }

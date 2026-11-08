@@ -8,6 +8,7 @@ import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.PenPalPost
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AskRules
+import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,9 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
     val state: StateFlow<PenPalsState> = _state.asStateFlow()
     private var generation = 0
 
+    /** When the board's first page last came from Stips (a refresh, Live, coming back), v0.16. */
+    private var pageOneAt = 0L
+
     init {
         refresh()
         checkAge()
@@ -77,6 +81,7 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
             try {
                 val list = repository.penPals(1)
                 if (gen != generation) return@launch
+                pageOneAt = System.currentTimeMillis()
                 _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false) }
             } catch (e: CancellationException) {
                 throw e
@@ -85,6 +90,36 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
                 _state.update { it.copy(refreshing = false, error = e.asApiException()) }
             }
         }
+    }
+
+    /** Whether coming back to the board should look for new posts: not when the first page came in moments ago. */
+    fun isStale(now: Long = System.currentTimeMillis()): Boolean = AutoRefresh.due(pageOneAt, now)
+
+    /**
+     * Live and coming back (v0.16): the first page again, its new posts on top and the rest as it is, so nothing moves
+     * under the reader. Returns how many came, or -1 when the check failed.
+     */
+    suspend fun pollNew(): Int {
+        val s = _state.value
+        if (s.refreshing || s.page == 0 || s.closedForAge) return 0
+        val gen = generation
+        val fresh = try {
+            repository.penPals(1)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return -1
+        }
+        if (gen != generation) return 0
+        pageOneAt = System.currentTimeMillis()
+        var added = 0
+        _state.update { current ->
+            val known = current.items.mapTo(HashSet()) { it.id }
+            val newOnes = fresh.filter { it.id !in known }
+            added = newOnes.size
+            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items)
+        }
+        return added
     }
 
     fun loadMore() {

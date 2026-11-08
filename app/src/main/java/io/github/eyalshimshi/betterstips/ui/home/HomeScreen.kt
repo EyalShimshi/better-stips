@@ -9,14 +9,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.clickable
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
@@ -53,7 +45,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -70,15 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -101,10 +86,12 @@ import io.github.eyalshimshi.betterstips.data.model.FeedQuery
 import io.github.eyalshimshi.betterstips.data.model.FeedSort
 import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import io.github.eyalshimshi.betterstips.data.model.Question
+import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
+import io.github.eyalshimshi.betterstips.ui.components.RefreshOnEnter
 import io.github.eyalshimshi.betterstips.ui.Routes
 import io.github.eyalshimshi.betterstips.ui.components.answersText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
@@ -137,8 +124,13 @@ class HotStripViewModel(private val repository: StipsRepository) : ViewModel() {
     val state: StateFlow<HotStripState> = _state.asStateFlow()
     private var loadedFor: FeedQuery? = null
     private var job: Job? = null
+    private var loadedAt = 0L
 
-    fun load(channelName: String?, window: HotWindow, force: Boolean = false) {
+    /**
+     * [quiet]: coming back to Home (v0.16) leaves the row where it was unless the hot list changed; a refresh by hand
+     * brings it back to the first card (#12).
+     */
+    fun load(channelName: String?, window: HotWindow, force: Boolean = false, quiet: Boolean = false) {
         val query = FeedQuery(sort = FeedSort.Hot, window = window, channelName = channelName).normalized()
         if (!force && loadedFor == query) return
         loadedFor = query
@@ -147,13 +139,23 @@ class HotStripViewModel(private val repository: StipsRepository) : ViewModel() {
             _state.update { it.copy(loading = true, error = null) }
             try {
                 val list = repository.feedPage(query, 1)
-                _state.update { HotStripState(items = list, loading = false, version = it.version + 1) }
+                loadedAt = System.currentTimeMillis()
+                _state.update {
+                    val same = quiet && it.items.map(Question::id) == list.map(Question::id)
+                    HotStripState(items = list, loading = false, version = if (same) it.version else it.version + 1)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = e.asApiException()) }
             }
         }
+    }
+
+    /** Coming back to Home (v0.16): the hot list again, unless it's loading or came in moments ago. */
+    fun refreshIfStale(channelName: String?, window: HotWindow) {
+        if (_state.value.loading || !AutoRefresh.due(loadedAt, System.currentTimeMillis())) return
+        load(channelName, window, force = true, quiet = true)
     }
 }
 
@@ -192,6 +194,21 @@ fun HomeScreen(
     ScrollToTopOnReselect(Routes.HOME, listState) {
         if (showsSections) sectionsVm.refresh() else feedVm.refresh()
         if (showsHot) hotVm.load(query.channelName, settings.hotWindow, force = true)
+    }
+
+    // Entering Home from the bottom bar, or coming back to the app on it, brings it up to date (v0.16): the hot
+    // questions again, and new questions on top of the list as Live adds them, so what you were reading stays put.
+    RefreshOnEnter(Routes.HOME) {
+        if (showsHot) hotVm.refreshIfStale(query.channelName, settings.hotWindow)
+        if (showsSections) {
+            // The sections start over on a refresh, so only from the top.
+            if (listState.firstVisibleItemIndex <= 1) sectionsVm.refreshIfStale()
+        } else if (feedVm.isStale()) {
+            val atTop = listState.firstVisibleItemIndex <= 3
+            if (feedVm.pollNew() > 0 && atTop) {
+                if (settings.motion.scrolls) listState.animateScrollToItem(0) else listState.scrollToItem(0)
+            }
+        }
     }
 
     LaunchedEffect(showsNew) { if (showsNew) feedVm.ensureLoaded() }
@@ -502,7 +519,6 @@ private fun HotCard(question: Question, rank: Int, seed: Int?, onClick: () -> Un
 /** "New questions" and the Live chip: tap turns Live on or off, long-press sets how often it checks. */
 @Composable
 private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onLiveOptions: () -> Unit) {
-    val haptics = LocalHapticFeedback.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -510,57 +526,8 @@ private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onL
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f))
-        val label = if (live) stringResource(R.string.live_with_rate, seconds) else stringResource(R.string.live)
-        val optionsLabel = stringResource(R.string.live_options)
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = if (live) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-            contentColor = if (live) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            border = if (live) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .combinedClickable(
-                    role = Role.Switch,
-                    onLongClickLabel = optionsLabel,
-                    onLongClick = onLiveOptions,
-                    onClick = {
-                        haptics.performHapticFeedback(if (live) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn)
-                        onToggleLive()
-                    },
-                )
-                .semantics { stateDescription = label },
-        ) {
-            Row(
-                Modifier
-                    .heightIn(min = 32.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LiveDot(active = live)
-                Spacer(Modifier.width(8.dp))
-                Text(label, style = MaterialTheme.typography.labelLarge)
-            }
-        }
+        LiveChip(live = live, seconds = seconds, onToggle = onToggleLive, onOptions = onLiveOptions)
     }
-}
-
-@Composable
-private fun LiveDot(active: Boolean) {
-    val animate = LocalAppSettings.current.motion.elements
-    val transition = rememberInfiniteTransition(label = "live")
-    val pulse by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "pulse",
-    )
-    Box(
-        Modifier
-            .size(10.dp)
-            .graphicsLayer { alpha = if (active && animate) pulse else 1f }
-            .clip(CircleShape)
-            .background(if (active) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline),
-    )
 }
 
 /**

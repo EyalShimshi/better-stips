@@ -13,6 +13,9 @@ object BioPromo {
 
     private const val MARKER = "details?id=io.github.eyalshimshi.betterstips"
 
+    /** The words of [line] without the link, in both forms: a bio keeps counting if the link was taken out (v0.16). */
+    private val PHRASES = listOf("משתמש בסטיפס+", "משתמשת בסטיפס+")
+
     /** The words added, in Hebrew like Stips itself, gendered as the profile is. */
     fun line(female: Boolean): String = (if (female) "גם אני משתמשת בסטיפס+" else "גם אני משתמש בסטיפס+") + "\n" + PLAY_URL
 
@@ -22,8 +25,11 @@ object BioPromo {
         return if (current.isEmpty()) line(female) else current + "\n\n" + line(female)
     }
 
-    /** The bio already has the line (or the link), so the button isn't offered. */
-    fun has(bio: String?): Boolean = bio?.contains(MARKER) == true
+    /**
+     * The bio has the line, its words or its link (#12): the button isn't offered, and the profile shows a Stips+
+     * badge (v0.16). Anyone could write it; the badge only says what the bio says.
+     */
+    fun has(bio: String?): Boolean = bio != null && (bio.contains(MARKER) || PHRASES.any { bio.contains(it) })
 
     /** How long the bio would be with the line. */
     fun lengthWith(bio: String?, female: Boolean): Int = appended(bio, female).length

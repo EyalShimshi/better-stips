@@ -497,3 +497,74 @@ private fun SwipedRow(action: Pair<Int, androidx.compose.ui.graphics.vector.Imag
         }
     }
 }
+
+/**
+ * Swiping an answer to the left (#18, v0.16): someone's answer and the reader's own, under [myName], each slid aside
+ * over what that swipe does. One that does nothing stays in place.
+ */
+@Composable
+fun AnswerSwipePreview(
+    others: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>?,
+    mine: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>?,
+    myName: String,
+    modifier: Modifier = Modifier,
+) {
+    PreviewFrame(modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SwipedAnswer(
+                name = stringResource(R.string.preview_name_a),
+                color = MaterialTheme.colorScheme.tertiary,
+                text = stringResource(R.string.preview_answer_a),
+                action = others,
+            )
+            SwipedAnswer(
+                name = myName,
+                color = MaterialTheme.colorScheme.primary,
+                text = stringResource(R.string.preview_answer_mine),
+                action = mine,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SwipedAnswer(
+    name: String,
+    color: Color,
+    text: String,
+    action: Pair<Int, androidx.compose.ui.graphics.vector.ImageVector>?,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxWidth()) {
+        if (action != null) {
+            // What the swipe does, where the answer slid away from: the icon at the edge, as on a real answer.
+            Row(
+                Modifier
+                    .align(androidx.compose.ui.AbsoluteAlignment.CenterRight)
+                    .fillMaxWidth(0.3f)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(action.second, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    stringResource(action.first),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.primary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Box(
+            Modifier
+                .align(androidx.compose.ui.AbsoluteAlignment.CenterLeft)
+                .fillMaxWidth(if (action != null) 0.7f else 1f),
+        ) {
+            MiniAnswer(name = name, color = color) {
+                Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
