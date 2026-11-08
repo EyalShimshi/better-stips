@@ -214,7 +214,7 @@ class AppContainer(private val app: Application) {
     }
 
     companion object {
-        const val REPO_URL = "https://github.com/EyalShimshi/better-stips"
+        const val REPO_URL = "https://github.com/EyalShimshi/stips-plus"
     }
 }
 

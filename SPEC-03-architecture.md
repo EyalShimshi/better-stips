@@ -144,7 +144,7 @@ Nothing else: no location, contacts or storage.
 - HTTPS only (`usesCleartextTraffic=false`).
 - The password is sent once, by POST in the request body, to `https://stips.co.il/api`; it's never written to disk or logs.
 - The session token is stored app-private and excluded from cloud backup and device transfer (`dataExtractionRules`, `fullBackupContent`), as is the list of questions answered anonymously (v0.14).
-- User-Agent: `StipsPlus/<version> (Android <release>; unofficial; +https://github.com/EyalShimshi/better-stips)`.
+- User-Agent: `StipsPlus/<version> (Android <release>; unofficial; +https://github.com/EyalShimshi/stips-plus)`. The repository was called `better-stips` until v0.16 (build 28); GitHub sends the old address to the new one.
 - No logging of request bodies. No third-party SDKs.
 - Hidden profile fields the API returns (for example birth dates) are never shown or stored; only the signed-in user's own gender is kept, to pick the anonymous nickname as the site does.
 

@@ -169,6 +169,7 @@
 | Pen pals loaded once and on pull; tabs kept what they had | Live on Pen pals; Home, Pen pals and Chats refresh when entered and when the app comes back (D-115) | The owner's ask |
 | The bio line had no echo on profiles | A Stips+ badge where the bio has it (D-116) | The owner's ask |
 | Build 26: a 36 dp sort icon; Material's auto-mirrored "?" | Build 27: a sort chip (D-113); an unmirrored "?" (D-117) | The owner's ask and report |
+| The repository was `better-stips` | Build 28: `stips-plus`; the app's links (User-Agent, source, reporting a problem) follow | The owner renamed it, so the name doesn't read as "better than Stips"; old links redirect |
 ### Fifteenth build (v0.15, notifications in categories, animation presets, swipe actions; #13, #18, #19)
 
 | Spec says / the site does | v0.15 does | Why / next step |
