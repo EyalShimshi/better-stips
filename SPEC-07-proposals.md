@@ -61,14 +61,26 @@ In two steps, so each can be tried on the phone:
 
 Leave G for later: an Activity tab is a big change to how the app is organized, and the bell already works the way Stips users expect.
 
-### 1.6 For the owner to decide
+### 1.6 Decided (the owner, after v0.14)
 
-- Group per question (A)? *(Recommended: yes.)*
-- Where the team's notices go: pinned on top (B), or in the list with a stronger look?
-- Time sections (C), or keep "New / Earlier"?
-- Filters (D), actions (E), the summary line (F): now, later, or never?
-- An Activity tab (G): later, or never?
+| Question | Decision |
+|---|---|
+| Group per question (A)? | **No.** Split by **category** instead: **Updates** (new answers on questions you asked, answered or follow), **Flowers and thanks**, **System messages** (removals, reports' outcomes, the team's notes, and anything else that isn't an update or a flower or thanks) |
+| The team's notices (B) | **Pinned on top** until opened |
+| Sections (C) | **By day:** Today · Yesterday · This week · Earlier, with "new" dots |
+| Filters (D) | **Yes** |
+| Actions on a row (E) | **Yes:** *Stop updates*, *Mark as read* |
+| The summary line (F) | **Yes** |
+| Richer rows (H) | **Yes, as an option** in the notification settings, **off by default** (it costs requests) |
+| An Activity tab (G) | **Never:** the bell stays |
 
+### 1.7 The plan for v0.15
+
+- **The bell's screen:** chips on top, *All · Updates · Flowers and thanks · System messages* (the categories are the filters; *All* first). Under them, in *All*: the summary line ("Since yesterday: 12 updates on 3 questions, 2 flowers, 1 thanks"), then the team's unopened notices pinned as cards, then the list in day sections, each row with its category's icon and a "new" dot.
+- **Categories** come from `NotificationKinds`: Answers and Question → Updates; Flower and Thanks → Flowers and thanks; Removal, Report, TeamNote, Badge, Message and Other → System messages. Pure, unit-tested, so a new type lands in System messages until it's known.
+- **Row actions** (long-press or ⋮): *Mark as read* (Stips+'s own mark, as the "new" dots are) and, on an update, *Stop updates* (Stips' follow switch for that question, with an undo snackbar).
+- **Richer rows (option):** Settings → Notifications → *Show questions' titles and photos*: rows on screen read their question (cached for the session, at most one request every 1.5 s, only while the budget has room), adding its title and cover thumbnail.
+- **Phone notifications:** unchanged, but their Android channels follow the same three categories, so each can be silenced on its own.
 ---
 
 ## 2. Uploading pictures to imgbb from the app (#15, part 2)

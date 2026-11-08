@@ -138,11 +138,11 @@
 1. Owner: in the repository's Settings → Environments → **release**, add yourself as a required reviewer (the first v0.14 run creates the environment). From then on each release waits for your *Approve* in the GitHub app (MAINTAINING.md).
 2. Owner: send the permission request to Stips (SPEC-06 §4). It also says how Stips+ makes its requests (D-49) and asks whether that's acceptable.
 3. Owner: on GitHub, turn on two-factor sign-in and protect `main` (Settings → Branches), and edit issue #12 so it doesn't tie your GitHub account to your Stips account (#14).
-4. Owner: decide #13 (SPEC-07 §1.6), #15 part 2 (SPEC-07 §2.3) and #17 (SPEC-07 §3.4).
+4. Owner: decide #15 part 2 (SPEC-07 §2.3) and #17 (SPEC-07 §3.4). #13 is decided (SPEC-07 §1.6): v0.15 builds it (§1.7).
 5. Owner: try v0.14: the intro (Settings → About → *Show the intro again*), the new Settings and its pictures, *Show image* on an imgbb link, ⋮ → *Export thread*, typing an emoji in an answer, *I use Stips+* on your profile, a reply's quote in a chat when the message is already on screen (it should only light up), and Stips' creator's badge (user 2042).
 6. Owner: if the "Stips paused this phone" banner still appears, report the network log on GitHub (Settings → About → expert mode → Diagnostics).
 7. Owner: when a notice from Stips' team arrives (a removal, a report's outcome, a note), check that Stips+ labels it right; if not, turn on expert mode, tap { } on it, and send me what it shows (D-82).
-8. Next round candidates: #13 as decided; "Upload a picture on imgbb" in the link dialog (SPEC-07 §2.3 a); the Android 17 emulator in the release check; "Add to home screen" for one question or chat; stacking two easy replies in one answer; an optional "instant" mode for notifications with the screen off; gentle hints from the rule book while writing; a question's own edit history.
+8. Next round (v0.15): #13 as planned in SPEC-07 §1.7. Candidates after it: "Upload a picture on imgbb" in the link dialog (SPEC-07 §2.3 a); the Android 17 emulator in the release check; "Add to home screen" for one question or chat; stacking two easy replies in one answer; an optional "instant" mode for notifications with the screen off; gentle hints from the rule book while writing; a question's own edit history.
 ## Implementation notes
 
 ### Fourteenth build (v0.14, tweaks, pictures, export, the public repository; #12, #14, #15, #16)
