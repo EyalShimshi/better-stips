@@ -223,11 +223,24 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
     ScrollToTopOnReselect(Routes.CHATS, listState) {
         if (session.signedIn) vm.refresh()
     }
+    // Stips sends the chats a page at a time (v0.17, build 30): the next one is asked for while about a screen of them is
+    // still below, so scrolling doesn't stop at the end of a page.
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+            last >= info.totalItemsCount - PREFETCH_ROWS
+        }
+    }
     var dmSettings by rememberSaveable { mutableStateOf(false) }
     // People to write to (#20): the search on top finds them on all of Stips, as Home's does; a tap opens the chat.
     var query by rememberSaveable { mutableStateOf("") }
     val people = rememberPeopleSearch(query)
     BackHandler(enabled = query.isNotEmpty()) { query = "" }
+    val searching = query.isNotBlank()
+    LaunchedEffect(nearEnd, state.page, state.end, searching, session.signedIn) {
+        if (nearEnd && !state.end && !searching && session.signedIn) vm.loadMore()
+    }
     val myId = session.userId
     // The account itself, for notes to self (#20).
     val me = session.profile?.avatar ?: myId?.let { Author("", it, null, anonymous = false, online = false) }
@@ -326,11 +339,31 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
                 items(state.conversations, key = { it.other.userId ?: 0L }) { conversation ->
                     ConversationRow(conversation, notes = ChatRules.isNotes(conversation.other.userId, myId), me = me) { open(conversation) }
                 }
+                // Older chats are on the next page, which loads by itself on the way here (v0.17, build 30).
+                if (state.conversations.isNotEmpty() && !state.end) {
+                    item(key = "more") {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (state.moreFailed) {
+                                TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.action_retry)) }
+                            } else {
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
     if (dmSettings) ChatSettingsSheet(onDismiss = { dmSettings = false })
 }
+
+/** How many rows before the end of the chats list the next page is asked for (about a screen). */
+private const val PREFETCH_ROWS = 10
 
 /** What the search on top of Chats found on Stips (#20), and whether it's still looking. */
 private class PeopleSearch(val results: List<Author>, val searching: Boolean)
@@ -512,10 +545,12 @@ private fun DmSettingsButton(onClick: () -> Unit) {
 /** A chat in the list. Notes to self (#20) say so, with the bookmark, and never count as unread. */
 @Composable
 private fun ConversationRow(conversation: Conversation, notes: Boolean = false, me: Author? = null, onClick: () -> Unit) {
+    // The message itself, not the carets it opens with (v0.17, build 30).
+    val last = remember(conversation.lastMessage) { ReplyRefs.preview(conversation.lastMessage) }
     val preview = if (conversation.lastFromMe && !notes) {
-        stringResource(R.string.you_prefix, conversation.lastMessage)
+        stringResource(R.string.you_prefix, last)
     } else {
-        conversation.lastMessage
+        last
     }
     val time = agoText(conversation.time).ifBlank { conversation.timeText.orEmpty() }
     ListItem(

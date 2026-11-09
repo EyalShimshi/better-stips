@@ -46,6 +46,7 @@ import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.NotificationCategories
 import io.github.eyalshimshi.betterstips.util.NotificationKinds
 import io.github.eyalshimshi.betterstips.util.NotifyRules
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -502,11 +503,12 @@ object Notifier {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val open = PendingIntent.getActivity(context, userId.toInt(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = ReplyRefs.preview(chat.lastMessage)
         val builder = NotificationCompat.Builder(context, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(name)
-            .setContentText(chat.lastMessage)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(chat.lastMessage))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setNumber(chat.unread)

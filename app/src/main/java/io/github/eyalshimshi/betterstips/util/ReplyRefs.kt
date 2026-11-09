@@ -114,4 +114,13 @@ object ReplyRefs {
         val flat = body.replace(spaces, " ").trim()
         return if (flat.length <= max) flat else flat.take(max).trimEnd() + "\u2026"
     }
+
+    /**
+     * A chat's last message as the chats list, the widget and message notifications show it (v0.17, build 30): without
+     * its opening pointers and the line break after them, whatever the chat's own setting, on one line. A message
+     * that's only a pointer stays as written.
+     */
+    fun preview(text: String): String = snippet(text, PREVIEW_MAX, hideLeading = true)
+
+    private const val PREVIEW_MAX = 200
 }

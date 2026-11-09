@@ -33,12 +33,22 @@ data class ChatsUiState(
     val loading: Boolean = false,
     val refreshing: Boolean = false,
     val error: ApiException? = null,
+    /** The last page of `messages.list` read (v0.17, build 30): Stips sends the chats a page at a time. 0 before the first. */
+    val page: Int = 0,
+    /** No more pages: one came back empty, or with no one new. */
+    val end: Boolean = false,
+    val loadingMore: Boolean = false,
+    val moreFailed: Boolean = false,
 )
 
 class ChatsViewModel(private val repository: StipsRepository, session: SessionStore) : ViewModel() {
     private val _state = MutableStateFlow(ChatsUiState())
     val state: StateFlow<ChatsUiState> = _state.asStateFlow()
     private var job: Job? = null
+    private var moreJob: Job? = null
+
+    /** Changes when the list starts again from page 1, so a later page asked for before can't land on the new list. */
+    private var generation = 0
 
     /** When the list last came from Stips, for coming back to the app on Chats (v0.16). */
     private var loadedAt = 0L
@@ -48,6 +58,8 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
             session.session.map { it.userId }.distinctUntilChanged().collect { userId ->
                 if (userId == null) {
                     job?.cancel()
+                    moreJob?.cancel()
+                    generation++
                     _state.value = ChatsUiState()
                 } else {
                     load(refreshing = false)
@@ -65,14 +77,24 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
         if (AutoRefresh.due(loadedAt, System.currentTimeMillis())) refreshQuietly()
     }
 
-    /** A message came in or was read (the unread count changed): update the list without the spinner (#6). */
+    /**
+     * A message came in or was read (the unread count changed): page 1 again, without the spinner (#6), over the chats
+     * already loaded from later pages, which stay (v0.17, build 30).
+     */
     fun refreshQuietly() {
         if (job?.isActive == true) return
         job = viewModelScope.launch {
             try {
                 val list = repository.conversations(page = 1)
                 loadedAt = System.currentTimeMillis()
-                _state.update { it.copy(conversations = list, error = null) }
+                _state.update { st ->
+                    st.copy(
+                        conversations = ChatRules.withFirstPage(st.conversations, list),
+                        error = null,
+                        page = maxOf(st.page, 1),
+                        end = if (st.page == 0) list.isEmpty() else st.end,
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -81,15 +103,49 @@ class ChatsViewModel(private val repository: StipsRepository, session: SessionSt
         }
     }
 
+    /** The next page of chats, asked for as the list's end comes near (v0.17, build 30), as the site's list does. */
+    fun loadMore() {
+        val s = _state.value
+        if (s.page == 0 || s.end || s.loadingMore || s.loading || s.refreshing) return
+        val gen = generation
+        val next = s.page + 1
+        _state.update { it.copy(loadingMore = true, moreFailed = false) }
+        moreJob = viewModelScope.launch {
+            try {
+                val list = repository.conversations(page = next)
+                if (gen != generation) return@launch
+                _state.update { st ->
+                    val added = ChatRules.newOnPage(st.conversations, list)
+                    st.copy(conversations = st.conversations + added, page = next, end = added.isEmpty(), loadingMore = false)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (gen != generation) return@launch
+                _state.update { it.copy(loadingMore = false, moreFailed = true) }
+            }
+        }
+    }
+
     private fun load(refreshing: Boolean) {
         job?.cancel()
+        moreJob?.cancel()
+        generation++
         job = viewModelScope.launch {
-            _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null) }
+            _state.update { it.copy(loading = !refreshing, refreshing = refreshing, error = null, loadingMore = false, moreFailed = false) }
             try {
                 // Pulling to refresh also makes sure the session is alive: a lost one answers with no chats (#9).
                 val list = repository.conversations(page = 1, verify = refreshing)
                 loadedAt = System.currentTimeMillis()
-                _state.update { it.copy(conversations = list, loading = false, refreshing = false) }
+                _state.update {
+                    it.copy(
+                        conversations = list.distinctBy { c -> c.other.userId },
+                        loading = false,
+                        refreshing = false,
+                        page = 1,
+                        end = list.isEmpty(),
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -418,6 +474,24 @@ object ChatRules {
 
     /** Notes to self (#20): the chat with the account itself, which Stips keeps like any other. */
     fun isNotes(userId: Long?, myId: Long?): Boolean = myId != null && userId == myId
+
+    /**
+     * The chats list after page 1 came again (v0.17, build 30): its chats on top, in Stips' order, then the ones already
+     * loaded from later pages that aren't on it, as they were. Each person once.
+     */
+    fun withFirstPage(current: List<Conversation>, page: List<Conversation>): List<Conversation> {
+        val onPage: Set<Long?> = page.map { it.other.userId }.toSet()
+        return (page + current.filter { it.other.userId !in onPage }).distinctBy { it.other.userId }
+    }
+
+    /**
+     * What a later page adds (v0.17, build 30): people not on the list yet, each once. Pages can repeat a chat when a
+     * new message moved others down meanwhile, as the site's own list allows for. Nothing new means the list is whole.
+     */
+    fun newOnPage(current: List<Conversation>, page: List<Conversation>): List<Conversation> {
+        val listed: Set<Long?> = current.map { it.other.userId }.toSet()
+        return page.filter { it.other.userId !in listed }.distinctBy { it.other.userId }
+    }
 
     /**
      * The shelf on top of Chats (#20), as on Instagram: the people of recent chats who are online now, the most

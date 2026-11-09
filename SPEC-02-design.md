@@ -150,6 +150,8 @@ The list updates by itself when the unread count changes (checked every 10 s whi
 
 **Notes to self (v0.17, D-118):** the chat with yourself is listed as *Notes to self*, with the bookmarked photo, no "Me:" before the last line and no unread badge.
 
+**Every chat (build 30, D-126):** older chats load page after page as the list nears its end (a small spinner at the very bottom while there may be more; *Retry* if a page failed). Each row's last line leaves out the carets a reply opens with.
+
 Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
 ### 5.4 Conversation

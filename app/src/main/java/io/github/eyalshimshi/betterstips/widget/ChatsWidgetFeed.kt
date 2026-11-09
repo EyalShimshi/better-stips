@@ -8,6 +8,7 @@ import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.model.Conversation
+import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import io.github.eyalshimshi.betterstips.diag.NetLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -219,7 +220,7 @@ class ChatsWidgetFeed(
         fun chatsOf(list: List<Conversation>, myId: Long? = null): List<Chat> = list.mapNotNull { c ->
             val userId = c.other.userId ?: return@mapNotNull null
             if (userId == myId) return@mapNotNull null
-            Chat(userId, c.other.nickname, c.lastMessage, c.time?.toEpochMilli(), c.unread.coerceAtLeast(0), c.lastFromMe)
+            Chat(userId, c.other.nickname, ReplyRefs.preview(c.lastMessage), c.time?.toEpochMilli(), c.unread.coerceAtLeast(0), c.lastFromMe)
         }.take(MAX_CHATS)
 
         /** "14:05" today, "3 May" this year, else "3.5.25". Pure. */

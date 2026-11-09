@@ -131,7 +131,7 @@ Credibility bands on the site's gauge ("דירוג אמינות"): 0 red `#f5005
 | Open a chat | `messages.from_user` | `{"userid","msgid":0,"first_load":true}` | `messages[{id,msg,time,fromuserid,touserid}]`, the newest page; `userBlocked` |
 | New messages | `messages.from_user` | `{"userid","msgid":<the last id>,"first_load":false}` | Only messages after that id. The site asks every 1.6 s while a chat is open (`syncTime`); Stips+ every 3 s (D-53) |
 | Earlier messages | `messages.from_user` | `{"userid","msgid":<the first id>,"history":true}` (the site adds `"first_load":false`) | The page before that message, empty at the start. The site asks when the list is scrolled within 300 px of its top |
-| The chats list | `messages.list` | `{"page"}` | One row per person; `itemProfile{userid,nickname,photostamp,online}`. The site reloads it every 5 s while it's open |
+| The chats list | `messages.list` | `{"page"}` | One row per person; `itemProfile{userid,nickname,photostamp,online}`. A page at a time: page 1 held 29 chats for the owner and about 34 for a friend (build 29); the site asks for the next page as its list's end comes into view, stops at an empty one, and merges chats by `fromtokey` (a page can repeat a chat that moved). The site reloads page 1 every 5 s while it's open |
 | Send | `messages.send` | `{"touserid","msg"}` | `{newid}`; the site treats a reply without it as a failure |
 | Who's in the chat | `omniobj` GET user | As "A user" above | The site's chat header shows the photo, the name and `online` |
 

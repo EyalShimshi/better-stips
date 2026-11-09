@@ -14,8 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 # A pre-release is published only when the APK builds, passes the unit tests and the APK check, and opens on an
-# emulator. Build 9 compiled and passed its tests, then crashed on every launch (#7). Then it waits for the owner's
-# approval: the release job runs in the "release" environment, which has the owner as its required reviewer (#14).
+# emulator. Build 9 compiled and passed its tests, then crashed on every launch (#7). A hotfix the owner asks to rush
+# may skip the emulator with "[skip launch]" in its commit message; its release notes say so. Then it waits for the
+# owner's approval: the release job runs in the "release" environment, which has the owner as its required reviewer (#14).
 # Actions from outside GitHub are pinned to a commit (#14): a tag can be moved to other code, a commit can't.
 jobs:
   build:
@@ -144,6 +145,9 @@ jobs:
   launch:
     name: Open on an emulator
     needs: build
+    # A hotfix the owner asked to rush can skip it with "[skip launch]" in its commit message; the release still waits
+    # for the owner's approval, and its notes say the launch test was skipped.
+    if: ${{ !contains(github.event.head_commit.message, '[skip launch]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -259,6 +263,8 @@ jobs:
   release:
     name: Publish the pre-release
     needs: [build, launch]
+    # After the launch test passed, or when a hotfix skipped it ("[skip launch]"); never when it failed.
+    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.launch.result == 'success' || needs.launch.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Waits for the owner's approval (Settings → Environments → release → Required reviewers), #14.
@@ -275,6 +281,7 @@ jobs:
           name: apk
 
       - uses: actions/download-artifact@v8
+        if: needs.launch.result == 'success'
         with:
           name: launch-summary
 
@@ -289,9 +296,13 @@ jobs:
             echo
             echo "---"
             echo
-            echo "**Checked before publishing:** the unit tests, the APK check (constructors that libraries call by name, #7) and this launch test."
-            echo
-            cat summary.md
+            if [ -f summary.md ]; then
+              echo "**Checked before publishing:** the unit tests, the APK check (constructors that libraries call by name, #7) and this launch test."
+              echo
+              cat summary.md
+            else
+              echo "**Checked before publishing:** the unit tests and the APK check (constructors that libraries call by name, #7). The launch test on an emulator was skipped for this hotfix ([skip launch])."
+            fi
             echo
             echo "<sub>Commit ${GITHUB_SHA:0:7} · $(( ${APK_BYTES:-0} / 1024 )) KB · signing certificate SHA-256 ${APK_CERT:0:16}…</sub>"
           } > release-notes.md
@@ -341,8 +352,8 @@ jobs:
             echo "sha: ${{ github.sha }}"
             echo "build-and-tests: ${BUILD_RESULT:-skipped}"
             echo "launch-test: ${LAUNCH_RESULT:-skipped}"
-            # The release waits for the owner's approval; this report doesn't wait for it.
-            if [ "$BUILD_RESULT" = "success" ] && [ "$LAUNCH_RESULT" = "success" ]; then release="waiting for approval"; else release="skipped"; fi
+            # The release waits for the owner's approval; this report doesn't wait for it. A hotfix may skip the launch test.
+            if [ "$BUILD_RESULT" = "success" ] && { [ "$LAUNCH_RESULT" = "success" ] || [ "$LAUNCH_RESULT" = "skipped" ]; }; then release="waiting for approval"; else release="skipped"; fi
             echo "release: $release"
             echo "signing: ${SIGNING_SOURCE:-unknown}"
             echo "cert-sha256: ${APK_CERT:-unknown}"
@@ -361,6 +372,7 @@ jobs:
             echo
             echo "## Launch test"
             [ -f summary.md ] && cat summary.md || true
+            if [ "$BUILD_RESULT" = "success" ] && [ "$LAUNCH_RESULT" = "skipped" ]; then echo "Skipped: [skip launch] in the commit message."; fi
           } > "$report"
           dir="$RUNNER_TEMP/ci-status"
           rm -rf "$dir" && mkdir -p "$dir" && cd "$dir"
