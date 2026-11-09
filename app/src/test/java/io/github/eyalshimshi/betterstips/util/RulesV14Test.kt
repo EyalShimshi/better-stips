@@ -93,7 +93,7 @@ class RulesV14Test {
         assertEquals(ids.size, ids.toSet().size)
         for (entry in SpecialAccounts.ALL) {
             assertTrue(entry.userId > 0)
-            assertTrue("an entry without a badge is an organization", entry.hasBadge || entry.verified)
+            assertTrue("an entry without a badge is an organization or Stips' own (#21)", entry.hasBadge || entry.verified || entry.official)
             for (label in listOfNotNull(entry.badgeHe, entry.badgeEn)) {
                 assertTrue(label, label.isNotBlank() && label.length <= 24 && label.none { it.isISOControl() })
             }

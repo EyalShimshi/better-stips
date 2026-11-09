@@ -41,6 +41,7 @@ import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.diag.NetLog
+import io.github.eyalshimshi.betterstips.ui.notifications.updatesLine
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.NotificationCategories
 import io.github.eyalshimshi.betterstips.util.NotificationKinds
@@ -94,18 +95,23 @@ object Notifier {
     private const val MESSAGES_ID = 1
 
     private const val TAG_UPDATE = "update"
+    private const val TAG_QUESTION = "question"
     private const val TAG_CHAT = "chat"
     private const val TAG_CHATS = "chats"
     private const val TAG_TEST = "test"
 
     private const val PREFS = "notify"
     private const val KEY_KNOWN = "known"
+    private const val KEY_RULES = "rulesVersion"
     private const val KEY_LEGACY = "lastNotificationId"
     private const val KEY_CHATS = "chats"
     private const val KEY_MESSAGES = "lastMessagesCount"
     private const val KEY_CHATS_AT = "chatsListedAt"
     private const val KEY_STATUS = "status"
     private const val KEY_RAN_AT = "ranAt"
+
+    /** v0.17 changed what counts as new (Stips+'s own record, not Stips' flag): its first check only takes note. */
+    private const val RULES_VERSION = 17
 
     /** Where a notification's question opens (v0.10): a kind, a count and a time, as [JumpRules] writes them. */
     private const val EXTRA_FOCUS = "io.github.eyalshimshi.betterstips.extra.FOCUS"
@@ -378,17 +384,33 @@ object Notifier {
         val counts = container.repository.unreadCounts()
         var posted = 0
 
-        // Answers, flowers, thanks: the first page, when something is unread (and once at the start, to know what's old).
+        // Answers, flowers, thanks: the first page, on every check (v0.17). Stips' count of them can't decide that:
+        // other apps on the account (the official one, the site) zero it as they read the list, often before a check.
+        val me = container.session.session.value.userId
+        val seen = container.seenNotifications
         val legacy = if (prefs.contains(KEY_LEGACY)) prefs.getLong(KEY_LEGACY, 0L) else null
-        val first = !prefs.contains(KEY_KNOWN) && legacy == null
-        if (counts.notifications > 0 || first || legacy != null) {
-            val list = container.repository.notifications(page = 1)
-            val pick = NotifyRules.pick(list, NotifyRules.decode(prefs.getString(KEY_KNOWN, null)), first, legacy)
-            pick.read.forEach { cancel(context, TAG_UPDATE, it.toInt()) }
-            pick.post.forEach { post(context, it) }
-            posted += pick.post.size
-            prefs.edit().putString(KEY_KNOWN, NotifyRules.encode(pick.known)).remove(KEY_LEGACY).apply()
+        // The first check, and the first under v0.17's rules (they keep what older ones dropped), only take note.
+        val first = (!prefs.contains(KEY_KNOWN) && legacy == null) || prefs.getInt(KEY_RULES, 0) < RULES_VERSION
+        val list = container.repository.notifications(page = 1)
+        if (me != null) seen.learn(me, list)
+        val seenInApp = me?.let { seen.lastSeenId(it) } ?: 0L
+        val pick = NotifyRules.pick(list, NotifyRules.decode(prefs.getString(KEY_KNOWN, null)), first, legacy, seenInApp)
+        pick.read.forEach { cancel(context, TAG_UPDATE, it.toInt()) }
+        // One phone notification per question (v0.17), counting all its updates the bell hasn't shown yet.
+        val waiting = me?.let { seen.waiting(it).keys }.orEmpty()
+        NotificationCategories.rows(pick.post.sortedByDescending { it.id }).forEach { row ->
+            val questionId = row.questionId
+            val updates = if (questionId == null) {
+                row.items
+            } else {
+                (row.items + list.filter { it.id in waiting && NotificationCategories.groupKey(it) == questionId })
+                    .distinctBy { it.id }
+                    .sortedByDescending { it.id }
+            }
+            post(context, row.newest, updates)
+            posted++
         }
+        prefs.edit().putString(KEY_KNOWN, NotifyRules.encode(pick.known)).putInt(KEY_RULES, RULES_VERSION).remove(KEY_LEGACY).apply()
 
         // Messages: the chats list when the unread count says something changed; one notification per chat. With
         // message notifications off (v0.12) nothing is kept, so turning them on again doesn't replay old ones.
@@ -425,14 +447,23 @@ object Notifier {
         return posted
     }
 
-    private fun post(context: Context, notification: StipsNotification) {
+    /**
+     * One notification, or for an update the question's notification (v0.17): a newer burst of answers replaces it,
+     * with how many updates and answers came since the bell was last opened ([updates], newest first).
+     */
+    private fun post(context: Context, notification: StipsNotification, updates: List<StipsNotification> = listOf(notification)) {
         val target = notification.target
         val link = when (target) {
             is NotificationTarget.OpenQuestion -> "$SITE_URL/ask/${target.id}"
             is NotificationTarget.OpenProfile -> "$SITE_URL/profile/${target.id}"
             null -> null
         }
-        val focus = if (target is NotificationTarget.OpenQuestion) JumpRules.focusFor(notification) else null
+        val questionId = NotificationCategories.groupKey(notification)
+        val focus = when {
+            target !is NotificationTarget.OpenQuestion -> null
+            questionId != null -> NotificationCategories.focusFor(updates)
+            else -> JumpRules.focusFor(notification)
+        }
         // Stips' team's notices say who they're from, with the team's words and the points taken (v0.13).
         val team = NotificationKinds.fromTeam(NotificationKinds.kind(notification))
         val title = context.getString(if (team) R.string.notification_team_title else R.string.notification_title)
@@ -442,9 +473,12 @@ object Notifier {
                 notification.note?.takeIf { it.isNotBlank() && it != notification.text },
                 if (notification.pointsRemoved > 0) context.getString(R.string.notifications_points_removed, notification.pointsRemoved) else null,
             ).joinToString("\n")
+        } else if (questionId != null && updates.size > 1) {
+            notification.text + "\n" + updatesLine(context.resources, updates)
         } else {
             notification.text
         }
+        val (tag, id) = if (questionId != null) TAG_QUESTION to questionId.toInt() else TAG_UPDATE to notification.id.toInt()
         val builder = NotificationCompat.Builder(context, channelOf(NotificationCategories.of(notification)))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -452,10 +486,10 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(openApp(context, link, notification.id.toInt(), focus))
+            .setContentIntent(openApp(context, link, id, focus))
             .setAutoCancel(true)
         notification.time?.let { builder.setWhen(it.toEpochMilli()).setShowWhen(true) }
-        show(context, TAG_UPDATE, notification.id.toInt(), builder)
+        show(context, tag, id, builder)
     }
 
     /** One chat: who wrote and their last message; a tap opens the chat. */
@@ -514,7 +548,7 @@ object Notifier {
 
     /** The bell was opened: the notifications about answers, flowers and thanks have been seen. */
     fun clearUpdates(context: Context) {
-        cancelAll(context, TAG_UPDATE)
+        cancelAll(context, TAG_UPDATE, TAG_QUESTION)
     }
 
     /**
@@ -523,7 +557,7 @@ object Notifier {
      * only takes note of what's there, as on a first run.
      */
     fun forgetAccount(context: Context) {
-        cancelAll(context, TAG_UPDATE, TAG_CHAT, TAG_CHATS, TAG_TEST)
+        cancelAll(context, TAG_UPDATE, TAG_QUESTION, TAG_CHAT, TAG_CHATS, TAG_TEST)
         prefs(context).edit().clear().apply()
         _status.value = null
     }

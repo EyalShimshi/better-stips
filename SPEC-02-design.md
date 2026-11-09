@@ -133,7 +133,10 @@ flowchart TD
 
 ```
 ┌──────────────────────────────────────┐
-│ Chats                                │
+│ Chats                              ⚙ │
+│ ( 🔍 Search people to write to     ) │  v0.17 (#20): chats by name at once,
+│  (🔖me) (◉A) (◉B) (◉C)  →            │  people on Stips after 400 ms; a tap
+│  Your…   Yael  Omer  Dana            │  opens the chat; Back clears it
 │ ◉ Yael              14:02        (2) │  unread badge in primary; ◉ = the green
 │   Thanks for the answer!             │  online dot, as on profiles (#6)
 │ ◯ Omer              Yesterday        │
@@ -142,6 +145,10 @@ flowchart TD
 ```
 
 The list updates by itself when the unread count changes (checked every 10 s while the app is open) and on returning from a chat. Pulling it down also makes sure the session is alive (#9). The top bar's ⚙ (tune) opens **DM settings** (v0.12, D-76): a sheet with *Replies* (easy reply, show what messages reply to, hide the carets), *Notifications* (phone notifications; while on, message notifications and Android's sound and pop-up settings) and the chats widget. Settings has the same page.
+
+**Search and the shelf (v0.17, D-119):** the first row is a search field shaped as Home's. While it has text, the list makes way for *Chats* (whose person's name matches) and *People* (Stips' people search, eight at most, not already in *Chats*), or "No one by that name". Under the field, a sideways shelf of 58 dp circles with names under them, as Instagram's: **notes to self** first (the user's photo with a bookmark), then the people of recent chats who are online now, in the list's order (the most recent at the start: the right in Hebrew).
+
+**Notes to self (v0.17, D-118):** the chat with yourself is listed as *Notes to self*, with the bookmarked photo, no "Me:" before the last line and no unread badge.
 
 Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
@@ -177,6 +184,12 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 **Replies (v0.12, D-75):** as answers (§5.2): dragging a bubble from left to right slides it after the finger with a ↩ growing in on the left; past 56 dp a haptic tick, and letting go starts a reply. Above the box: a bar with a start-side primary stripe, ↩, "Replying to Yael" (or "Replying to your message"), the first line, ✕. A message that points up shows, inside its bubble above the text, a quote: a 3 dp primary stripe, the author ("You" for one's own) in primary labelMedium, two lines in bodySmall, on a 7 % tint of the bubble's text color; quote and text share the wider width. A tap on the quote, or on a pointer in the text, scrolls there, and that bubble breathes toward tertiary container for two seconds. ⚙ in the top bar opens DM settings, as in the list.
 
 **Unread (v0.13, D-81):** the same band as in questions, "N unread messages", sits right above the first message that was unread on opening. When the unread ones fill more than the screen, the chat opens with the band 48 dp below the top and the ↓ badge counting them; otherwise at the newest. Writing a message folds it away; it's gone on the next visit. **Below 5 flowers** (D-87), not a moderator: a bar with a 🌸 and the site's words ("שליחת מסרים פתוחה למשתמשים בעלי 5 פרחים ומעלה. כרגע יש לך N פרחים…") takes the composer's place.
+
+**Days (v0.17, D-125):** above each day's first message, a small centered surfaceContainerHigh pill with the day: *Today*, *Yesterday*, the weekday within the week, else "9 November", with the year when it isn't this one. It sits above the "unread" band when both fall on one message.
+
+**Notes to self (v0.17, D-118):** the title is *Notes to self* with the bookmarked photo, not tappable, without "online" and without ⋮ (nothing to report or block). At the very start, instead of the person's card: the photo, *Notes to self* and one line about what it's for (no card). The box says *Note…*. Every bubble is the user's own.
+
+**Emoji codes (v0.17, D-121):** `:name:` codes from older apps show as the phone's emoji, here and in the list.
 
 ### 5.5 Profile (everyone's, social-style)
 
@@ -295,8 +308,10 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 - Rows are uniform (icon, two lines of text, time; a note or removed points on one extra line). New items (Stips' `viewed` flag, or newer than what the app last showed) are bold, lightly tinted and dotted. Times: the time for today and yesterday (the section says the day), else the date. With *Show questions' titles and photos* on (Settings → Notifications), a row about a question adds its title (when the sentence doesn't already say it) and a 44 dp photo.
 - **Stips' team (v0.13, D-82):** a removal (⚖ on error container), a report's outcome (⚑) or a note (🛡) starts with who it's from ("Removed by Stips' team", "About your report", "From Stips' team"), takes up to three lines, shows the team's words in a rounded surfaceContainerHigh box (as the site's "system-msg"), and "N credibility points removed" in error. A tap opens a dialog: the text, *The team's words*, the points, "Your credibility now: 61, Reliable. Rises by a point a day.", and for a removal how to appeal, with *Contact Stips*, *Open* (the question or profile) and *Close*.
 - Tapping opens the question or profile. Pull to refresh; older pages load at the end.
+- **One row per question (v0.17, D-124):** a question's updates share one row, where the newest of them is: its words, then "3 updates · 7 new answers" (primary while any is new), the time and dot, and a ⌄ button that shows each update under it (indented, two lines, its time and dot; a tap opens at that one). A tap on the row opens at the first of its new answers and marks them all read; the long press offers *Mark as read* and *Stop updates*. The chips' badges count rows.
+- **The badge (v0.17, D-122):** the bell's number is the rows the bell will show as new, from Stips+'s own record (Stips' count only fills in until the first page has been read). While the app is on screen the page is read when Stips' count goes up and every minute on Home.
 - Opening the list clears the bell's badge (Stips marks them seen, as on the site), and takes the phone's notifications about answers, flowers and thanks out of the shade (v0.11).
-- Phone notifications (v0.11, D-73; channels per kind since v0.15): channels that pop up, *Updates*, *Flowers and thanks*, *System messages* and *Messages*. Up to 5 new items per check, each opening its item in the app; one notification per chat with unread messages (who wrote, the last message, a count), opening the chat. Opening a chat clears its notification.
+- Phone notifications (v0.11, D-73; channels per kind since v0.15): channels that pop up, *Updates*, *Flowers and thanks*, *System messages* and *Messages*. Up to 5 new items per check, each opening its item in the app; updates on one question share one notification that a newer burst replaces, with "3 updates · 7 new answers" (v0.17, D-123); one notification per chat with unread messages (who wrote, the last message, a count), opening the chat. Opening a chat clears its notification.
 
 ### 5.9 Phone notifications in Settings (v0.11, D-74)
 

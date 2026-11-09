@@ -154,7 +154,7 @@ class ChatsWidgetFeed(
 
     /** Stips sent the first page of chats to some screen (or to the widget): keep it, and redraw if it changed. */
     private fun publish(list: List<Conversation>) {
-        val chats = chatsOf(list)
+        val chats = chatsOf(list, session.session.value.userId)
         val before = _state.value
         savedAt = System.currentTimeMillis()
         savedReported = lastReported ?: chats.sumOf { it.unread }
@@ -215,9 +215,10 @@ class ChatsWidgetFeed(
         /** Whether a copy saved at [savedAt] should be asked for again at [now]. Pure. */
         fun isStale(savedAt: Long, now: Long): Boolean = now - savedAt >= STALE_MS
 
-        /** The chats the widget shows, in Stips' order (newest first): people only, at most [MAX_CHATS]. Pure. */
-        fun chatsOf(list: List<Conversation>): List<Chat> = list.mapNotNull { c ->
+        /** The chats the widget shows, in Stips' order (newest first): people only, not notes to self (#20), at most [MAX_CHATS]. Pure. */
+        fun chatsOf(list: List<Conversation>, myId: Long? = null): List<Chat> = list.mapNotNull { c ->
             val userId = c.other.userId ?: return@mapNotNull null
+            if (userId == myId) return@mapNotNull null
             Chat(userId, c.other.nickname, c.lastMessage, c.time?.toEpochMilli(), c.unread.coerceAtLeast(0), c.lastFromMe)
         }.take(MAX_CHATS)
 

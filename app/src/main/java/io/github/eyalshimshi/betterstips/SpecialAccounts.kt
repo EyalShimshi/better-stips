@@ -17,6 +17,11 @@ object SpecialAccounts {
         val color: Int? = null,
         /** An organization: it gets the blue check by its name. */
         val verified: Boolean = false,
+        /**
+         * One of Stips' own accounts, which Stips doesn't flag itself (#21): treated as its flagged system account is,
+         * with the blue check and "Stips' own account".
+         */
+        val official: Boolean = false,
     ) {
         val hasBadge: Boolean get() = badgeHe != null || badgeEn != null
     }
@@ -28,12 +33,19 @@ object SpecialAccounts {
         Entry(10486, verified = true),
         // Net Knights (אבירי הרשת): online safety (#8).
         Entry(253000, verified = true),
+        // "מערכת סטיפס", Stips' system account (#21).
+        Entry(50916, official = true),
     )
 
     private val byId: Map<Long, Entry> = ALL.associateBy { it.userId }
 
     /** The organizations' accounts, for the blue check. */
     val verifiedIds: Set<Long> = ALL.filter { it.verified }.map { it.userId }.toSet()
+
+    /** Stips' own accounts that Stips doesn't flag (#21). */
+    val officialIds: Set<Long> = ALL.filter { it.official }.map { it.userId }.toSet()
+
+    fun isOfficial(userId: Long?): Boolean = userId != null && userId in officialIds
 
     fun entry(userId: Long?): Entry? = userId?.let { byId[it] }
 

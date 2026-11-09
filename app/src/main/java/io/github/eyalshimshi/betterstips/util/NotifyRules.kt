@@ -42,24 +42,37 @@ object NotifyRules {
 
     /**
      * The notifications of [list] (Stips' first page) to post, given what earlier checks [known] (id → signature).
-     * - The [first] check after turning this on records what's unread without posting it, so old ones don't come back.
+     * - The [first] check after turning this on records what's there without posting it, so old ones don't come back.
      * - [legacyNewest]: v0.10 kept only the newest id it had seen; unread ones up to it are recorded, not posted.
-     * - Known ones that were read since come back in [NotificationPick.read], so their phone notifications can go.
+     * - New is decided by Stips+ (v0.17), not by Stips' "viewed" flag alone: other apps on the account (the official
+     *   one, the site) set it as they list the bell, often before a check runs. So a notification is new when Stips
+     *   still has it unread, when it's newer than everything earlier checks saw, or when Stips changed one they saw.
+     * - [seenInApp]: the newest notification the bell showed in Stips+. Those up to it, unchanged since, are done:
+     *   they come back in [NotificationPick.read], so their phone notifications can go.
      */
-    fun pick(list: List<StipsNotification>, known: Map<Long, String>, first: Boolean, legacyNewest: Long? = null): NotificationPick {
+    fun pick(
+        list: List<StipsNotification>,
+        known: Map<Long, String>,
+        first: Boolean,
+        legacyNewest: Long? = null,
+        seenInApp: Long = 0L,
+    ): NotificationPick {
+        val newestKnown = known.keys.maxOrNull() ?: 0L
         val next = known.toMutableMap()
         val post = ArrayList<StipsNotification>()
         val read = ArrayList<Long>()
         for (n in list.sortedBy { it.id }) {
-            if (n.viewed) {
+            if (n.viewed && n.id <= seenInApp) {
                 if (next.remove(n.id) != null) read += n.id
                 continue
             }
             val signature = signature(n)
-            if (known[n.id] == signature) continue
-            val seenByOldVersion = legacyNewest != null && n.id <= legacyNewest && n.id !in known
+            val before = known[n.id]
+            if (before == signature) continue
             next[n.id] = signature
-            if (!first && !seenByOldVersion) post += n
+            val fresh = !n.viewed || n.id > newestKnown || before != null
+            val seenByOldVersion = legacyNewest != null && n.id <= legacyNewest && before == null
+            if (fresh && !first && !seenByOldVersion) post += n
         }
         return NotificationPick(post.takeLast(MAX_POSTS), keepNewest(next), read)
     }

@@ -156,6 +156,19 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
+import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -211,6 +224,14 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
         if (session.signedIn) vm.refresh()
     }
     var dmSettings by rememberSaveable { mutableStateOf(false) }
+    // People to write to (#20): the search on top finds them on all of Stips, as Home's does; a tap opens the chat.
+    var query by rememberSaveable { mutableStateOf("") }
+    val people = rememberPeopleSearch(query)
+    BackHandler(enabled = query.isNotEmpty()) { query = "" }
+    val myId = session.userId
+    // The account itself, for notes to self (#20).
+    val me = session.profile?.avatar ?: myId?.let { Author("", it, null, anonymous = false, online = false) }
+    val notesName = stringResource(R.string.notes_title)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -232,12 +253,62 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
             return@Scaffold
         }
         val error = state.error
+        val open: (Conversation) -> Unit = { conversation ->
+            val id = conversation.other.userId
+            if (id != null) onOpenConversation(id, conversation.other.nickname)
+        }
         PullToRefreshBox(
             isRefreshing = state.refreshing,
             onRefresh = { vm.refresh() },
             modifier = Modifier.padding(padding),
         ) {
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+                item(key = "search") { ChatsSearchField(query, onQuery = { query = it }) }
+                if (query.isNotBlank()) {
+                    val chats = ChatRules.matching(state.conversations, query, myId, notesName)
+                    val inChats = chats.mapNotNull { it.other.userId }.toSet()
+                    val others = people.results.filter { it.userId != null && it.userId !in inChats }.distinctBy { it.userId }
+                    if (chats.isNotEmpty()) {
+                        item(key = "label-chats") { SearchLabel(stringResource(R.string.chats_search_chats)) }
+                        items(chats, key = { "c${it.other.userId}" }) { conversation ->
+                            ConversationRow(conversation, notes = ChatRules.isNotes(conversation.other.userId, myId), me = me) { open(conversation) }
+                        }
+                    }
+                    if (others.isNotEmpty()) {
+                        item(key = "label-people") { SearchLabel(stringResource(R.string.search_people)) }
+                        items(others, key = { "p${it.userId}" }) { person ->
+                            PersonRow(person, notes = ChatRules.isNotes(person.userId, myId), me = me) {
+                                person.userId?.let { onOpenConversation(it, person.nickname) }
+                            }
+                        }
+                    }
+                    if (chats.isEmpty() && others.isEmpty()) {
+                        item(key = "no-results") {
+                            if (people.searching) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) { CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp) }
+                            } else {
+                                Text(
+                                    stringResource(R.string.chats_search_none),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 32.dp, vertical = 24.dp),
+                                )
+                            }
+                        }
+                    }
+                    return@LazyColumn
+                }
+                if (me != null) {
+                    item(key = "shelf") { OnlineShelf(me, state.conversations, onOpenConversation) }
+                }
                 when {
                     state.loading && state.conversations.isEmpty() -> item(key = "loading") {
                         Box(
@@ -253,15 +324,181 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
                     }
                 }
                 items(state.conversations, key = { it.other.userId ?: 0L }) { conversation ->
-                    ConversationRow(conversation) {
-                        val id = conversation.other.userId
-                        if (id != null) onOpenConversation(id, conversation.other.nickname)
-                    }
+                    ConversationRow(conversation, notes = ChatRules.isNotes(conversation.other.userId, myId), me = me) { open(conversation) }
                 }
             }
         }
     }
     if (dmSettings) ChatSettingsSheet(onDismiss = { dmSettings = false })
+}
+
+/** What the search on top of Chats found on Stips (#20), and whether it's still looking. */
+private class PeopleSearch(val results: List<Author>, val searching: Boolean)
+
+/** People whose nickname matches [query], as Home's search finds them (the site's `users/Search`), after a pause in typing. */
+@Composable
+private fun rememberPeopleSearch(query: String): PeopleSearch {
+    val repository = LocalAppContainer.current.repository
+    var results by remember { mutableStateOf<List<Author>>(emptyList()) }
+    var searching by remember { mutableStateOf(false) }
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.length < 2) {
+            results = emptyList()
+            searching = false
+            return@LaunchedEffect
+        }
+        searching = true
+        delay(400)
+        results = try {
+            repository.searchUsers(q).take(PEOPLE_RESULTS)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+        searching = false
+    }
+    return PeopleSearch(results, searching)
+}
+
+/** How many people the search on top of Chats shows. */
+private const val PEOPLE_RESULTS = 8
+
+/** The search field on top of Chats (#20), shaped as Home's. */
+@Composable
+private fun ChatsSearchField(query: String, onQuery: (String) -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val container = MaterialTheme.colorScheme.surfaceContainerHigh
+    TextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .heightIn(min = 52.dp),
+        placeholder = { Text(stringResource(R.string.chats_search_hint), maxLines = 1) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = if (query.isNotEmpty()) {
+            {
+                IconButton(onClick = { onQuery("") }) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.action_clear))
+                }
+            }
+        } else {
+            null
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = container,
+            unfocusedContainerColor = container,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+        ),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+    )
+}
+
+@Composable
+private fun SearchLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+    )
+}
+
+/** Someone the search found: a tap opens the chat with them, not their profile (#20). */
+@Composable
+private fun PersonRow(person: Author, notes: Boolean, me: Author?, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = {
+            Text(if (notes) stringResource(R.string.notes_title) else authorName(person), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        leadingContent = {
+            if (notes && me != null) NotesAvatar(me, 40.dp) else PresenceAvatar(person, 40.dp, clickable = false)
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+/**
+ * The shelf on top of Chats (#20), as on Instagram: notes to self first, then the people of recent chats who are
+ * online now, the most recent first (at the right in Hebrew). It scrolls sideways when they don't fit.
+ */
+@Composable
+private fun OnlineShelf(me: Author, conversations: List<Conversation>, onOpen: (Long, String) -> Unit) {
+    val myId = me.userId ?: return
+    val online = remember(conversations, myId) { ChatRules.onlineShelf(conversations, myId) }
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        item(key = "notes") {
+            ShelfItem(stringResource(R.string.notes_short), onClick = { onOpen(myId, me.nickname) }) {
+                NotesAvatar(me, SHELF_AVATAR)
+            }
+        }
+        items(online, key = { it.userId ?: 0L }) { person ->
+            ShelfItem(authorName(person), onClick = { person.userId?.let { onOpen(it, person.nickname) } }) {
+                PresenceAvatar(person, SHELF_AVATAR, clickable = false)
+            }
+        }
+    }
+}
+
+private val SHELF_AVATAR = 58.dp
+
+@Composable
+private fun ShelfItem(label: String, onClick: () -> Unit, avatar: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .width(76.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        avatar()
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+    }
+}
+
+/**
+ * Notes to self (#20): the user's own photo with a bookmark, wherever the chat with themselves shows, so it doesn't
+ * look like a chat with someone. [ring] is the surface it sits on.
+ */
+@Composable
+private fun NotesAvatar(me: Author, size: Dp, ring: Color = MaterialTheme.colorScheme.surface) {
+    Box {
+        Avatar(me, size, clickable = false)
+        val mark = (size * 0.38f).coerceAtLeast(16.dp)
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .size(mark)
+                .clip(CircleShape)
+                .background(ring)
+                .padding(mark * 0.1f)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Bookmark, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(mark * 0.55f))
+        }
+    }
 }
 
 /** The way into DM settings, at the top of the chats screens (v0.12). */
@@ -272,22 +509,27 @@ private fun DmSettingsButton(onClick: () -> Unit) {
     }
 }
 
+/** A chat in the list. Notes to self (#20) say so, with the bookmark, and never count as unread. */
 @Composable
-private fun ConversationRow(conversation: Conversation, onClick: () -> Unit) {
-    val preview = if (conversation.lastFromMe) {
+private fun ConversationRow(conversation: Conversation, notes: Boolean = false, me: Author? = null, onClick: () -> Unit) {
+    val preview = if (conversation.lastFromMe && !notes) {
         stringResource(R.string.you_prefix, conversation.lastMessage)
     } else {
         conversation.lastMessage
     }
     val time = agoText(conversation.time).ifBlank { conversation.timeText.orEmpty() }
     ListItem(
-        headlineContent = { Text(authorName(conversation.other), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = {
+            Text(if (notes) stringResource(R.string.notes_title) else authorName(conversation.other), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
         supportingContent = { Text(preview, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = { PresenceAvatar(conversation.other, 48.dp) },
+        leadingContent = {
+            if (notes) NotesAvatar(me ?: conversation.other, 48.dp) else PresenceAvatar(conversation.other, 48.dp)
+        },
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
                 Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (conversation.unread > 0) {
+                if (conversation.unread > 0 && !notes) {
                     Spacer(Modifier.size(4.dp))
                     Badge { Text(conversation.unread.toString()) }
                 }
@@ -311,7 +553,13 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
     val profile = state.profile
     val other = profile?.avatar ?: Author(name, userId, null, anonymous = false, online = false)
-    val title = profile?.nickname?.takeIf { it.isNotBlank() } ?: name.ifBlank { stringResource(R.string.chats_title) }
+    // Notes to self (#20): the chat with yourself reads as notes, not as a chat with someone.
+    val notes = ChatRules.isNotes(userId, vm.myUserId)
+    val title = if (notes) {
+        stringResource(R.string.notes_title)
+    } else {
+        profile?.nickname?.takeIf { it.isNotBlank() } ?: name.ifBlank { stringResource(R.string.chats_title) }
+    }
     val onlineText = stringResource(if (profile?.female == true) R.string.profile_online_female else R.string.profile_online_male)
     val copiedText = stringResource(R.string.message_copied)
     val reportedText = stringResource(R.string.report_sent)
@@ -423,14 +671,20 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(16.dp))
-                            .clickable(onClickLabel = stringResource(R.string.chat_view_profile)) { openProfile(userId) }
+                            .then(
+                                if (notes) {
+                                    Modifier
+                                } else {
+                                    Modifier.clickable(onClickLabel = stringResource(R.string.chat_view_profile)) { openProfile(userId) }
+                                },
+                            )
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                     ) {
-                        PresenceAvatar(other, 36.dp, clickable = false)
+                        if (notes) NotesAvatar(other, 36.dp) else PresenceAvatar(other, 36.dp, clickable = false)
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (other.online) {
+                            if (other.online && !notes) {
                                 Text(onlineText, style = MaterialTheme.typography.labelSmall, color = onlineColor())
                             }
                         }
@@ -439,7 +693,8 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                 navigationIcon = { BackButton(onBack) },
                 actions = {
                     DmSettingsButton { dmSettings = true }
-                    Box {
+                    // Nobody to report or block in notes to self (#20).
+                    if (!notes) Box {
                         IconButton(onClick = { menuOpen = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_actions))
                         }
@@ -485,12 +740,16 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                     onDraft = vm::setDraft,
                     onCancelReply = vm::cancelReply,
                     onSend = vm::send,
+                    hint = stringResource(if (notes) R.string.notes_hint else R.string.message_hint),
                 )
             }
         },
         snackbarHost = { SwipeAwaySnackbarHost(snackbar) },
     ) { padding ->
         val newestFirst = state.messages.asReversed()
+        val zone = remember { ZoneId.systemDefault() }
+        // Read again as messages come in, not every second as times tick.
+        val today = remember(state.messages) { LocalDate.now(zone) }
         Box(
             Modifier
                 .fillMaxSize()
@@ -513,7 +772,11 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                     }
                     // The first message that was unread on opening sits under a thin "unread" bar (v0.13).
                     val unread = state.unread?.takeIf { it.id == message.id }
+                    val older = newestFirst.getOrNull(index + 1)
+                    // Each day starts with its date, as in WhatsApp (v0.17).
+                    val day = if (ChatRules.startsDay(message, older, zone)) message.time?.atZone(zone)?.toLocalDate() else null
                     Column {
+                        if (day != null) DayHeader(day, today)
                         AnimatedVisibility(visible = unread != null, enter = EnterTransition.None, exit = shrinkVertically() + fadeOut()) {
                             val count = remember { unread?.count ?: 0 }
                             UnreadBar(
@@ -535,7 +798,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                             highlightKey = highlight?.takeIf { it.messageId == message.id }?.nonce,
                             // The message drawn above this one is the next item: close together while one person writes.
                             modifier = Modifier.padding(
-                                top = if (unread == null && ChatRules.continuesRun(message, newestFirst.getOrNull(index + 1))) 2.dp else 10.dp,
+                                top = if (unread == null && day == null && ChatRules.continuesRun(message, older)) 2.dp else 10.dp,
                             ),
                         )
                     }
@@ -548,6 +811,7 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                         other = other,
                         name = title,
                         onlineText = onlineText,
+                        notes = notes,
                         onRetry = vm::load,
                         onLoadEarlier = vm::loadEarlier,
                         onNeedPage = vm::ensurePage,
@@ -738,7 +1002,8 @@ private fun ReportUserDialog(name: String, onDismiss: () -> Unit, onSend: (Int, 
 
 /**
  * The top of the chat: loading, an error, earlier messages loading by themselves as it comes into view (no button,
- * #6), and once there are no more, a short summary of the other person, as messaging apps show.
+ * #6), and once there are no more, a short summary of the other person, as messaging apps show; in notes to self, a
+ * line about them instead (#20).
  */
 @Composable
 private fun ConversationStart(
@@ -746,6 +1011,7 @@ private fun ConversationStart(
     other: Author,
     name: String,
     onlineText: String,
+    notes: Boolean,
     onRetry: () -> Unit,
     onLoadEarlier: () -> Unit,
     onNeedPage: () -> Unit,
@@ -773,9 +1039,64 @@ private fun ConversationStart(
                 contentAlignment = Alignment.Center,
             ) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) }
         }
-        else -> {
+        else -> if (notes) {
+            NotesIntro(other)
+        } else {
             LaunchedEffect(Unit) { onNeedPage() }
             ChatSummary(other, name, state, onlineText, onOpenProfile)
+        }
+    }
+}
+
+/** The top of notes to self (#20): what this chat is for, in place of a person's summary. Not a card: just a few words. */
+@Composable
+private fun NotesIntro(me: Author) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 32.dp, end = 32.dp, top = 8.dp, bottom = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        NotesAvatar(me, 64.dp)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.notes_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(2.dp))
+        Text(
+            stringResource(R.string.notes_intro),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * The date above a day's first message (v0.17, as in WhatsApp): today, yesterday, the weekday within a week, then the
+ * date, with the year when it isn't this one.
+ */
+@Composable
+private fun DayHeader(date: LocalDate, today: LocalDate) {
+    val locale = LocalConfiguration.current.locales[0]
+    val text = when (ChatRules.dayKind(date, today)) {
+        ChatRules.DayKind.Today -> stringResource(R.string.notif_today)
+        ChatRules.DayKind.Yesterday -> stringResource(R.string.notif_yesterday)
+        ChatRules.DayKind.ThisWeek -> date.format(DateTimeFormatter.ofPattern("EEEE", locale))
+        ChatRules.DayKind.ThisYear -> date.format(DateTimeFormatter.ofPattern("d MMMM", locale))
+        ChatRules.DayKind.Older -> date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
         }
     }
 }
@@ -1033,6 +1354,7 @@ private fun MessageComposer(
     onDraft: (String) -> Unit,
     onCancelReply: () -> Unit,
     onSend: () -> Unit,
+    hint: String = stringResource(R.string.message_hint),
 ) {
     var field by remember { mutableStateOf(TextFieldValue(draft, TextRange(draft.length))) }
     val focusRequester = remember { FocusRequester() }
@@ -1064,7 +1386,7 @@ private fun MessageComposer(
                         field = it
                         onDraft(it.text)
                     },
-                    placeholder = { Text(stringResource(R.string.message_hint)) },
+                    placeholder = { Text(hint) },
                     maxLines = 5,
                     shape = RoundedCornerShape(20.dp),
                     isError = error != null,

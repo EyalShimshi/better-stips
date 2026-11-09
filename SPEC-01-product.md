@@ -131,12 +131,22 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-77 | Export a thread (#16, v0.14) | P2 | ⋮ → *Export thread*: Markdown or JSON, copied or shared |
 | F-78 | Notifications in categories (#13, v0.15) | P1 | The bell's list: category chips, a summary of what's new, Stips' team's notices pinned until opened, sections by day, long-press *Mark as read* and *Stop updates*; optional titles and photos; one phone channel per category |
 | F-79 | Animation presets (#18, v0.15) | P1 | Full (with short transitions), Less (no screen transitions, the rest faster), None, or each kind chosen |
-| F-80 | Swipe actions (#18, v0.15) | P1 | Questions in lists swipe both ways (pin and report by default, each configurable); answers swipe left too (nothing on others' by default, edit on your own) |## 7. Non-functional requirements
+| F-80 | Swipe actions (#18, v0.15) | P1 | Questions in lists swipe both ways (pin and report by default, each configurable); answers swipe left too (nothing on others' by default, edit on your own) |
 | F-81 | Swipes that feel right (v0.16) | P1 | Questions, answers and chat messages run their swipe past a short line or on a flick, as Material's lists do |
 | F-82 | Swipe messages away (v0.16) | P2 | Any message at the bottom goes at once when swiped down or sideways |
 | F-83 | Sort answers in the question (v0.16) | P1 | Default (Stips' order), newest first, most or least upvotes; for that visit only |
 | F-84 | Pen pals Live and tabs that refresh (v0.16) | P1 | New posts come in by themselves; Home, Pen pals and Chats refresh when entered and when the app comes back |
 | F-85 | Stips+ badge (v0.16) | P2 | Profiles whose bio says they use Stips+ show a badge |
+| F-86 | Search on the DM page (#20, v0.17) | P1 | Find a chat by name, or anyone on Stips; a tap opens the chat |
+| F-87 | Who's online, on the DM page (#20, v0.17) | P1 | A sideways shelf: notes to self, then the people of recent chats who are online, the most recent first |
+| F-88 | Notes to self (#20, v0.17) | P1 | The chat with yourself, shown as notes: no report or block, no person's card, never notified |
+| F-89 | Stips' system account (#21, v0.17) | P2 | "מערכת סטיפס" gets Stips' blue check |
+| F-90 | Emoji codes in chats (#22, v0.17) | P2 | `:name:` codes from older apps show as emoji, as on the site |
+| F-91 | A bell that knows what's new (v0.17) | P0 | The badge shows new notifications even when other apps on the account read them first; so do phone notifications |
+| F-92 | Updates per question, and days in chats (v0.17) | P1 | A question's updates are one row in the bell and one phone notification; chats show the date above each day |
+
+## 7. Non-functional requirements
+
 | Area | Requirement |
 |---|---|
 | Speed | Cached feed visible < 300 ms after launch; a network feed page < 1 s on 4G |
@@ -146,7 +156,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Security | HTTPS only; session token in app-private storage, excluded from backups |
 | Accessibility | 48 dp targets, labels on icon buttons, 200% text, TalkBack reads rows as one sentence |
 | Locale | Hebrew (RTL) and English; content direction follows the text |
-| Respect | User-initiated requests, plus small checks while the app is open (unread counts every 10 s; new messages every 3 s in an open chat) and four opt-in ones (Live, phone notifications, the two widgets; SPEC D-24…D-26, D-51, D-53, D-67); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
+| Respect | User-initiated requests, plus small checks while the app is open (unread counts every 10 s; the bell's first page when Stips counts more and every minute on Home; new messages every 3 s in an open chat) and four opt-in ones (Live, phone notifications, the two widgets; SPEC D-24…D-26, D-51, D-53, D-67, D-122); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |
 
 ## 8. Backlog (beyond v0.2)
 

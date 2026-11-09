@@ -30,6 +30,7 @@ import io.github.eyalshimshi.betterstips.data.api.StaleCookieGuard
 import io.github.eyalshimshi.betterstips.data.api.StipsApi
 import io.github.eyalshimshi.betterstips.data.api.UserAgentInterceptor
 import io.github.eyalshimshi.betterstips.diag.NetLog
+import io.github.eyalshimshi.betterstips.util.StipsEmoji
 import io.github.eyalshimshi.betterstips.widget.ChatsWidgetFeed
 import io.github.eyalshimshi.betterstips.widget.HotWidgetFeed
 import kotlinx.coroutines.CoroutineScope
@@ -119,6 +120,8 @@ class AppContainer(private val app: Application) {
 
     /** Runs for every process start, including the widget's and the notification check's: nothing that costs requests. */
     fun start() {
+        // Read on first use (a chat with a :code: in it), or early by warmUp(); a file in the app, not a request (#22).
+        StipsEmoji.source { app.assets.open(StipsEmoji.ASSET).bufferedReader().useLines { StipsEmoji.parse(it) } }
         watchNetwork()
         repository.onFirstPage = { query, list -> if (query == HotWidgetFeed.QUERY) hotWidget.publish(list) }
         // Stips refused a call because the account is blocked: read why, and show the block screen again (v0.13).
@@ -148,6 +151,7 @@ class AppContainer(private val app: Application) {
      */
     fun warmUp() {
         if (!warmedUp.compareAndSet(false, true)) return
+        appScope.launch(Dispatchers.IO) { StipsEmoji.warmUp() }
         appScope.launch { channels.refresh() }
         if (session.session.value.signedIn) {
             appScope.launch {

@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.data.parse
 
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 import io.github.eyalshimshi.betterstips.data.api.ApiException
 import io.github.eyalshimshi.betterstips.data.model.AccountBan
 import io.github.eyalshimshi.betterstips.data.model.Answer
@@ -26,6 +27,7 @@ import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.data.model.ThanksMessage
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
+import io.github.eyalshimshi.betterstips.util.StipsEmoji
 import io.github.eyalshimshi.betterstips.util.StipsTime
 import io.github.eyalshimshi.betterstips.util.TextUtils
 import kotlinx.serialization.json.Json
@@ -101,15 +103,17 @@ object Parsers {
         // Present on special accounts only (measured: Net Knights); Stips may send it as an empty array otherwise.
         val special = profile?.obj("specialConfig")
         val nickname = profile?.str("nickname")?.takeIf { it.isNotBlank() } ?: fallbackName?.takeIf { it.isNotBlank() } ?: ""
+        val userId = if (anonymous) null else profile?.long("userid")
         return Author(
             nickname = TextUtils.decodeEntities(nickname),
-            userId = if (anonymous) null else profile?.long("userid"),
+            userId = userId,
             photoStamp = if (anonymous) null else profile?.str("photostamp")?.takeIf { it.isNotBlank() },
             anonymous = anonymous,
             online = profile?.bool("online") ?: false,
             branding = if (anonymous) null else special?.str("itemSpecialRankBranding")?.trim()?.takeIf { it.isNotEmpty() },
             highlightName = !anonymous && special?.bool("itemNicknameSpecialRankColor") == true,
-            platform = profile?.bool("isPlatfromAdmin") == true || profile?.bool("isPlatformAdmin") == true,
+            platform = profile?.bool("isPlatfromAdmin") == true || profile?.bool("isPlatformAdmin") == true ||
+                SpecialAccounts.isOfficial(userId),
         )
     }
 
@@ -240,7 +244,8 @@ object Parsers {
             online = itemProfile?.bool("online") ?: false,
             branding = special?.str("itemSpecialRankBranding")?.trim()?.takeIf { it.isNotEmpty() },
             highlightName = special?.bool("itemNicknameSpecialRankColor") == true,
-            platform = itemProfile?.bool("isPlatfromAdmin") == true || itemProfile?.bool("isPlatformAdmin") == true,
+            platform = itemProfile?.bool("isPlatfromAdmin") == true || itemProfile?.bool("isPlatformAdmin") == true ||
+                SpecialAccounts.isOfficial(id),
             // A CSS gradient such as "linear-gradient(135deg, #f64f59, #b45ae0, #109cbb)" (measured).
             background = parseColors(special?.str("profileBackground")),
             raw = item.toString(),
@@ -407,7 +412,7 @@ object Parsers {
             if (other.userId == null) return@mapNotNull null
             Conversation(
                 other = other,
-                lastMessage = m.text("msg").orEmpty().trim(),
+                lastMessage = StipsEmoji.inChat(m.text("msg").orEmpty()).trim(),
                 time = StipsTime.parse(m.str("time")),
                 timeText = m.str("hebrew_time"),
                 unread = m.int("newCount") ?: m.int("new_count") ?: 0,
@@ -424,7 +429,8 @@ object Parsers {
             val id = m.long("id") ?: return@mapNotNull null
             ChatMessage(
                 id = id,
-                text = m.text("msg").orEmpty().trim(),
+                // Codes like :nerd: from older apps, drawn as the site draws them in chats (#22).
+                text = StipsEmoji.inChat(m.text("msg").orEmpty()).trim(),
                 time = StipsTime.parse(m.str("time")),
                 fromUserId = m.long("fromuserid"),
                 toUserId = m.long("touserid"),

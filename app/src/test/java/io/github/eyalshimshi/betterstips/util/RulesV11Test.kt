@@ -36,7 +36,8 @@ class RulesV11Test {
     fun notifications_firstCheckRecordsWithoutPosting() {
         val pick = NotifyRules.pick(listOf(note(1), note(2), note(3, viewed = true)), emptyMap(), first = true)
         assertTrue(pick.post.isEmpty())
-        assertEquals(setOf(1L, 2L), pick.known.keys)
+        // Seen ones are recorded too since v0.17: new is decided by what checks saw, not only by Stips' flag.
+        assertEquals(setOf(1L, 2L, 3L), pick.known.keys)
         assertTrue(pick.read.isEmpty())
     }
 
@@ -53,7 +54,8 @@ class RulesV11Test {
     @Test
     fun notifications_readOnesLeaveThePhone() {
         val known = NotifyRules.pick(listOf(note(1), note(2)), emptyMap(), first = true).known
-        val pick = NotifyRules.pick(listOf(note(1, viewed = true), note(2)), known, first = false)
+        // Read means shown in Stips+'s bell since v0.17 (seenInApp); Stips' flag alone is set by other apps too.
+        val pick = NotifyRules.pick(listOf(note(1, viewed = true), note(2)), known, first = false, seenInApp = 1L)
         assertEquals(listOf(1L), pick.read)
         assertFalse(1L in pick.known)
         assertTrue(pick.post.isEmpty())

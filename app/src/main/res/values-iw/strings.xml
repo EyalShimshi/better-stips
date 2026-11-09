@@ -901,4 +901,19 @@
     <string name="live_shared_rate">הבית וחברים לעט בודקים באותו קצב.</string>
     <string name="badge_stips_plus">Stips+</string>
     <string name="badge_stips_plus_description">Stips+: בביו כתוב שמשתמשים בו</string>
+    <plurals name="notif_group_updates">
+        <item quantity="one">עדכון אחד</item>
+        <item quantity="two">%d עדכונים</item>
+        <item quantity="many">%d עדכונים</item>
+        <item quantity="other">%d עדכונים</item>
+    </plurals>
+    <string name="notif_group_show">הצגת העדכונים</string>
+    <string name="notif_group_hide">הסתרת העדכונים</string>
+    <string name="notes_title">הערות לעצמי</string>
+    <string name="notes_short">הערות לעצמי</string>
+    <string name="notes_intro">מקום להערות, לטיוטות ולקישורים שלכם. סטיפס שומר אותם כשיחה עם עצמכם, כך שהם זמינים בכל מכשיר.</string>
+    <string name="notes_hint">הערה…</string>
+    <string name="chats_search_hint">חיפוש משתמשים לשיחה</string>
+    <string name="chats_search_chats">שיחות</string>
+    <string name="chats_search_none">לא נמצאו משתמשים בשם הזה</string>
 </resources>

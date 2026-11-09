@@ -855,4 +855,17 @@
     <string name="live_shared_rate">Home and Pen pals check at the same rate.</string>
     <string name="badge_stips_plus">Stips+</string>
     <string name="badge_stips_plus_description">Stips+: their bio says they use it</string>
+    <plurals name="notif_group_updates">
+        <item quantity="one">%d update</item>
+        <item quantity="other">%d updates</item>
+    </plurals>
+    <string name="notif_group_show">Show the updates</string>
+    <string name="notif_group_hide">Hide the updates</string>
+    <string name="notes_title">Notes to self</string>
+    <string name="notes_short">Your notes</string>
+    <string name="notes_intro">A place for your own notes, drafts and links. Stips keeps them as a chat with yourself, so they\'re on every device you use.</string>
+    <string name="notes_hint">Note…</string>
+    <string name="chats_search_hint">Search people to write to</string>
+    <string name="chats_search_chats">Chats</string>
+    <string name="chats_search_none">No one by that name</string>
 </resources>

@@ -6,6 +6,7 @@ import io.github.eyalshimshi.betterstips.data.ChatReadMarks
 import io.github.eyalshimshi.betterstips.data.SessionStore
 import io.github.eyalshimshi.betterstips.data.StipsRepository
 import io.github.eyalshimshi.betterstips.data.api.ApiException
+import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 import io.github.eyalshimshi.betterstips.data.model.Conversation
 import io.github.eyalshimshi.betterstips.data.model.ProfilePage
@@ -14,6 +15,7 @@ import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
+import io.github.eyalshimshi.betterstips.util.StipsEmoji
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.ZoneId
 
 data class ChatsUiState(
     val conversations: List<Conversation> = emptyList(),
@@ -347,7 +351,8 @@ class ConversationViewModel(
                     pollNew()
                     return@launch
                 }
-                val sent = ChatMessage(id = id, text = text, time = java.time.Instant.now(), fromUserId = myUserId, toUserId = userId)
+                // As Stips will show it back: a :code: typed by hand is its emoji (#22).
+                val sent = ChatMessage(id = id, text = StipsEmoji.inChat(text), time = java.time.Instant.now(), fromUserId = myUserId, toUserId = userId)
                 _state.update { s ->
                     s.copy(
                         messages = ChatRules.merge(s.messages, listOf(sent)),
@@ -409,5 +414,45 @@ object ChatRules {
             else -> null
         } ?: return null
         return UnreadMark(first.id, theirs.count { it.id >= first.id })
+    }
+
+    /** Notes to self (#20): the chat with the account itself, which Stips keeps like any other. */
+    fun isNotes(userId: Long?, myId: Long?): Boolean = myId != null && userId == myId
+
+    /**
+     * The shelf on top of Chats (#20), as on Instagram: the people of recent chats who are online now, the most
+     * recent first (at the start, the right in Hebrew). Notes to self come before them, on their own.
+     */
+    fun onlineShelf(conversations: List<Conversation>, myId: Long?): List<Author> =
+        conversations.map { it.other }
+            .filter { it.online && it.userId != null && !isNotes(it.userId, myId) }
+            .distinctBy { it.userId }
+
+    /** The chats the search on top of Chats finds (#20): by the person's name, and notes to self by [notesName]. */
+    fun matching(conversations: List<Conversation>, query: String, myId: Long?, notesName: String): List<Conversation> {
+        val q = query.trim()
+        if (q.isEmpty()) return emptyList()
+        return conversations.filter { c ->
+            c.other.nickname.contains(q, ignoreCase = true) || (isNotes(c.other.userId, myId) && notesName.contains(q, ignoreCase = true))
+        }
+    }
+
+    /** What a day header in a chat says (v0.17, as in WhatsApp): today, yesterday, the weekday, the date, or with the year. */
+    enum class DayKind { Today, Yesterday, ThisWeek, ThisYear, Older }
+
+    /** Whether a day header goes above [message]: it's the oldest shown, or [older], the one before it, is from another day. */
+    fun startsDay(message: ChatMessage, older: ChatMessage?, zone: ZoneId): Boolean {
+        val day = message.time?.atZone(zone)?.toLocalDate() ?: return false
+        if (older == null) return true
+        val before = older.time?.atZone(zone)?.toLocalDate() ?: return false
+        return day != before
+    }
+
+    fun dayKind(date: LocalDate, today: LocalDate): DayKind = when {
+        !date.isBefore(today) -> DayKind.Today
+        date == today.minusDays(1) -> DayKind.Yesterday
+        date.isAfter(today.minusDays(7)) -> DayKind.ThisWeek
+        date.year == today.year -> DayKind.ThisYear
+        else -> DayKind.Older
     }
 }

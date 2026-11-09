@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.util
 
 import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
+import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import java.time.Duration
 import java.time.Instant
@@ -9,7 +10,8 @@ import java.time.ZoneId
 
 /**
  * How the bell's list is organized (#13, the owner's decisions): three categories, sections by day, a line that sums
- * up what's new, and Stips' team's notices pinned on top until they're opened. Pure.
+ * up what's new, Stips' team's notices pinned on top until they're opened, and one row per question for its updates
+ * (v0.17). Pure.
  */
 object NotificationCategories {
     /**
@@ -43,7 +45,56 @@ object NotificationCategories {
 
     /** [items] in their day's sections, in order; each keeps the list's order inside. Empty sections are left out. */
     fun sections(items: List<StipsNotification>, today: LocalDate, zone: ZoneId): List<Pair<Day, List<StipsNotification>>> =
-        items.groupBy { day(it.time, today, zone) }.toList().sortedBy { it.first.ordinal }
+        sectionsBy(items, today, zone) { it.time }
+
+    /** As [sections], for anything with a [time]: the list's rows go in the section of their newest notification. */
+    fun <T> sectionsBy(items: List<T>, today: LocalDate, zone: ZoneId, time: (T) -> Instant?): List<Pair<Day, List<T>>> =
+        items.groupBy { day(time(it), today, zone) }.toList().sortedBy { it.first.ordinal }
+
+    /**
+     * A row of the bell's list (v0.17): one notification, or all the updates about one question, newest first. Stips
+     * sends a notification per burst of answers ("2 new answers", then "3 new answers"), and starts a new one once the
+     * last was seen in any app, so a busy question filled the list; now it takes one row.
+     */
+    data class Row(val items: List<StipsNotification>) {
+        val newest: StipsNotification get() = items.first()
+
+        /** The question this row's updates are about, or null for a row that isn't an update. */
+        val questionId: Long? get() = groupKey(newest)
+
+        val key: String get() = rowKey(newest)
+    }
+
+    /** The question an update is about, which its row is grouped by; null for anything else. */
+    fun groupKey(n: StipsNotification): Long? = questionId(n)?.takeIf { of(n) == Category.Updates }
+
+    /** Which row [n] goes in: its question's for an update, its own otherwise. Also the list's key for that row. */
+    fun rowKey(n: StipsNotification): String = groupKey(n)?.let { "q$it" } ?: "n${n.id}"
+
+    /** [items] (newest first) as the list's rows: each question's updates together, where the newest of them is. */
+    fun rows(items: List<StipsNotification>): List<Row> {
+        val rows = LinkedHashMap<String, MutableList<StipsNotification>>()
+        for (n in items) rows.getOrPut(rowKey(n)) { ArrayList() } += n
+        return rows.values.map { Row(it) }
+    }
+
+    /** How many answers an update announces ("3 תשובות חדשות"): its number, or one. */
+    fun answerCount(n: StipsNotification): Int = JumpRules.newAnswerCount(n.text) ?: 1
+
+    /** How many answers a question's [updates] announce together; a question update without answers counts none. */
+    fun answers(updates: List<StipsNotification>): Int =
+        updates.filter { NotificationKinds.kind(it) == NotificationKinds.Kind.Answers }.sumOf { answerCount(it) }
+
+    /**
+     * Where a question opens from several of its updates (v0.17), newest first: at the first of all the answers they
+     * announce, as of the newest one's time. A single one opens as it always has.
+     */
+    fun focusFor(updates: List<StipsNotification>): QuestionFocus? {
+        val newest = updates.firstOrNull() ?: return null
+        val focus = JumpRules.focusFor(newest)
+        if (updates.size == 1 || focus !is QuestionFocus.NewAnswers) return focus
+        return QuestionFocus.NewAnswers(answers(updates).takeIf { it > 0 }, newest.time)
+    }
 
     /** What new notifications add up to: answers on how many questions, flowers, thanks and system messages. */
     data class Summary(val answers: Int = 0, val questions: Int = 0, val flowers: Int = 0, val thanks: Int = 0, val system: Int = 0) {
@@ -60,7 +111,7 @@ object NotificationCategories {
         for (n in items) {
             when (val kind = NotificationKinds.kind(n)) {
                 NotificationKinds.Kind.Answers, NotificationKinds.Kind.Question -> {
-                    answers += if (kind == NotificationKinds.Kind.Answers) JumpRules.newAnswerCount(n.text) ?: 1 else 1
+                    answers += if (kind == NotificationKinds.Kind.Answers) answerCount(n) else 1
                     (n.target as? NotificationTarget.OpenQuestion)?.let { questions += it.id }
                 }
                 NotificationKinds.Kind.Flower -> flowers++

@@ -129,6 +129,7 @@ import io.github.eyalshimshi.betterstips.ui.signin.SignInScreen
 import io.github.eyalshimshi.betterstips.ui.signin.IntroScreen
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.user.UserProfileScreen
+import io.github.eyalshimshi.betterstips.util.BellRules
 import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.ImageLinks
@@ -283,15 +284,31 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     }
 
     // Unread chats and notifications: one tiny request every 10 s, only while the app is on screen and signed in,
-    // and only while the request budget has room (#6).
+    // and only while the request budget has room (#6). The bell counts what Stips+ knows is new (v0.17): other apps
+    // on the account zero Stips' count as they read the list, so its first page is read too when that count goes up,
+    // and every minute on Home.
     LaunchedEffect(signedIn, lifecycleOwner) {
         if (!signedIn) {
             counts = UnreadCounts()
             return@LaunchedEffect
         }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var stipsBell = 0
+            var listedAt = 0L
             while (true) {
-                if (RateGuard.allowBackground()) fetchCounts(container)?.let { counts = it }
+                if (RateGuard.allowBackground()) {
+                    fetchCounts(container)?.let { fetched ->
+                        val now = System.currentTimeMillis()
+                        val listNow = BellRules.listNow(fetched.notifications, stipsBell, now - listedAt, currentRoute == Routes.HOME)
+                        stipsBell = fetched.notifications
+                        var listed = false
+                        if (listNow && RateGuard.allowBackground()) {
+                            listedAt = now
+                            listed = learnBell(container)
+                        }
+                        counts = fetched.copy(notifications = bellBadge(container, fetched.notifications, listed))
+                    }
+                }
                 delay(COUNTS_INTERVAL_MS)
             }
         }
@@ -303,7 +320,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         previousRoute[0] = route
         reportShortcutUsed(context, route)
         if (signedIn && (left == Routes.NOTIFICATIONS || left == Routes.CONVERSATION)) {
-            fetchCounts(container)?.let { counts = it }
+            fetchCounts(container)?.let { counts = it.copy(notifications = bellBadge(container, it.notifications, listed = false)) }
         }
     }
 
@@ -416,6 +433,25 @@ private suspend fun fetchCounts(container: AppContainer): UnreadCounts? = try {
     throw e
 } catch (e: Exception) {
     null
+}
+
+/** Reads the bell's first page and keeps what's new in it until the bell shows it (v0.17). False when it couldn't. */
+private suspend fun learnBell(container: AppContainer): Boolean {
+    val me = container.session.session.value.userId ?: return false
+    return try {
+        container.seenNotifications.learn(me, container.repository.notifications(page = 1))
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        false
+    }
+}
+
+/** The bell's badge: the rows Stips+ knows are new, or Stips' own count until the page is read (v0.17). */
+private fun bellBadge(container: AppContainer, stips: Int, listed: Boolean): Int {
+    val me = container.session.session.value.userId ?: return stips
+    return BellRules.badge(container.seenNotifications.waitingRows(me), stips, listed)
 }
 
 private fun openLink(navController: NavHostController, link: DeepLink) {
