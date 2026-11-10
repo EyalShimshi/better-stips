@@ -125,7 +125,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `files/crash.txt` | Last crash | App-private, deleted after the dialog |
 | Coil disk cache | Images | App cache dir, 64 MB |
 
-Nothing here is backed up or moved to a new phone (v0.20, D-146): `allowBackup="false"`, and `res/xml/data_extraction_rules.xml` excludes every domain from cloud backup and from Android 12+'s device transfer. Uninstalling Stips+ removes it all; installing it again starts fresh, with the intro. Until v0.19 everything but the session, the chats widget's copy and the anonymous answers was backed up, so a reinstall got its settings back but not the session.
+Backups (`res/xml/backup_rules.xml`, and `data_extraction_rules.xml` for Android 12+'s cloud backup and device transfer) carry everything but `session` prefs, `anonymous_answers` prefs and `files/chats_widget.json`, so a reinstall gets its settings back but not the sign-in. Whether the intro was seen is the file `intro_seen` in Android's no-backup folder (`noBackupFilesDir`), never backed up, so a reinstall shows the intro anyway, with the restored settings (D-148; build 33 had turned backups off, D-146).
 
 ## 7. Platform integrations
 
@@ -152,7 +152,7 @@ Nothing else: no location, contacts or storage, and no permission to install app
 
 - HTTPS only (`usesCleartextTraffic=false`).
 - The password is sent once, by POST in the request body, to `https://stips.co.il/api`; it's never written to disk or logs.
-- The session token is stored app-private. Nothing is backed up or transferred to a new phone since v0.20 (`allowBackup="false"`, `dataExtractionRules`, D-146); until then the token and the list of questions answered anonymously were excluded (v0.14).
+- The session token is stored app-private and excluded from cloud backup and device transfer (`dataExtractionRules`, `fullBackupContent`), as is the list of questions answered anonymously (v0.14).
 - User-Agent: `StipsPlus/<version> (Android <release>; unofficial; +https://github.com/EyalShimshi/stips-plus)`. The repository was called `better-stips` until v0.16 (build 28); GitHub sends the old address to the new one.
 - No logging of request bodies. No third-party SDKs.
 - Updates (v0.18, D-134): the only other server is GitHub (`api.github.com` once a day), on its own client without cookies. Since v0.20 (D-145) the APK is downloaded by the browser, only from this repository's releases; Android's installer checks that it's signed with the app's key.

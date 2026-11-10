@@ -136,7 +136,10 @@ data class AppSettings(
     val chatHideReplyCarets: Boolean = true,
     /** Phone notifications include new chat messages (v0.12); off, they're only about answers, flowers and thanks. */
     val chatNotifications: Boolean = true,
-    /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
+    /**
+     * The first-run welcome (sign in, or go on as a guest) was answered (#8). Not read since build 34: backups restore
+     * it, so the intro's own marker is a file Android never backs up (D-148).
+     */
     val onboarded: Boolean = false,
     /** Swiping a question in a list to the right (left to right, in Hebrew too) and to the left (#18). */
     val swipeRight: QuestionSwipe = QuestionSwipe.Pin,

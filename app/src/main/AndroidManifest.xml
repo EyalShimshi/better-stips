@@ -16,14 +16,15 @@
     -->
 
     <!--
-      No backups (v0.20, D-146): reinstalling starts fresh, with the intro. allowBackup="false" stops cloud backups;
-      data_extraction_rules also stops Android 12+'s phone-to-phone transfer, which allowBackup doesn't.
+      Backups keep the settings across a reinstall, never the session (backup_rules, data_extraction_rules); the intro
+      still shows after one (D-148).
     -->
     <application
         android:name=".StipsApp"
-        android:allowBackup="false"
+        android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"

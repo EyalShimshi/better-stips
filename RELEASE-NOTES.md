@@ -1,4 +1,4 @@
-## Stips+ 0.20: no more Play Protect warning, a fresh start on reinstalling
+## Stips+ 0.20: no more Play Protect warning, and the intro on reinstalling
 
 **Play Protect**
 - Play Protect called builds 31 and 32 harmful. They were the first that could install their own updates, and to Play Protect a new app that downloads and installs apps looks like malware. From this build, Stips+ can't install apps at all, and doesn't ask for that permission.
@@ -6,14 +6,14 @@
 - Every build is now checked for this before it's published: it fails if it asks to install apps.
 
 **Reinstalling**
-- Nothing is backed up or moved to a new phone any more. Uninstalling removes everything, and installing again starts fresh, with the intro. Until now Android brought the old settings back, so the intro was skipped and you were signed out.
+- After a reinstall the intro shows again, and your settings come back from Android's backup as before, already chosen in the intro. Until now the backup also brought back "the intro was seen", so it was skipped and you landed signed out. (Build 33 turned backups off; build 34 keeps them and fixes the intro instead.)
 
 **The site**
 - www.shimshii.com has its security certificate now, so browsers don't warn about it any more.
 
 **To test**
 1. Install this build over 0.19, from this page or with Home's update card. Play Protect may offer to scan it, but it shouldn't call it harmful.
-2. Uninstall Stips+ and install this APK again. The intro should show.
+2. Uninstall Stips+ and install this APK again. The intro should show, with your look and Home settings already chosen (if Android had backed them up).
 3. Settings → About → *Check for updates* says you have the newest version. When the next build is out, *Update* opens it in the browser.
 4. Open www.shimshii.com/stips-plus on your phone. There should be no warning.
 

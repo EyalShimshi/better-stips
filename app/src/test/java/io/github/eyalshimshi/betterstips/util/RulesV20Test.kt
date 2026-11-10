@@ -11,8 +11,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * v0.20: Stips+ never installs apps itself, so Play Protect has no reason to take it for malware; *Update* opens the
- * new APK in the browser (D-145). And nothing is backed up, so reinstalling starts fresh, with the intro (D-146).
- * CI checks the APK as built for both too.
+ * new APK in the browser (D-145), and CI checks the APK as built for it too. Backups keep the settings across a
+ * reinstall but never the sign-in, and the intro shows anyway (D-148).
  */
 class RulesV20Test {
 
@@ -51,31 +51,31 @@ class RulesV20Test {
         }
     }
 
-    // --- No backups (D-146) ---
+    // --- Backups keep the settings, never the sign-in; the intro shows anyway (D-148) ---
 
     @Test
-    fun backups_nothingLeavesThePhone() {
+    fun backups_keepTheSettingsButNeverTheSignIn() {
         val manifest = source("AndroidManifest.xml").readText()
-        assertTrue("no cloud backup", manifest.contains("android:allowBackup=\"false\""))
-        assertFalse("Android 11's backup rules would be moot", manifest.contains("android:fullBackupContent"))
+        assertTrue(manifest.contains("android:allowBackup=\"true\""))
+        assertTrue(manifest.contains("android:fullBackupContent=\"@xml/backup_rules\""))
         assertTrue(manifest.contains("android:dataExtractionRules=\"@xml/data_extraction_rules\""))
-        val rules = DocumentBuilderFactory.newInstance().newDocumentBuilder()
-            .parse(source("res/xml/data_extraction_rules.xml")).documentElement
-        val everywhere = setOf(
-            "root", "file", "database", "sharedpref", "external",
-            "device_root", "device_file", "device_database", "device_sharedpref",
-        )
-        // allowBackup="false" doesn't stop Android 12+'s phone-to-phone transfer: the rules must, for both.
-        for (section in listOf("cloud-backup", "device-transfer")) {
-            val element = rules.getElementsByTagName(section).item(0) as? Element
-            assertNotNull(section, element)
-            assertEquals("$section includes nothing", 0, element!!.getElementsByTagName("include").length)
-            val excludes = element.getElementsByTagName("exclude")
-            val excluded = (0 until excludes.length).map { excludes.item(it) as Element }
-                .filter { it.getAttribute("path") == "." }
-                .map { it.getAttribute("domain") }
+        val neverBackedUp = setOf("sharedpref:session.xml", "sharedpref:anonymous_answers.xml", "file:chats_widget.json")
+        fun excluded(section: Element): Set<String> {
+            assertEquals("everything else is backed up", 0, section.getElementsByTagName("include").length)
+            val excludes = section.getElementsByTagName("exclude")
+            return (0 until excludes.length).map { excludes.item(it) as Element }
+                .map { it.getAttribute("domain") + ":" + it.getAttribute("path") }
                 .toSet()
-            assertEquals(section, everywhere, excluded)
+        }
+        fun parse(name: String) = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(source("res/xml/$name")).documentElement
+        // Android 11 and older.
+        assertEquals(neverBackedUp, excluded(parse("backup_rules.xml")))
+        // Android 12 and newer: cloud backups, and moving to a new phone.
+        val rules = parse("data_extraction_rules.xml")
+        for (name in listOf("cloud-backup", "device-transfer")) {
+            val section = rules.getElementsByTagName(name).item(0) as? Element
+            assertNotNull(name, section)
+            assertEquals(name, neverBackedUp, excluded(section!!))
         }
     }
 }

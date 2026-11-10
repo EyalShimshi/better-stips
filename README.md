@@ -51,8 +51,8 @@
 ## Privacy
 
 - **No ads, analytics or trackers.** No account of ours.
-- **Your password** goes only to Stips, once, when you sign in. The app keeps only the sign-in token Stips returns, in app-private storage.
-- **Saved questions, settings, hidden content, anonymous mode and load times** stay on the phone. So does the chats widget's copy of your latest chats, which is deleted when you sign out. Nothing is backed up or moved to a new phone: uninstalling Stips+ removes everything, and installing it again starts fresh.
+- **Your password** goes only to Stips, once, when you sign in. The app keeps only the sign-in token Stips returns, in app-private storage that's excluded from backups.
+- **Saved questions, settings, hidden content, anonymous mode and load times** stay on the phone. So does the chats widget's copy of your latest chats: it's left out of backups and deleted when you sign out. If you reinstall, Android's backup brings your settings back, and the intro shows with them already chosen.
 - **Crash reports** stay on the phone until you choose *Copy details* or *Report on GitHub*.
 
 **Every network call:**

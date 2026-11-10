@@ -106,8 +106,8 @@ jobs:
           set -o pipefail
           python3 tools/check_apk.py "stipsplus-${{ github.run_number }}.apk" 2>&1 | tee apk-check.txt
 
-      # The manifest as built, with the libraries' merged in. An unknown app that may install apps is what Play Protect
-      # takes for malware (D-145), and backups bring an uninstalled app's data back (D-146): neither may come back.
+      # The manifest as built, with the libraries' merged in: an unknown app that may install apps is what Play Protect
+      # takes for malware (D-145), so that permission may not come back.
       - name: Check the permissions
         run: |
           set -o pipefail
@@ -124,12 +124,7 @@ jobs:
             echo "::error::The APK may install apps (REQUEST_INSTALL_PACKAGES): Play Protect flags that (D-145)"
             exit 1
           fi
-          if ! grep -qE 'allowBackup[^=]*="?false' <<< "$manifest"; then
-            grep -i 'allowBackup' <<< "$manifest" || echo "(no allowBackup in the manifest)"
-            echo "::error::The APK allows backups: reinstalling would bring old data back (D-146)"
-            exit 1
-          fi
-          echo "No permission to install apps, and no backups." | tee -a apk-check.txt
+          echo "No permission to install apps." | tee -a apk-check.txt
 
       - name: Run unit tests
         id: tests
@@ -322,11 +317,11 @@ jobs:
             echo "---"
             echo
             if [ -f summary.md ]; then
-              echo "**Checked before publishing:** the unit tests, the APK check (constructors that libraries call by name, #7; no permission to install apps, no backups) and this launch test."
+              echo "**Checked before publishing:** the unit tests, the APK check (constructors that libraries call by name, #7; no permission to install apps) and this launch test."
               echo
               cat summary.md
             else
-              echo "**Checked before publishing:** the unit tests and the APK check (constructors that libraries call by name, #7; no permission to install apps, no backups). The launch test on an emulator was skipped for this hotfix ([skip launch])."
+              echo "**Checked before publishing:** the unit tests and the APK check (constructors that libraries call by name, #7; no permission to install apps). The launch test on an emulator was skipped for this hotfix ([skip launch])."
             fi
             echo
             echo "<sub>Commit ${GITHUB_SHA:0:7} · $(( ${APK_BYTES:-0} / 1024 )) KB · signing certificate SHA-256 ${APK_CERT:0:16}…</sub>"

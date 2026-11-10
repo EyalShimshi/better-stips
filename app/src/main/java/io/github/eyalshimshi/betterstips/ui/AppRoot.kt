@@ -151,6 +151,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.Instant
 import java.util.Locale
 
@@ -251,16 +252,18 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     }
 
     // The first launch after installing shows the intro (#8, #12): set the app up, then sign in or go on as a guest.
-    // Links and shortcuts skip it; Settings → About shows it again.
+    // Links and shortcuts skip it; Settings → About shows it again. After a reinstall Android may bring the settings
+    // back from its backup: the intro shows anyway, with them already chosen, since whether it was seen is kept where
+    // backups never go (D-148).
     var welcome by rememberSaveable {
         mutableStateOf(
-            !container.settings.settings.value.onboarded && !container.session.session.value.signedIn &&
+            !introSeen(context) && !container.session.session.value.signedIn &&
                 pendingLink == null && isFreshInstall(context),
         )
     }
     fun finishWelcome() {
         welcome = false
-        container.settings.update { it.copy(onboarded = true) }
+        markIntroSeen(context)
     }
     val showIntro = remember { { welcome = true } }
 
@@ -493,6 +496,18 @@ private fun isFreshInstall(context: Context): Boolean = try {
     info.firstInstallTime == info.lastUpdateTime
 } catch (e: Exception) {
     false
+}
+
+/**
+ * The intro was seen on this install (D-148): a file in Android's no-backup folder, which neither backups nor a move to
+ * another phone carry, unlike the settings.
+ */
+private fun introSeenFile(context: Context) = File(context.noBackupFilesDir, "intro_seen")
+
+private fun introSeen(context: Context): Boolean = introSeenFile(context).exists()
+
+private fun markIntroSeen(context: Context) {
+    runCatching { introSeenFile(context).createNewFile() }
 }
 
 private suspend fun fetchCounts(container: AppContainer): UnreadCounts? = try {
