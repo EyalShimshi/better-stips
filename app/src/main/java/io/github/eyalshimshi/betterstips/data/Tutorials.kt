@@ -4,8 +4,8 @@ import android.content.Context
 import io.github.eyalshimshi.betterstips.util.TutorialRules
 
 /**
- * Feature tips (#28): each shows until the user does what it teaches, or three times if they don't, and at most once
- * each time the app starts. Kept on this phone only.
+ * Feature tips (#28): each shows once (D-149), at most one per app start, and not at all once the user did what it
+ * teaches. Kept with this install only: left out of backups, so a reinstall shows them again, as it does the intro.
  */
 class Tutorials(context: Context) {
     enum class Tip {
@@ -32,7 +32,7 @@ class Tutorials(context: Context) {
     private val prefs = context.getSharedPreferences("tutorials", Context.MODE_PRIVATE)
     private val shownThisRun = mutableSetOf<Tip>()
 
-    /** [tip] can show now: not done, not yet shown three times, nor since the app started. */
+    /** [tip] can show now: not done, and not shown before (D-149). */
     @Synchronized
     fun due(tip: Tip): Boolean =
         tip !in shownThisRun && TutorialRules.due(prefs.getInt(shownKey(tip), 0), prefs.getBoolean(doneKey(tip), false))

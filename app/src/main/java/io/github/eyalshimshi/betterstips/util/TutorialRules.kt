@@ -4,8 +4,11 @@ import io.github.eyalshimshi.betterstips.data.model.ChatMessage
 
 /** Feature tips (#28): when one shows, and on what. Pure. */
 object TutorialRules {
-    /** A tip shows until the user does what it teaches, or this many times when they don't. */
-    const val MAX_SHOWS = 3
+    /**
+     * A tip shows once (D-149; three times until build 35): one that showed doesn't come back, after an update either,
+     * since the count stays with the install. Settings → About → *Show the tips again* starts them over.
+     */
+    const val MAX_SHOWS = 1
 
     fun due(shown: Int, done: Boolean): Boolean = !done && shown < MAX_SHOWS
 

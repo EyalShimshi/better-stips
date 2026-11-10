@@ -223,9 +223,9 @@ class RulesV18Test {
     // --- Tips (#28) ---
 
     @Test
-    fun tips_showUntilDoneOrThreeTimes() {
+    fun tips_showOnceUnlessDone() {
         assertTrue(TutorialRules.due(shown = 0, done = false))
-        assertTrue(TutorialRules.due(shown = 2, done = false))
+        assertFalse("once is enough, after an update too", TutorialRules.due(shown = 1, done = false))
         assertFalse(TutorialRules.due(shown = 3, done = false))
         assertFalse(TutorialRules.due(shown = 0, done = true))
     }

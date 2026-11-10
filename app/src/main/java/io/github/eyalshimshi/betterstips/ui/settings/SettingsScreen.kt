@@ -1146,7 +1146,7 @@ private fun AboutPage(container: AppContainer, settings: AppSettings, onOpenPage
         onClick = showIntro,
         icon = Icons.Outlined.AutoAwesome,
     )
-    // The tips (#28) start over: each shows again up to three times, until its gesture is used.
+    // The tips (#28) start over: each shows once more, unless its gesture is used first.
     val tipsResetText = stringResource(R.string.tips_reset_done)
     GroupRow(
         title = stringResource(R.string.settings_reset_tips),

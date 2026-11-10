@@ -8,6 +8,9 @@
 **Reinstalling**
 - After a reinstall the intro shows again, and your settings come back from Android's backup as before, already chosen in the intro. Until now the backup also brought back "the intro was seen", so it was skipped and you landed signed out. (Build 33 turned backups off; build 34 keeps them and fixes the intro instead.)
 
+**Tips**
+- Each tip shows once. Updating the app no longer brings them all back (until now each could show three times, once per app start, and every update restarts the app). A reinstall shows them again, with the intro.
+
 **The site**
 - www.shimshii.com has its security certificate now, so browsers don't warn about it any more.
 

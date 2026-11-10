@@ -86,7 +86,7 @@ flowchart TD
 - Errors replace the list only when nothing is shown: "Can't reach Stips right now." + *Retry*. Otherwise a snackbar with *Retry*.
 - **A newer Stips+ (v0.18, D-134):** above everything, a primaryContainer card with ⟳: "Stips+ 0.18.32 is out", a line (it downloads from GitHub, then Android asks to confirm), and *What's new* · *Later* · *Update* (filled). While downloading, "Downloading… 42%" and a bar; when ready, *Install*. *Later* hides it until the next build. **Since v0.20 (D-145):** *Update* opens the APK in the browser, which downloads it; the line reads "Your browser downloads it from GitHub. Open the file, and Android asks you to confirm the update." No progress bar or *Install* any more.
 - **After pulling to refresh (v0.18, D-131):** the rows change in place; only Live and the entry check slide new ones in.
-- **Tips (v0.18, D-138):** as Home shows, the first question in sight slides most of the way right, with a dark pill over it ("Swipe right: Pin or unpin"), back, then left; afterwards a pill under the Live chip, "Long-press Live to choose how often it checks". Each until it's used, three times at most.
+- **Tips (v0.18, D-138):** as Home shows, the first question in sight slides most of the way right, with a dark pill over it ("Swipe right: Pin or unpin"), back, then left; afterwards a pill under the Live chip, "Long-press Live to choose how often it checks". Each once, unless it's used first (three times at most until v0.20, D-149).
 
 ### 5.2 Question (compact hero)
 

@@ -59,7 +59,11 @@ class RulesV20Test {
         assertTrue(manifest.contains("android:allowBackup=\"true\""))
         assertTrue(manifest.contains("android:fullBackupContent=\"@xml/backup_rules\""))
         assertTrue(manifest.contains("android:dataExtractionRules=\"@xml/data_extraction_rules\""))
-        val neverBackedUp = setOf("sharedpref:session.xml", "sharedpref:anonymous_answers.xml", "file:chats_widget.json")
+        val neverBackedUp = setOf(
+            "sharedpref:session.xml", "sharedpref:anonymous_answers.xml", "file:chats_widget.json",
+            // Which tips showed: a reinstall shows them again, as it does the intro (D-149).
+            "sharedpref:tutorials.xml",
+        )
         fun excluded(section: Element): Set<String> {
             assertEquals("everything else is backed up", 0, section.getElementsByTagName("include").length)
             val excludes = section.getElementsByTagName("exclude")

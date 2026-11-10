@@ -2,17 +2,19 @@
 <!--
   Android 12 and newer: the Stips session token, the chats widget's copy of your chats, and which questions you
   answered anonymously (#14) never leave the phone. Settings do, so a reinstall gets them back; the intro still shows,
-  since its marker is in the no-backup folder, which Android never backs up (D-148).
+  since its marker is in the no-backup folder, which Android never backs up (D-148); so do the tips, whose record isn't backed up (D-149).
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="session.xml" />
         <exclude domain="sharedpref" path="anonymous_answers.xml" />
         <exclude domain="file" path="chats_widget.json" />
+        <exclude domain="sharedpref" path="tutorials.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="session.xml" />
         <exclude domain="sharedpref" path="anonymous_answers.xml" />
         <exclude domain="file" path="chats_widget.json" />
+        <exclude domain="sharedpref" path="tutorials.xml" />
     </device-transfer>
 </data-extraction-rules>
