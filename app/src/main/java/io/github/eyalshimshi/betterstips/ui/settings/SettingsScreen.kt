@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.outlined.Login
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.TouchApp
 import android.widget.Toast
@@ -337,10 +338,14 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
     CreatorCredit()
 }
 
-/** Who made Stips+ (#26): a small line at the very bottom of Settings, and a button to his profile in the app. */
+/**
+ * Who made Stips+ (#26): a small line at the very bottom of Settings, a button to his profile in the app, and one to buy
+ * him a coffee (v0.19), which opens in the browser.
+ */
 @Composable
 private fun CreatorCredit() {
     val openProfile = LocalOpenProfile.current
+    val context = LocalContext.current
     Column(
         Modifier
             .fillMaxWidth()
@@ -354,14 +359,25 @@ private fun CreatorCredit() {
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(6.dp))
-        FilledTonalButton(
-            onClick = { openProfile(SpecialAccounts.CREATOR_ID) },
-            contentPadding = PaddingValues(start = 12.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
-            modifier = Modifier.height(32.dp),
-        ) {
-            Icon(Icons.Outlined.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.credit_profile), style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(
+                onClick = { openProfile(SpecialAccounts.CREATOR_ID) },
+                contentPadding = PaddingValues(start = 12.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Icon(Icons.Outlined.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.credit_profile), style = MaterialTheme.typography.labelMedium)
+            }
+            FilledTonalButton(
+                onClick = { openInBrowser(context, AppContainer.COFFEE_URL) },
+                contentPadding = PaddingValues(start = 12.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                modifier = Modifier.height(32.dp),
+            ) {
+                Icon(Icons.Outlined.LocalCafe, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.credit_coffee), style = MaterialTheme.typography.labelMedium)
+            }
         }
     }
 }

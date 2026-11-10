@@ -787,6 +787,9 @@ private data class ModeratorBadge(val rank: ModeratorRank, val female: Boolean)
 /** How long a jumped-to answer glows (v0.10). */
 private const val HIGHLIGHT_MS = 2_000L
 
+/** An answerer's photo; the flower mark and the send-flower button's flower are as big (v0.19). */
+private val ANSWER_AVATAR = 28.dp
+
 /** Answers just below the screen whose authors are looked up too, so marks are ready when they scroll in. */
 private const val LOOKAHEAD = 3
 
@@ -993,7 +996,7 @@ private fun QuestionContent(
                         highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
                         moderator = moderatorOf(answer),
                         onShowHistory = if (answer.edited) ({ onHistory(answer) }) else null,
-                        special = if (answer.author.anonymous) null else SpecialAccounts.badge(answer.author.userId),
+                        special = if (answer.author.anonymous) null else SpecialAccounts.contentBadge(answer.author.userId),
                         swipeLeft = swipeEntry?.let { entry ->
                             SwipeSpec(entry.label, entry.icon, entry.destructive) {
                                 if (answer.isOwner) tutorials.done(Tutorials.Tip.MyAnswerSwipe)
@@ -1143,7 +1146,7 @@ private fun QuestionHero(
 ) {
     val showImages = LocalAppSettings.current.showImages
     val loader = LocalAppContainer.current.imageLoader
-    val askerSpecial = if (question.author.anonymous) null else SpecialAccounts.badge(question.author.userId)
+    val askerSpecial = if (question.author.anonymous) null else SpecialAccounts.contentBadge(question.author.userId)
     val surface = MaterialTheme.colorScheme.surface
     val cover = question.cover
     val withImage = cover != null && showImages
@@ -1496,7 +1499,7 @@ private fun AnswerCard(
         ) {
             Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(answer.author, 28.dp)
+                    Avatar(answer.author, ANSWER_AVATAR)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1539,8 +1542,8 @@ private fun AnswerCard(
                         if (expert) ExpertLine(ExpertFields.answerLine(answer))
                     }
                     if (answer.flowered) {
-                        // Stips' own flower, in its colors (v0.18, #27).
-                        FlowerIcon(Modifier.padding(horizontal = 6.dp), contentDescription = stringResource(R.string.flower_cd))
+                        // Stips' own flower, in its colors (v0.18, #27), as big as the answerer's photo (v0.19).
+                        FlowerIcon(Modifier.padding(horizontal = 6.dp), size = ANSWER_AVATAR, contentDescription = stringResource(R.string.flower_cd))
                     }
                     ActionMenuButton(entries = menu, description = stringResource(R.string.answer_actions))
                 }
@@ -1593,9 +1596,9 @@ private fun AnswerCard(
                     if (showFlowerButton) {
                         TextButton(onClick = onFlower, enabled = !flowering) {
                             if (flowering) {
-                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
-                                FlowerIcon(size = 18.dp)
+                                FlowerIcon(size = ANSWER_AVATAR)
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.send_flower))

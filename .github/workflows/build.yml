@@ -3,8 +3,6 @@ name: Build
 on:
   push:
     branches: [main]
-    # The Stips+ page (docs/, #24) goes out through GitHub Pages: a push that changes only it builds no app.
-    paths-ignore: ["docs/**"]
   workflow_dispatch:
 
 # Read-only by default (#14): only the jobs that publish (release, report) can write, each saying so itself.

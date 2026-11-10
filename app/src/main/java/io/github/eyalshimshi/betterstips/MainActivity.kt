@@ -20,6 +20,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.StipsTheme
 import io.github.eyalshimshi.betterstips.ui.theme.isDarkTheme
 import io.github.eyalshimshi.betterstips.util.DeepLink
 import io.github.eyalshimshi.betterstips.util.Links
+import io.github.eyalshimshi.betterstips.util.ShareRules
 import io.github.eyalshimshi.betterstips.util.Shortcuts
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -85,6 +86,10 @@ class MainActivity : ComponentActivity() {
     private fun linkFrom(intent: Intent?): DeepLink? {
         // A notice from Stips' team opens over the app, in full (v0.18, #27); only from Stips+'s own notifications.
         intent?.let { Notifier.noticeFrom(this, it) }?.let { return DeepLink.TeamNotice(it) }
+        // Text shared from another app (v0.19): the chats picker. Any app may start this; it only fills in the picker.
+        if (intent != null && intent.action == ShareActivity.ACTION_SEND_TO_CHATS) {
+            return ShareRules.clean(intent.getCharSequenceExtra(Intent.EXTRA_TEXT))?.let { DeepLink.SendTo(it) }
+        }
         val link = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)
         // A phone notification says where to open its question (v0.10).
         val focus = intent?.let { Notifier.focusFrom(it) }

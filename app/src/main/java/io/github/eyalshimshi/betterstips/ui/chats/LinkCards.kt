@@ -157,7 +157,7 @@ private fun PersonCardContent(profile: UserProfile, page: ProfilePage?, content:
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                SpecialAccounts.badge(profile.userId)?.let { entry ->
+                SpecialAccounts.contentBadge(profile.userId)?.let { entry ->
                     Spacer(Modifier.width(6.dp))
                     SpecialBadgePill(entry)
                 }

@@ -245,6 +245,9 @@ class AppContainer(private val app: Application) {
 
     companion object {
         const val REPO_URL = "https://github.com/EyalShimshi/stips-plus"
+
+        /** Settings' "Buy me a coffee" (v0.19): the creator's page on Buy Me a Coffee, opened in the browser. */
+        const val COFFEE_URL = "https://buymeacoffee.com/eyalshimshi"
     }
 }
 

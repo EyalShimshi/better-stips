@@ -878,9 +878,7 @@
     <!-- v0.18 -->
     <string name="bio_promo_quote">היא תתווסף מעל הציטוט שלך, „~ %1$s ~”, שנשאר אחרון, כדי שסטיפס ימשיך להציג אותו כציטוט.</string>
     <string name="profile_bio_quote_hint">טיפ: אם השורה האחרונה כתובה בין טילדות, כמו ~ מה ~, סטיפס מציג אותה מתחת לביו כציטוט שלך.</string>
-    <string name="share_open_label">פתיחה ב-Stips+\u200E</string>
-    <string name="share_no_link">במה ששותף אין קישור לשאלה, לפרופיל או לשיחה בסטיפס.</string>
-    <string name="credit_made_by">נוצר באהבה על ידי אייל שמשי</string>
+    <string name="credit_made_by">נוצר באהבה על ידי אייל שימשי ❤️</string>
     <string name="credit_profile">אייל בסטיפס</string>
     <string name="update_title">יצאה גרסה חדשה: Stips+\u200E %1$s</string>
     <string name="update_body">הגרסה תרד מ-GitHub, ואז אנדרואיד יבקש לאשר את העדכון.</string>
@@ -919,4 +917,25 @@
     <string name="settings_reset_tips">להציג שוב את הטיפים</string>
     <string name="settings_reset_tips_summary">רמזים קטנים על ההחלקות ועל עוד דברים ש-Stips+\u200E מוסיף</string>
     <string name="tips_reset_done">הטיפים יוצגו שוב</string>
+    <!-- v0.19 -->
+    <string name="credit_coffee">קנו לי קפה</string>
+    <string name="share_no_text">במה ששותף אין טקסט לשליחה.</string>
+    <string name="send_to_title">שליחה אל…</string>
+    <string name="send_to_up_to">עד %1$d שיחות</string>
+    <string name="send_to_count">נבחרו %1$d מתוך %2$d</string>
+    <string name="send_to_full">אפשר לשלוח לעד %1$d שיחות בבת אחת</string>
+    <string name="send_to_failed">לא הצלחנו לשלוח. אפשר לנסות שוב.</string>
+    <string name="send_to_partly">לא הצלחנו לשלוח אל: %1$s</string>
+    <string name="send_to_message">ההודעה</string>
+    <string name="message_reply">הגב</string>
+    <string name="message_copy">העתק</string>
+    <string name="message_forward">העבר</string>
+    <string name="message_share">שתף</string>
+    <string name="message_actions">אפשרויות ההודעה</string>
+    <plurals name="send_to_sent">
+        <item quantity="one">ההודעה נשלחה לשיחה אחת</item>
+        <item quantity="two">ההודעה נשלחה לשתי שיחות</item>
+        <item quantity="many">ההודעה נשלחה ל־%d שיחות</item>
+        <item quantity="other">ההודעה נשלחה ל־%d שיחות</item>
+    </plurals>
 </resources>

@@ -151,10 +151,15 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-97 | Credit (#26, v0.18) | P2 | The creator's badge; a line at the bottom of Settings and on the intro's last page |
 | F-98 | The app's page (#24, v0.18) | P1 | www.shimshii.com/stips-plus: what Stips+ is, in Hebrew and English, and the newest build to download |
 | F-99 | Updates inside the app (#25, v0.18) | P1 | Once a day GitHub is asked for a newer build; Home offers it, *Update* downloads and checks it and opens Android's installer |
-| F-100 | Share → Stips+ (v0.18) | P2 | A Stips link shared from any app opens in Stips+ |
+| F-100 | Share → Stips+ (v0.18) | P2 | A Stips link shared from any app opens in Stips+. Replaced by F-104 in v0.19 |
 | F-101 | Link cards in chats (v0.18) | P1 | A question or profile link in a message shows as a card; on its own line, the card takes its place |
 | F-102 | Reply in private (v0.18) | P1 | From a question's ⋮ menu, or a swipe: a chat with the asker (or answerer) about the question |
 | F-103 | Tips (#28, v0.18) | P2 | Small hints about the swipes, Live's options and notes to self, each until it's used or three times |
+| F-104 | Share to chats (v0.19) | P1 | Text shared from any app goes to up to 5 chats at once (a fixed limit): notes first, recent chats, a search for anyone; plain text only |
+| F-105 | A message's menu (v0.19) | P1 | A long press on a message: *Reply*, *Copy*, *Forward* (to up to 5 chats) and *Share* (other apps) |
+| F-106 | Bigger flowers (v0.19) | P2 | The flower on a flowered answer and in the send-a-flower button are as big as the answerer's photo |
+| F-107 | The creator's badge on his profile only (v0.19) | P2 | Not by his name on answers, questions or chat cards |
+| F-108 | Buy me a coffee (v0.19) | P2 | A button by the credit at the end of Settings |
 
 ## 7. Non-functional requirements
 

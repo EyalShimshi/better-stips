@@ -65,7 +65,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `….widget` | The "Hot right now" widget: `HotWidget` (Glance UI), `HotWidgetReceiver`, `RefreshHotWidget` (⟳), `HotWidgetFeed` (its list and refresh rules). The chats widget: `ChatsWidget`, `ChatsWidgetReceiver`, `RefreshChatsWidget`, `ChatsWidgetFeed` (D-67) |
 | `….diag` | `NetLog`: the in-memory network log (#3) |
 | `….ui.ask`, `.penpals` | Asking a question; the pen-pals board |
-| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), which notifications and chats reach the phone (`NotifyRules`, v0.11), links and deep links, launcher shortcut actions, HTML-to-text and HTML entities decoded once (`TextUtils.decodeEntities`, v0.12; the parsers' `text()` reads every field people wrote through it), Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG); v0.14: `EmojiFilter`, `JumpScroll`, `ImageLinks`, `ThreadExport`, `BioPromo` (pure) |
+| `….util` | Time parsing and relative formatting, answer validation and display order, Stips' caret replies (`ReplyRefs`), where notifications open (`JumpRules`), which notifications and chats reach the phone (`NotifyRules`, v0.11), links and deep links, launcher shortcut actions, HTML-to-text and HTML entities decoded once (`TextUtils.decodeEntities`, v0.12; the parsers' `text()` reads every field people wrote through it), Hebrew spans (pure); `ImagePrep` (profile photo: EXIF upright, square, JPEG); v0.14: `EmojiFilter`, `JumpScroll`, `ImageLinks`, `ThreadExport`, `BioPromo` (pure); v0.19: `ShareRules` (pure: shared text made plain, the five-chat limit, a forwarded message without its carets) |
 | `….crash` | Crash catcher |
 
 ## 4. UI layer
@@ -105,6 +105,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `AppUpdates` (v0.18) | Stips+'s own updates (D-134): `UpdateRules` (pure) reads GitHub's list of releases (pre-releases too) for the newest `build-N` with `stipsplus-N.apk`; a separate OkHttp client without cookies asks once a day as the app comes to the screen; the download goes to `cache/updates/`, only from the repository's release files, and must match GitHub's size and SHA-256 (`digest`) before a `FileProvider` (`<package>.updates`) hands it to Android's installer. `SELF_UPDATE` turns it off for a Play build |
 | `LinkPreviews` (v0.18) | What chat link cards show (D-136): a question (from the repository's cache when a list showed it, else `omniobj GET ask`) or a person (`omniobj GET user` and `profile.page_data`), kept for the app's session; one read at a time, waiting while `RateGuard` has no room; "missing" when Stips says there's nothing |
 | `Tutorials` (v0.18) | The tips (D-138): per tip, how often it showed and whether its gesture was used (prefs `tutorials`), and which showed since the app started; `TutorialRules` (pure). `SwipeDrag.peek` slides an item as a drag (a finger takes over); `SwipeHintEffect` and `TipPill` show the words |
+| `SendToViewModel` (v0.19) | *Send to…* (D-139): the picked people in order, at most `ShareRules.MAX_RECIPIENTS` (5, a constant, not a setting); sends the text to each in turn with `StipsRepository.sendMessage`, and reports whom it reached and whom it didn't; when none, the picks stay. The list itself is `ChatsViewModel`'s (paging as on Chats) and the people search Chats' own |
 | Crash catcher | Default uncaught-exception handler writes `crash.txt` (version, device, stack trace), then defers to the system handler. Installed in `StipsApp.attachBaseContext`, before the libraries' start-up providers run (#7). The next launch shows the dialog |
 
 ## 6. Data layer
@@ -126,8 +127,8 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 
 ## 7. Platform integrations
 
-- `ACTION_SEND` for sharing links; `ACTION_VIEW` for the site, sign-up and password reset.
-- A share target (v0.18, D-135): `ShareLinkActivity` (no window, not in recents) takes `text/plain`, finds the first Stips link in it (`Links.sharedLink`) and opens it in `MainActivity`; otherwise a short toast.
+- `ACTION_SEND` for sharing links and, since v0.19, a message's text (its *Share*); `ACTION_VIEW` for the site, sign-up and password reset.
+- A share target (v0.19, D-139; v0.18 opened shared Stips links, D-135): `ShareActivity` (no window, not in recents) takes `text/plain` only, makes it plain with `ShareRules.clean` and hands it to `MainActivity` (`ACTION_SEND_TO_CHATS`), which cleans it again (the action can come from any app) and opens *Send to…*; without text, a short toast. Nothing is sent before the user picks chats and taps send.
 - Intent filter for `https://stips.co.il/ask/…`, `/profile/…` and `/messages` (no `autoVerify`; users enable it under *Open by default*).
 - `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on), `RECEIVE_BOOT_COMPLETED` (keeps the persisted job) and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (Android's own "let Stips+ run in the background?" dialog, v0.11). The photo picker (`PickVisualMedia`) needs no storage permission.
 - System splash (Android 12+) from the window background; adaptive + themed (monochrome) launcher icon of our own (no Stips logo).

@@ -102,6 +102,7 @@ import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
+import io.github.eyalshimshi.betterstips.ui.chats.SendToScreen
 import io.github.eyalshimshi.betterstips.ui.account.BanScreen
 import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
 import io.github.eyalshimshi.betterstips.ui.components.ImageLinkViewer
@@ -171,6 +172,7 @@ object Routes {
     const val NETLOG = "netlog"
     const val PENPALS = "penpals"
     const val ASK = "ask?channel={channel}"
+    const val SEND_TO = "send?text={text}"
 
     /** A question; from a notification, with where to open it (v0.10). */
     fun question(id: Long, focus: QuestionFocus? = null): String =
@@ -187,6 +189,9 @@ object Routes {
     fun user(id: Long) = "user/$id"
     fun ask(channelId: Int?) = if (channelId != null) "ask?channel=$channelId" else "ask"
     fun settingsPage(page: SettingsPage) = "settings/" + page.route
+
+    /** Picking up to five chats for [text] (v0.19): shared from another app, or forwarded from a chat. */
+    fun sendTo(text: String) = "send?text=" + Uri.encode(text)
 
     /** The tab the app opens on (#8). */
     fun tab(start: StartTab) = when (start) {
@@ -436,6 +441,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
                     navController,
                     Modifier.padding(padding),
                     onNotificationsSeen = { counts = counts.copy(notifications = 0) },
+                    onMessage = { text -> scope.launch { snackbar.showSnackbar(text) } },
                 )
             }
             AnimatedVisibility(
@@ -536,6 +542,7 @@ private fun openLink(navController: NavHostController, link: DeepLink) {
         DeepLink.Hot -> navController.navigate(Routes.HOT) { launchSingleTop = true }
         // Shown over the app by AppRoot, not a screen to go to (v0.18).
         is DeepLink.TeamNotice -> Unit
+        is DeepLink.SendTo -> navController.navigate(Routes.sendTo(link.text))
     }
 }
 
@@ -700,9 +707,10 @@ private class NavMotion(private val animate: Boolean) {
 }
 
 @Composable
-private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit) {
+private fun AppNavHost(navController: NavHostController, modifier: Modifier, onNotificationsSeen: () -> Unit, onMessage: (String) -> Unit) {
     val animate = LocalAppSettings.current.motion.screens
     val container = LocalAppContainer.current
+    val context = LocalContext.current
     val session by container.session.session.collectAsStateWithLifecycle()
     val signedIn = session.signedIn
     val motion = remember(animate) { NavMotion(animate) }
@@ -716,6 +724,7 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
     fun openSaved() = navController.navigate(Routes.SAVED)
     fun openSettings() = navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
     fun signIn() = navController.navigate(Routes.SIGN_IN) { launchSingleTop = true }
+    fun sendTo(text: String) = navController.navigate(Routes.sendTo(text))
     fun back() {
         navController.popBackStack()
     }
@@ -851,7 +860,46 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
                 userId = entry.arguments?.getLong("userId") ?: 0L,
                 name = entry.arguments?.getString("name").orEmpty(),
                 onBack = ::back,
+                onForward = ::sendTo,
                 about = entry.arguments?.getLong("about")?.takeIf { it > 0L },
+            )
+        }
+        composable(
+            Routes.SEND_TO,
+            arguments = listOf(
+                navArgument("text") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+        ) { entry ->
+            val notesName = stringResource(R.string.notes_title)
+            SendToScreen(
+                text = entry.arguments?.getString("text").orEmpty(),
+                onClose = ::back,
+                onSignIn = ::signIn,
+                onSent = { sent, failed ->
+                    // One chat: it opens, as in WhatsApp (or the chat it was forwarded from shows again). Several: back.
+                    val one = sent.singleOrNull()
+                    val oneId = one?.userId
+                    val previous = navController.previousBackStackEntry
+                    val sameChat = previous != null && previous.destination.route == Routes.CONVERSATION &&
+                        previous.arguments?.getLong("userId") == oneId
+                    if (one != null && oneId != null && !sameChat) {
+                        navController.navigate(Routes.conversation(oneId, one.nickname)) {
+                            popUpTo(Routes.SEND_TO) { inclusive = true }
+                        }
+                    } else {
+                        navController.popBackStack()
+                    }
+                    val names = failed.joinToString(", ") { if (it.userId == session.userId) notesName else it.nickname }
+                    val message = when {
+                        failed.isNotEmpty() -> context.getString(R.string.send_to_partly, names)
+                        sent.size > 1 -> context.resources.getQuantityString(R.plurals.send_to_sent, sent.size, sent.size)
+                        else -> null
+                    }
+                    if (message != null) onMessage(message)
+                },
             )
         }
         composable(Routes.MY_LIST, arguments = listOf(navArgument("kind") { type = NavType.StringType })) { entry ->

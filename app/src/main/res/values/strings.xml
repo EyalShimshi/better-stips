@@ -842,9 +842,7 @@
     <!-- v0.18 -->
     <string name="bio_promo_quote">It goes above your quote, “~ %1$s ~”, which stays last, so Stips still shows it as your quote.</string>
     <string name="profile_bio_quote_hint">Tip: end with a line like ~ your words ~ and Stips shows it under your bio as your quote.</string>
-    <string name="share_open_label">Open in Stips+</string>
-    <string name="share_no_link">There\'s no link to a Stips question, profile or chat in what was shared.</string>
-    <string name="credit_made_by">Made with love by Eyal Shimshi</string>
+    <string name="credit_made_by">Made with love by Eyal Shimshi ❤️</string>
     <string name="credit_profile">Eyal on Stips</string>
     <string name="update_title">Stips+ %1$s is out</string>
     <string name="update_body">It downloads from GitHub, then Android asks you to confirm the update.</string>
@@ -883,4 +881,23 @@
     <string name="settings_reset_tips">Show the tips again</string>
     <string name="settings_reset_tips_summary">Little hints about the swipes and other things Stips+ adds</string>
     <string name="tips_reset_done">The tips will show again</string>
+    <!-- v0.19 -->
+    <string name="credit_coffee">Buy me a coffee</string>
+    <string name="share_no_text">There\'s no text to send in what was shared.</string>
+    <string name="send_to_title">Send to…</string>
+    <string name="send_to_up_to">Up to %1$d chats</string>
+    <string name="send_to_count">%1$d of %2$d picked</string>
+    <string name="send_to_full">You can send to up to %1$d chats at once</string>
+    <string name="send_to_failed">Couldn\'t send. Try again.</string>
+    <string name="send_to_partly">Couldn\'t send to %1$s</string>
+    <string name="send_to_message">Message</string>
+    <string name="message_reply">Reply</string>
+    <string name="message_copy">Copy</string>
+    <string name="message_forward">Forward</string>
+    <string name="message_share">Share</string>
+    <string name="message_actions">message options</string>
+    <plurals name="send_to_sent">
+        <item quantity="one">Sent to %d chat</item>
+        <item quantity="other">Sent to %d chats</item>
+    </plurals>
 </resources>

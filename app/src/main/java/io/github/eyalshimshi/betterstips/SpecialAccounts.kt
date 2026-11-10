@@ -24,6 +24,8 @@ object SpecialAccounts {
          * with the blue check and "Stips' own account".
          */
         val official: Boolean = false,
+        /** The badge shows on the account's profile only, never by its name on questions, answers or chat cards (v0.19). */
+        val profileOnly: Boolean = false,
     ) {
         val hasBadge: Boolean get() = badgeHe != null || badgeEn != null
     }
@@ -34,9 +36,10 @@ object SpecialAccounts {
     val ALL: List<Entry> = listOf(
         // ד"ר נדב דפני, who created Stips (#12).
         Entry(2042, badgeHe = "יוצר סטיפס", badgeEn = "Stips' creator", color = 0xFFD99A00.toInt()),
-        // Eyal Shimshi, who made Stips+ (#26), in its colors. The left-to-right mark keeps the "+" after "Stips" in
-        // Hebrew, where it would otherwise show as "+Stips"; "סטיפס+" would read almost as Stips' creator's.
-        Entry(CREATOR_ID, badgeHe = "יוצר Stips+\u200E", badgeEn = "Stips+ creator", gradient = STIPS_PLUS_COLORS),
+        // Eyal Shimshi, who made Stips+ (#26), in its colors, on his profile only (v0.19). The left-to-right mark keeps
+        // the "+" after "Stips" in Hebrew, where it would otherwise show as "+Stips"; "סטיפס+" would read almost as
+        // Stips' creator's.
+        Entry(CREATOR_ID, badgeHe = "יוצר Stips+\u200E", badgeEn = "Stips+ creator", gradient = STIPS_PLUS_COLORS, profileOnly = true),
         // Sahar: emotional support volunteers (#8).
         Entry(10486, verified = true),
         // Net Knights (אבירי הרשת): online safety (#8).
@@ -57,8 +60,11 @@ object SpecialAccounts {
 
     fun entry(userId: Long?): Entry? = userId?.let { byId[it] }
 
-    /** The account's badge, when it has one. Callers pass null for anonymous authors. */
+    /** The account's badge, when it has one, for its profile. Callers pass null for anonymous authors. */
     fun badge(userId: Long?): Entry? = entry(userId)?.takeIf { it.hasBadge }
+
+    /** The badge by the account's name on its questions, answers and chat cards: not one for the profile only (v0.19). */
+    fun contentBadge(userId: Long?): Entry? = badge(userId)?.takeIf { !it.profileOnly }
 
     /** Who made Stips+ (#26): Settings ends with a line about him and a button to his profile. */
     const val CREATOR_ID: Long = 275580

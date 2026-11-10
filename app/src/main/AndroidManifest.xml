@@ -55,12 +55,15 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- "Share → Stips+" (v0.18): a Stips link shared from another app opens in Stips+'s own window. Shows nothing. -->
+        <!--
+          "Share → Stips+" (v0.19): text shared from another app goes to up to five chats, picked in Stips+'s own
+          window. Plain text only, so pictures and files aren't offered to Stips+. Shows nothing itself, and is listed
+          in the share sheet under the app's own name.
+        -->
         <activity
-            android:name=".ShareLinkActivity"
+            android:name=".ShareActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:label="@string/share_open_label"
             android:noHistory="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.NoDisplay">

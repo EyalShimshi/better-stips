@@ -53,8 +53,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.ContentCopy
+import io.github.eyalshimshi.betterstips.ui.components.shareText
+import io.github.eyalshimshi.betterstips.util.ShareRules
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Block
@@ -204,7 +209,7 @@ private const val REPORT_DETAILS_MAX = 500
 private val UNREAD_TOP_MARGIN = 48.dp
 
 /** Stips opens messages to users with this many flowers; moderators always (the site's MIN_FLOWERS_TO_SEND_MESSAGE). */
-private const val MIN_FLOWERS_TO_MESSAGE = 5
+internal const val MIN_FLOWERS_TO_MESSAGE = 5
 
 /** The site's reasons for reporting someone from a chat (`reports.send`, `itemtype: "usermsgs"`, `reason_id`). */
 private val reportReasons = listOf(
@@ -401,11 +406,11 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
 private const val PREFETCH_ROWS = 10
 
 /** What the search on top of Chats found on Stips (#20), and whether it's still looking. */
-private class PeopleSearch(val results: List<Author>, val searching: Boolean)
+internal class PeopleSearch(val results: List<Author>, val searching: Boolean)
 
 /** People whose nickname matches [query], as Home's search finds them (the site's `users/Search`), after a pause in typing. */
 @Composable
-private fun rememberPeopleSearch(query: String): PeopleSearch {
+internal fun rememberPeopleSearch(query: String): PeopleSearch {
     val repository = LocalAppContainer.current.repository
     var results by remember { mutableStateOf<List<Author>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -435,7 +440,7 @@ private const val PEOPLE_RESULTS = 8
 
 /** The search field on top of Chats (#20), shaped as Home's. */
 @Composable
-private fun ChatsSearchField(query: String, onQuery: (String) -> Unit) {
+internal fun ChatsSearchField(query: String, onQuery: (String) -> Unit) {
     val keyboard = LocalSoftwareKeyboardController.current
     val container = MaterialTheme.colorScheme.surfaceContainerHigh
     TextField(
@@ -470,7 +475,7 @@ private fun ChatsSearchField(query: String, onQuery: (String) -> Unit) {
 }
 
 @Composable
-private fun SearchLabel(text: String) {
+internal fun SearchLabel(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
@@ -553,7 +558,7 @@ private fun ShelfItem(label: String, onClick: () -> Unit, avatar: @Composable ()
  * look like a chat with someone. [ring] is the surface it sits on.
  */
 @Composable
-private fun NotesAvatar(me: Author, size: Dp, ring: Color = MaterialTheme.colorScheme.surface) {
+internal fun NotesAvatar(me: Author, size: Dp, ring: Color = MaterialTheme.colorScheme.surface) {
     Box {
         Avatar(me, size, clickable = false)
         val mark = (size * 0.38f).coerceAtLeast(16.dp)
@@ -614,8 +619,12 @@ private fun ConversationRow(conversation: Conversation, notes: Boolean = false, 
     )
 }
 
+/**
+ * One chat. [about]: "reply in private" on that question (v0.18). [onForward] opens the chats picker with a message's
+ * text (v0.19).
+ */
 @Composable
-fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit, about: Long? = null) {
+fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit, onForward: (String) -> Unit, about: Long? = null) {
     val vm = appViewModel { ConversationViewModel(it.repository, it.session, it.chatReadMarks, userId, about) }
     val state by vm.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
@@ -886,7 +895,10 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit, about: Lo
                             mine = message.fromUserId != null && message.fromUserId == myId,
                             expanded = message.id in state.expanded,
                             onClick = { vm.toggleTime(message.id) },
-                            onLongClick = { copyMessage(context, message.text, copiedText) },
+                            onCopy = { copyMessage(context, message.text, copiedText) },
+                            // Forwarded and shared without the carets that point at this chat's messages (v0.19).
+                            onForward = { onForward(ShareRules.forwardText(message.text)) },
+                            onShare = { shareText(context, ShareRules.forwardText(message.text)) },
                             reply = reply,
                             messages = state.messages,
                             authorOf = { m -> if (m.fromUserId != null && m.fromUserId == myId) youText else title },
@@ -1261,9 +1273,10 @@ private const val CHAT_HIGHLIGHT_MS = 2_000L
 private data class ChatHighlight(val messageId: Long, val nonce: Long)
 
 /**
- * A compact bubble with the text only: a tap shows its time, a long-press copies it (#6). Easy reply (v0.12): dragging
- * it from left to right (in Hebrew too) replies to it. A message that points up with carets shows the one it replies
- * to as a quote above its text, which stays as written.
+ * A compact bubble with the text only: a tap shows its time (#6); a long press opens a small menu (v0.19): reply, copy,
+ * forward to up to five chats in Stips+, or share outside it. Easy reply (v0.12): dragging it from left to right (in
+ * Hebrew too) replies to it. A message that points up with carets shows the one it replies to as a quote above its
+ * text, which stays as written.
  */
 @Composable
 private fun Bubble(
@@ -1271,7 +1284,9 @@ private fun Bubble(
     mine: Boolean,
     expanded: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onCopy: () -> Unit,
+    onForward: () -> Unit,
+    onShare: () -> Unit,
     reply: ReplyRefs.Resolved?,
     messages: List<ChatMessage>,
     authorOf: (ChatMessage) -> String,
@@ -1298,7 +1313,15 @@ private fun Bubble(
     // A tip slides the bubble a little to show the reply swipe (#28).
     val tip = rememberTipState()
     SwipeHintEffect(hint, drag, tip)
-    val replyLabel = stringResource(R.string.action_reply)
+    // The long-press menu (v0.19); the long press itself gives the haptic tick.
+    var menuOpen by remember { mutableStateOf(false) }
+    val openMenu: () -> Unit = { menuOpen = true }
+    val replyLabel = stringResource(R.string.message_reply)
+    val copyLabel = stringResource(R.string.message_copy)
+    val forwardLabel = stringResource(R.string.message_forward)
+    val shareLabel = stringResource(R.string.message_share)
+    val actionsLabel = stringResource(R.string.message_actions)
+    val replyAction = onSwipeReply
     val quoted = reply?.targets?.mapNotNull { messages.getOrNull(it) }.orEmpty()
     val inBody = remember(reply, messages) {
         reply?.inBody?.mapNotNull { (range, index) -> messages.getOrNull(index)?.let { TextTarget(range, it.id) } }.orEmpty()
@@ -1342,17 +1365,28 @@ private fun Bubble(
                     .widthIn(max = 300.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(container)
-                    .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    .combinedClickable(onClick = onClick, onLongClickLabel = actionsLabel, onLongClick = openMenu)
                     .semantics {
-                        val action = onSwipeReply
-                        if (action != null) {
-                            customActions = listOf(
+                        customActions = listOfNotNull(
+                            replyAction?.let { action ->
                                 CustomAccessibilityAction(replyLabel) {
                                     action()
                                     true
-                                },
-                            )
-                        }
+                                }
+                            },
+                            CustomAccessibilityAction(copyLabel) {
+                                onCopy()
+                                true
+                            },
+                            CustomAccessibilityAction(forwardLabel) {
+                                onForward()
+                                true
+                            },
+                            CustomAccessibilityAction(shareLabel) {
+                                onShare()
+                                true
+                            },
+                        )
                     }
                     .padding(horizontal = 12.dp, vertical = 7.dp),
             ) {
@@ -1366,7 +1400,7 @@ private fun Bubble(
                             onClick = { onJump(target.id) },
                         )
                     }
-                    shown.target?.let { ChatLinkCard(it, content, onLongClick) }
+                    shown.target?.let { ChatLinkCard(it, content, openMenu) }
                     if (shown.body.isNotBlank() || shown.target == null) {
                         LinkifiedText(
                             shown.body,
@@ -1376,6 +1410,42 @@ private fun Bubble(
                             onTarget = onJump,
                         )
                     }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    if (replyAction != null) {
+                        DropdownMenuItem(
+                            text = { Text(replyLabel) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                replyAction()
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(copyLabel) },
+                        leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onCopy()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(forwardLabel) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onForward()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(shareLabel) },
+                        leadingIcon = { Icon(Icons.Filled.Share, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onShare()
+                        },
+                    )
                 }
             }
             AnimatedVisibility(

@@ -16,8 +16,8 @@ import java.time.Instant
 
 /**
  * Pure rules added in v0.18: bios with a quote (#29), one sentence for a question's updates (#27), notices' targets in
- * phone notifications, shared links, the app's own updates (#25), the creator's badge (#26), the daily moderator check
- * (#31), links and "reply in private" in chats, and the tips (#28).
+ * phone notifications, the app's own updates (#25), the creator's badge (#26), the daily moderator check (#31), links
+ * and "reply in private" in chats, and the tips (#28). (Opening shared links went in v0.19, for sending to chats.)
  */
 class RulesV18Test {
 
@@ -80,19 +80,6 @@ class RulesV18Test {
         }
         assertNull(NotifyRules.decodeTarget("chat:1"))
         assertNull(NotifyRules.decodeTarget("ask:x"))
-    }
-
-    // --- Share → Stips+ ---
-
-    @Test
-    fun share_findsTheFirstLinkTheAppOpens() {
-        assertEquals(
-            "https://stips.co.il/ask/123",
-            Links.sharedLink("Look: https://example.com and https://stips.co.il/ask/123 wow"),
-        )
-        assertEquals("https://www.stips.co.il/profile/9", Links.sharedLink("https://www.stips.co.il/profile/9."))
-        assertNull(Links.sharedLink("https://example.com/ask/1"))
-        assertNull(Links.sharedLink(null))
     }
 
     // --- The app's own updates (#25) ---
