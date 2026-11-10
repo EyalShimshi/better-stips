@@ -32,7 +32,7 @@
 - **Notifications in order:** chips split the bell's list into *Updates*, *Flowers and thanks* and *System messages*, each counting what's new; notices from Stips' team stay pinned on top until you open them, and open in full, from their phone notification too; the rest is grouped by day, and **a question's updates are one row** that reads as one sentence with their total ("התקבלו 6 תשובות חדשות לשאלה: …"; a tap opens at the first new answer). Flowers show in Stips' own tulip colors, and older notifications load as you scroll. Long-press a row to mark it read or stop a question's updates. Optionally, rows show the question's title and photo (Settings → Notifications). A badge on the bell and on Chats (the bell's counts what's new even when the official app or the site saw it first), and optional **phone notifications** that pop up within minutes while you use your phone: new answers (one notification per question), flowers and thanks, Stips' team's notices, and one per chat with who wrote and what; tapping one marks it read. Each kind has its own Android channel, so you can give it a sound or silence it. Settings → Notifications shows the last check and anything in Android that holds them back, with *Check now* and *Send a test*.
 - **Intro:** the first launch sets the app up in a few steps: the look, Home's layout, how replies show and what swipes do, each with a picture that changes as you choose; then sign in or look around as a guest, and phone notifications. Settings → About shows it again.
 - **Tips:** small hints show what Stips+ adds as you meet it: an answer slides to show the reply swipe, your new answer shows what swiping it left does, a chat message shows the reply swipe, Home's rows show their two swipes (as you set them), and Live and your notes get a word each. Each shows until you use it, three times at most (Settings → About → *Show the tips again*).
-- **Updates inside the app:** once a day Stips+ asks GitHub whether a newer build is out, and Home offers it: *Update* downloads it, checks it's exactly the published file, and Android installs it after you confirm. Settings → About checks now, or turns the daily check off.
+- **Updates inside the app:** once a day Stips+ asks GitHub whether a newer build is out, and Home offers it: *Update* opens it in your browser, which downloads it; open the file and Android installs it after you confirm. Stips+ itself never downloads or installs apps. Settings → About checks now, or turns the daily check off.
 - **Share to chats:** share text from any app (WhatsApp, the browser) to Stips+ and send it to up to five chats at once, as in WhatsApp: your notes to self on top, then your recent chats, and a search for anyone on Stips. Text only; five is the most, so it can't be used to spam.
 - **Settings** in three groups: *Make it yours* (appearance, Home, questions and answers, DM settings), *On your phone* (notifications, widgets) and *More* (privacy and safety, Stips, about), each row saying what's chosen now. Pages with something to see start with a picture of it that changes with the switches. **Expert mode** (in About) adds ids, *Server details* (what Stips sent, copyable), load times, and **Diagnostics → Network log** for bug reports.
 - **Native feel:** Material 3, your wallpaper's colors (or Stips green), dark mode with pure black, right-to-left Hebrew, haptic feedback, and quick transitions that follow your finger on predictive back. **Animations your way** (Settings → Appearance): less (the default: no screen transitions, everything else quicker), full, none, or a custom mix. Messages at the bottom swipe away down or to the side.
@@ -41,8 +41,8 @@
 
 1. On the phone, open **[www.shimshii.com/stips-plus](https://www.shimshii.com/stips-plus)** and tap *Download*, or open the repository's **Releases** page and tap the newest `stipsplus-<number>.apk`. Each release's notes say what changed and how it was checked: every APK is opened on an Android emulator before it's published. Builds 7–9 crash on launch (#7); don't install them.
 2. Allow your browser to install unknown apps when Android asks.
-3. If Play Protect warns, choose **Install anyway**. Every build is signed with the same key, so new builds install over old ones.
-4. From then on, Stips+ offers new builds itself (Home, or Settings → About); Android asks once to let Stips+ install apps.
+3. Play Protect may offer to scan it first; that's fine. Every build is signed with the same key, so new builds install over old ones. (Play Protect flagged builds 31 and 32, the ones that could install their own updates. From build 33, Stips+ can't install apps at all.)
+4. From then on, Stips+ tells you about new builds (Home, or Settings → About), and *Update* downloads them in your browser.
 
 **From a computer (optional, needs Android's platform tools):** `adb install -r stipsplus-<number>.apk`
 
@@ -51,8 +51,8 @@
 ## Privacy
 
 - **No ads, analytics or trackers.** No account of ours.
-- **Your password** goes only to Stips, once, when you sign in. The app keeps only the sign-in token Stips returns, in app-private storage that's excluded from backups.
-- **Saved questions, settings, hidden content, anonymous mode and load times** stay on the phone. So does the chats widget's copy of your latest chats: it's left out of backups and deleted when you sign out.
+- **Your password** goes only to Stips, once, when you sign in. The app keeps only the sign-in token Stips returns, in app-private storage.
+- **Saved questions, settings, hidden content, anonymous mode and load times** stay on the phone. So does the chats widget's copy of your latest chats, which is deleted when you sign out. Nothing is backed up or moved to a new phone: uninstalling Stips+ removes everything, and installing it again starts fresh.
 - **Crash reports** stay on the phone until you choose *Copy details* or *Report on GitHub*.
 
 **Every network call:**

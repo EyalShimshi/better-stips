@@ -23,9 +23,11 @@
 | v0.17 rules (`RulesV17Test`) | Emoji codes in chats (the list's lines, `:nerd:` after text and after a time, two in a row, capitals and unknown names left, `{ic:N}` dropped, nothing without the list); Stips' system account through a chats list (the check, and codes in the last line); notes to self, the shelf (online, most recent first, without you), chat search by name and notes by theirs, the widget without notes; day headers (the oldest shown, midnight, no time) and what they say; the bell's rows (a question's updates together where the newest is, flowers apart, sections by the newest), where a row opens (all its new answers), its badge in rows, what counts as waiting (past what the bell showed and what checks read; nothing the bell showed comes back), when the page is read; phone notifications new by Stips+'s record (what other apps marked seen, done once the bell showed it, changed after, old ones never). `RulesV11Test`'s first check and "read" follow the new rules |
 | v0.18 rules (`RulesV18Test`) | Bios: the quote line (only last, only with more lines, not empty) and "I use Stips+" above it, the new link and the 1000 limit; one sentence with a question's total (numbers, words, one answer); notices' targets in phone notifications; GitHub's releases (the newest build with its APK, drafts and other tags and too-big files left out, the version's name, the digest), downloads only from the repository's releases and exactly as listed, the daily check (and a clock gone back, and an hour's wait after a check that got no answer); the creator's badge; badges checked daily; chat links (a link on its own line makes way for its card, at the start, the end or between; one in a sentence stays; profiles; reply carets shift with the text), "reply in private" (the link after the carets, then the words) and the previews without the link; who can be messaged; the tips (three times or done; the other person's newest message; Home's row keys) |
 | v0.19 rules (`RulesV19Test`) | Shared text made plain (spaces trimmed, Windows and old Mac line breaks, tabs kept, control characters and a picture's placeholder dropped, emoji whole, nothing left is no text), cut at 4000 with "…" and never through an emoji; at most five chats, a sixth refused, one let go makes room; a forwarded message without its opening carets (stacked, numbered, before a link) but as written when it's only carets, smileys left; the Stips+ creator's badge on his profile only, Stips' creator's everywhere |
+| v0.20 rules (`RulesV20Test`) | *Update* opens the release's APK, or its page when the link isn't one of the releases'; the manifest asks for no permission to install apps and has no `FileProvider`, and no code hands an APK to an installer (D-145); no backups: `allowBackup="false"`, no `fullBackupContent`, and the data extraction rules exclude all nine domains from cloud backup and device transfer, including nothing (D-146) |
 | Check | What it catches |
 |---|---|
 | `tools/check_apk.py` | Reads the APK's dex files: every class that a library creates by name (Room databases, WorkManager input mergers and workers, start-up initializers, Glance action callbacks) still has the constructor it's called with. R8 removed some in builds 7–9 (#7) |
+| The APK's manifest, with `aapt2` (v0.20) | Lists the permissions the APK asks for (libraries' included) in the CI report, and fails the build if it may install apps (`REQUEST_INSTALL_PACKAGES`, D-145) or allows backups (D-146) |
 | `tools/launch_test.sh` on an Android 15 emulator | Opens the app over the newest earlier release that opens, as a fresh install (which must show the intro's "Welcome", v0.14), a second time, and from each launcher shortcut (checking the screen's text). Fails on a crash, "not responding" or a process that quits. Its summary has only verdicts; screenshots, logcats and the screen's text are kept only when it fails (they show Stips' live posts, #14) |
 
 Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §11 spikes): the emulator is signed out.
@@ -39,7 +41,7 @@ Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §
 
 `.github/workflows/build.yml`, on every push to `main` and on demand. A pre-release appears only when everything passes and the owner approves it (#14). The workflow's token is read-only; only the release and report jobs can write. Checkouts don't keep the token, and actions from outside GitHub are pinned to commits:
 
-1. **Build and test** (one runner): checkout, JDK 17, Gradle 9.5.0 (`gradle/actions/setup-gradle`, v6 pinned to its commit, `cache-provider: basic`); restore the signing key from `SIGNING_KEYSTORE_BASE64` (warns in the summary if missing); `gradle assembleRelease` (errors into a box on the run's Summary page); name the APK and record its certificate digest; `tools/check_apk.py`; `gradle testDebugUnitTest` (failures into the Summary box).
+1. **Build and test** (one runner): checkout, JDK 17, Gradle 9.5.0 (`gradle/actions/setup-gradle`, v6 pinned to its commit, `cache-provider: basic`); restore the signing key from `SIGNING_KEYSTORE_BASE64` (warns in the summary if missing); `gradle assembleRelease` (errors into a box on the run's Summary page); name the APK and record its certificate digest; `tools/check_apk.py`; the APK's permissions and backups with `aapt2` (v0.20); `gradle testDebugUnitTest` (failures into the Summary box).
 2. **Open on an emulator** (a second runner with KVM, `reactivecircus/android-emulator-runner` v2, pinned, API 35 `google_apis` x86_64): installs the emulator and the image first with retries (sdkmanager's downloads sometimes break, android-emulator-runner#496), downloads the four newest releases and runs `tools/launch_test.sh` (§1). If the emulator never starts, it tries once more; a failing app is never retried. Screenshots and logs are kept as the run's `launch-test` artifact for 5 days, only when it fails.
 3. **Publish the pre-release** `build-<run>` with `stipsplus-<run>.apk`, in the `release` environment: it waits for the owner's approval. The notes are `RELEASE-NOTES.md` (the round's summary) followed by the launch test's results.
 4. **A hotfix the owner asks to rush** (build 30) can skip step 2 with `[skip launch]` in its commit message: the release still needs the build, the APK check and the unit tests, and the owner's approval, and its notes say the launch test was skipped. Never for a change to startup, libraries or R8's rules, which only the emulator catches (#7).
@@ -58,12 +60,12 @@ Account flows (signed in) are still tested by the owner on the phone (SPEC-03 §
 | Channel | Status |
 |---|---|
 | GitHub pre-releases (public repository since v0.14) | Every build that passes the checks above, once the owner approves it |
-| Inside the app (v0.18, D-134) | Once a day Stips+ asks GitHub for a newer pre-release; *Update* downloads and checks it, then Android installs it |
+| Inside the app (v0.18, D-134; v0.20, D-145) | Once a day Stips+ asks GitHub for a newer pre-release; *Update* opens it in the browser, which downloads it, and Android installs it |
 | The app's page (v0.18, D-133; moved in v0.19, D-144) | www.shimshii.com/stips-plus, the `stips-plus/` folder of the owner's site (`EyalShimshi.github.io`, GitHub Pages): what Stips+ is, and the newest build's APK |
 | Obtainium | Can follow the public repository's pre-releases |
 | Google Play / F-Droid | Not before Stips' permission (D-02); a Play build turns its own updates off |
 
-**Install on the phone:** open the release page (or the app's page) in the phone's browser, tap the APK, allow "Install unknown apps" for the browser, and choose *Install anyway* if Play Protect asks. Later builds can come from inside the app.
+**Install on the phone:** open the release page (or the app's page) in the phone's browser, tap the APK, and allow "Install unknown apps" for the browser. Play Protect may offer to scan it first. Later builds are offered inside the app. Builds 31–32 asked to install apps themselves and Play Protect called them harmful; from 33 they don't (D-145).
 
 ## 6. Crash reporting
 
@@ -82,9 +84,9 @@ Every network call the app makes:
 | `cdn.stips.co.il` | Showing questions and profiles (if images are on) | Photos |
 | `images.unsplash.com` | Questions with an Unsplash cover (if images are on) | Photos |
 | `api.github.com` | Once a day as the app opens, unless *Check once a day* is off (v0.18) | The repository's list of releases; no cookies, nothing about the user |
-| `github.com` (and its file servers) | After the user taps *Update* (v0.18) | The new APK |
+| `github.com` (and its file servers) | After the user taps *Update*: in the browser since v0.20, not in Stips+ | The new APK |
 
-No analytics, ads, trackers or crash services. Saved questions, settings and timings stay on the phone.
+No analytics, ads, trackers or crash services. Saved questions, settings and timings stay on the phone, and since v0.20 they're not backed up or moved to a new phone either: uninstalling removes them (D-146).
 
 ## 8. Licensing
 

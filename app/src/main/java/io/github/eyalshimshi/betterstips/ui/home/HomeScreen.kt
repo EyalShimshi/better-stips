@@ -344,7 +344,7 @@ fun HomeScreen(
         val header: LazyListScope.() -> Unit = {
             if (UpdateRules.SELF_UPDATE && settings.checkUpdates && update.showCard) {
                 item(key = "update") {
-                    UpdateCard(state = update, onUpdate = { container.updates.download() }, onLater = { container.updates.later() })
+                    UpdateCard(state = update, onLater = { container.updates.later() })
                 }
             }
             if (settings.showChannelChips) {

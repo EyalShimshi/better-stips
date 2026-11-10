@@ -150,7 +150,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-96 | A calm refresh (#30, v0.18) | P2 | After pulling to refresh, rows change in place instead of sliding over each other |
 | F-97 | Credit (#26, v0.18) | P2 | The creator's badge; a line at the bottom of Settings and on the intro's last page |
 | F-98 | The app's page (#24, v0.18) | P1 | www.shimshii.com/stips-plus: what Stips+ is, in Hebrew and English, and the newest build to download |
-| F-99 | Updates inside the app (#25, v0.18) | P1 | Once a day GitHub is asked for a newer build; Home offers it, *Update* downloads and checks it and opens Android's installer |
+| F-99 | Updates inside the app (#25, v0.18) | P1 | Once a day GitHub is asked for a newer build; Home offers it, and *Update* opens it in the browser, which downloads it (v0.20; until then Stips+ downloaded and installed it itself) |
 | F-100 | Share → Stips+ (v0.18) | P2 | A Stips link shared from any app opens in Stips+. Replaced by F-104 in v0.19 |
 | F-101 | Link cards in chats (v0.18) | P1 | A question or profile link in a message shows as a card; on its own line, the card takes its place |
 | F-102 | Reply in private (v0.18) | P1 | From a question's ⋮ menu, or a swipe: a chat with the asker (or answerer) about the question |
@@ -160,6 +160,8 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-106 | Bigger flowers (v0.19) | P2 | The flower on a flowered answer and in the send-a-flower button are as big as the answerer's photo |
 | F-107 | The creator's badge on his profile only (v0.19) | P2 | Not by his name on answers, questions or chat cards |
 | F-108 | Buy me a coffee (v0.19) | P2 | A button by the credit at the end of Settings |
+| F-109 | Trusted by Play Protect (v0.20) | P0 | Stips+ doesn't ask to install apps or download them, so Play Protect has no reason to call it harmful; CI checks every APK for it |
+| F-110 | A fresh start on reinstalling (v0.20) | P1 | Nothing is backed up or moved to a new phone: after uninstalling, installing again shows the intro, with nothing of the old install |
 
 ## 7. Non-functional requirements
 
@@ -169,7 +171,7 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | Size | APK < 10 MB |
 | Data | About 10 KB per feed page and 2 KB per question's answers (plus images, which can be turned off) |
 | Privacy | No analytics, ads or trackers. Network calls only to stips.co.il, cdn.stips.co.il, images.unsplash.com and the user's own browser/share targets |
-| Security | HTTPS only; session token in app-private storage, excluded from backups |
+| Security | HTTPS only; session token in app-private storage; nothing backed up or transferred to another phone (v0.20, D-146); no permission to install apps (v0.20, D-145) |
 | Accessibility | 48 dp targets, labels on icon buttons, 200% text, TalkBack reads rows as one sentence |
 | Locale | Hebrew (RTL) and English; content direction follows the text |
 | Respect | User-initiated requests, plus small checks while the app is open (unread counts every 10 s; the bell's first page when Stips counts more and every minute on Home; new messages every 3 s in an open chat) and four opt-in ones (Live, phone notifications, the two widgets; SPEC D-24…D-26, D-51, D-53, D-67, D-122); honest User-Agent `StipsPlus/<version> (Android; unofficial)` |

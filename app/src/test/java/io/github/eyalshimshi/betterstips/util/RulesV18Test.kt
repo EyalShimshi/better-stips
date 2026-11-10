@@ -113,7 +113,6 @@ class RulesV18Test {
         val newest = UpdateRules.newest(json)!!
         assertEquals(40, newest.build)
         assertEquals("0.18.40", newest.versionName)
-        assertEquals(hex, newest.sha256)
         assertEquals(5_000_000L, newest.apkBytes)
         assertTrue(UpdateRules.isNewer(newest, 39))
         assertFalse(UpdateRules.isNewer(newest, 40))
@@ -124,7 +123,7 @@ class RulesV18Test {
     }
 
     @Test
-    fun updates_onlyFromTheReleasesAndExactlyTheFileListed() {
+    fun updates_onlyFromTheReleases() {
         assertEquals(31, UpdateRules.buildNumber("build-31"))
         assertNull(UpdateRules.buildNumber("v0.18"))
         assertEquals("build 7", UpdateRules.versionName(null, 7))
@@ -132,13 +131,6 @@ class RulesV18Test {
         assertTrue(UpdateRules.isOurDownload("https://github.com/EyalShimshi/stips-plus/releases/download/build-31/stipsplus-31.apk"))
         assertFalse(UpdateRules.isOurDownload("https://github.com/someone/else/releases/download/build-31/stipsplus-31.apk"))
         assertFalse(UpdateRules.isOurDownload("https://github.com/EyalShimshi/stips-plus/releases/download/../../x.apk"))
-        assertNull(UpdateRules.sha256Of("md5:abc"))
-        assertEquals("b".repeat(64), UpdateRules.sha256Of("sha256:" + "B".repeat(64)))
-        val release = UpdateRules.Release(31, "0.18.31", "https://x", 10, "c".repeat(64), "https://y")
-        assertTrue(UpdateRules.matches(release, 10, "C".repeat(64)))
-        assertFalse(UpdateRules.matches(release, 11, "c".repeat(64)))
-        assertFalse(UpdateRules.matches(release, 10, "d".repeat(64)))
-        assertTrue("without a digest, the size", UpdateRules.matches(release.copy(sha256 = null), 10, "d".repeat(64)))
         val day = UpdateRules.CHECK_EVERY_MS
         assertTrue(UpdateRules.dueForCheck(0L, day))
         assertFalse(UpdateRules.dueForCheck(1_000L, 1_000L + day - 1))

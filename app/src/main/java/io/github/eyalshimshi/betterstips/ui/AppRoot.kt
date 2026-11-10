@@ -305,23 +305,12 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         container.session.expired.collect { snackbar.showSnackbar(signedOutText) }
     }
 
-    // Stips+'s own updates (#25): GitHub is asked once a day as the app comes to the screen, and a download the user
-    // asked for opens Android's installer once it's checked (when the app is on screen: Android doesn't let an app
-    // open a screen from the background).
+    // Stips+'s own updates (#25): GitHub is asked once a day as the app comes to the screen. *Update* opens the APK in
+    // the browser (v0.20, D-145).
     val checkUpdates = LocalAppSettings.current.checkUpdates
     LaunchedEffect(checkUpdates, lifecycleOwner) {
         if (!checkUpdates || !UpdateRules.SELF_UPDATE) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { container.updates.checkIfDue() }
-    }
-    val update by container.updates.state.collectAsStateWithLifecycle()
-    val installFailedText = stringResource(R.string.update_install_failed)
-    LaunchedEffect(update.ready, update.installWhenReady, lifecycleOwner) {
-        if (update.ready == null || !update.installWhenReady) return@LaunchedEffect
-        // Android doesn't let an app open a screen from the background: the installer waits until the app is on screen.
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            // Opening the installer restarts this effect, so the message goes on the screen's own scope.
-            if (!container.updates.install(context)) scope.launch { snackbar.showSnackbar(installFailedText) }
-        }
     }
 
     // Unread chats and notifications: one tiny request every 10 s, only while the app is on screen and signed in,

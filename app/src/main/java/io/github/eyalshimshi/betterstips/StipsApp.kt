@@ -92,8 +92,8 @@ class AppContainer(private val app: Application) {
     private val api = StipsApi(httpClient)
 
     /**
-     * GitHub, for Stips+'s own updates (#25): its own connections, without cookies, never Stips'. No time limit for
-     * the whole call: an APK of a few MB can take a while on a slow network.
+     * GitHub, for Stips+'s own updates (#25): its own connections, without cookies, never Stips'. It only reads the list
+     * of releases; the APK itself downloads in the browser (v0.20, D-145).
      */
     private val updateClient: OkHttpClient by lazy {
         OkHttpClient.Builder()

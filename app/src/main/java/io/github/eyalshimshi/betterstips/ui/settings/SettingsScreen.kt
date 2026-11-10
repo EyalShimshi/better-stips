@@ -1113,14 +1113,15 @@ private fun AboutPage(container: AppContainer, settings: AppSettings, onOpenPage
             index = 0,
             count = 2,
             onClick = {
+                val release = update.available
                 when {
-                    update.checking || update.downloading -> Unit
-                    update.available != null -> updates.download()
+                    update.checking -> Unit
+                    release != null -> openInBrowser(context, UpdateRules.downloadUrl(release))
                     else -> updates.checkNow()
                 }
             },
             icon = Icons.Outlined.SystemUpdate,
-            trailing = if (update.checking || update.downloading) {
+            trailing = if (update.checking) {
                 { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
             } else {
                 null

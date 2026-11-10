@@ -14,15 +14,15 @@ import kotlinx.serialization.json.Json
  */
 object UpdateRules {
     /**
-     * Off for a Google Play build: Play updates apps itself and doesn't allow them to install their own (its policy
-     * on "Device and network abuse"), nor the install permission without a reason Play accepts (MAINTAINING.md).
+     * Off for a Google Play build: Play updates apps itself, and its policy ("Device and network abuse") doesn't let an
+     * app update itself any other way, nor point to its own builds elsewhere (MAINTAINING.md).
      */
     const val SELF_UPDATE = true
 
     /** The newest releases, pre-releases included (GitHub's "latest" leaves them out). GitHub allows 60 calls an hour. */
     const val RELEASES_URL = "https://api.github.com/repos/EyalShimshi/stips-plus/releases?per_page=10"
 
-    /** Where the releases' files are: a link anywhere else isn't downloaded. */
+    /** Where the releases' files are: *Update* opens nothing else. */
     const val DOWNLOAD_PREFIX = "https://github.com/EyalShimshi/stips-plus/releases/download/"
 
     /** How often Stips+ asks GitHub by itself. */
@@ -41,14 +41,11 @@ object UpdateRules {
         val versionName: String,
         val apkUrl: String,
         val apkBytes: Long,
-        /** The APK's SHA-256 in lowercase hex, when GitHub gives it. */
-        val sha256: String?,
         /** The release's page, with what's new. */
         val pageUrl: String,
     )
 
     private val buildTag = Regex("""^build-(\d{1,9})$""")
-    private val hex64 = Regex("""^[0-9a-f]{64}$""")
 
     /** N from `build-N`, or null for any other tag. */
     fun buildNumber(tag: String?): Int? = tag?.let { buildTag.find(it.trim()) }?.groupValues?.get(1)?.toIntOrNull()
@@ -70,7 +67,6 @@ object UpdateRules {
                 versionName = versionName(release.str("name"), build),
                 apkUrl = url,
                 apkBytes = bytes,
-                sha256 = sha256Of(apk.str("digest")),
                 pageUrl = release.str("html_url")?.takeIf { it.startsWith("https://github.com/") }
                     ?: "https://github.com/EyalShimshi/stips-plus/releases/tag/build-$build",
             )
@@ -92,18 +88,13 @@ object UpdateRules {
         nowMs - lastCheckMs !in 0 until CHECK_EVERY_MS &&
             (lastFailureMs <= 0L || nowMs - lastFailureMs !in 0 until RETRY_AFTER_FAILURE_MS)
 
-    /** GitHub's "sha256:ab12…" as lowercase hex, or null for anything else. */
-    fun sha256Of(digest: String?): String? {
-        val value = digest?.trim()?.lowercase() ?: return null
-        if (!value.startsWith("sha256:")) return null
-        return value.removePrefix("sha256:").takeIf { hex64.matches(it) }
-    }
-
     /** A release file of Stips+ on GitHub: the only place updates come from. */
     fun isOurDownload(url: String): Boolean =
         url.startsWith(DOWNLOAD_PREFIX) && !url.contains("..") && url.none { it.isWhitespace() }
 
-    /** The downloaded file is the one GitHub listed: its size, and its SHA-256 when known. */
-    fun matches(release: Release, bytes: Long, sha256Hex: String): Boolean =
-        bytes == release.apkBytes && (release.sha256 == null || release.sha256 == sha256Hex.lowercase())
+    /**
+     * What *Update* opens in the browser (v0.20): the release's APK, which the browser downloads; or, should that link
+     * not be one of ours, the release's page, where the APK is too.
+     */
+    fun downloadUrl(release: Release): String = release.apkUrl.takeIf { isOurDownload(it) } ?: release.pageUrl
 }

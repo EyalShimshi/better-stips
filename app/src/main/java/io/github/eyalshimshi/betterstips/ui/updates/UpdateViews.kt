@@ -15,7 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,15 +28,15 @@ import io.github.eyalshimshi.betterstips.R
 import io.github.eyalshimshi.betterstips.data.AppUpdates
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
+import io.github.eyalshimshi.betterstips.util.UpdateRules
 import java.time.Instant
-import kotlin.math.roundToInt
 
 /**
- * Home's card for a newer Stips+ (#25): *Update* downloads it from GitHub and opens Android's installer when it's
- * ready (AppRoot does that), *What's new* opens the release's page, *Later* waits for the next build.
+ * Home's card for a newer Stips+ (#25): *Update* opens the new APK in the browser, which downloads it (v0.20, D-145);
+ * *What's new* opens the release's page, *Later* waits for the next build.
  */
 @Composable
-fun UpdateCard(state: AppUpdates.State, onUpdate: () -> Unit, onLater: () -> Unit, modifier: Modifier = Modifier) {
+fun UpdateCard(state: AppUpdates.State, onLater: () -> Unit, modifier: Modifier = Modifier) {
     val release = state.available ?: return
     val context = LocalContext.current
     Card(
@@ -59,44 +58,17 @@ fun UpdateCard(state: AppUpdates.State, onUpdate: () -> Unit, onLater: () -> Uni
                 )
             }
             Spacer(Modifier.height(6.dp))
-            val progress = state.progress
-            if (progress != null) {
-                Text(stringResource(R.string.update_downloading, (progress * 100).roundToInt()), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(14.dp))
-            } else {
-                val failed = state.downloadFailed && state.ready == null
-                Text(
-                    stringResource(
-                        when {
-                            state.ready != null -> R.string.update_ready_body
-                            failed -> R.string.update_failed
-                            else -> R.string.update_body
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = { openInBrowser(context, release.pageUrl) }) { Text(stringResource(R.string.update_whats_new)) }
-                    TextButton(onClick = onLater) { Text(stringResource(R.string.update_later)) }
-                    Spacer(Modifier.width(4.dp))
-                    Button(onClick = onUpdate) {
-                        Text(
-                            stringResource(
-                                when {
-                                    state.ready != null -> R.string.update_install
-                                    failed -> R.string.action_retry
-                                    else -> R.string.update_now
-                                },
-                            ),
-                        )
-                    }
+            Text(stringResource(R.string.update_body), style = MaterialTheme.typography.bodyMedium)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = { openInBrowser(context, release.pageUrl) }) { Text(stringResource(R.string.update_whats_new)) }
+                TextButton(onClick = onLater) { Text(stringResource(R.string.update_later)) }
+                Spacer(Modifier.width(4.dp))
+                Button(onClick = { openInBrowser(context, UpdateRules.downloadUrl(release)) }) {
+                    Text(stringResource(R.string.update_now))
                 }
             }
         }
@@ -107,25 +79,15 @@ fun UpdateCard(state: AppUpdates.State, onUpdate: () -> Unit, onLater: () -> Uni
 @Composable
 fun updateRowTitle(state: AppUpdates.State): String {
     val release = state.available
-    return when {
-        release == null -> stringResource(R.string.settings_update_check)
-        state.ready != null -> stringResource(R.string.settings_update_install, release.versionName)
-        else -> stringResource(R.string.settings_update_to, release.versionName)
-    }
+    return if (release == null) stringResource(R.string.settings_update_check) else stringResource(R.string.settings_update_to, release.versionName)
 }
 
 /** Settings → About's update row: what it says under its title. */
 @Composable
-fun updateRowSummary(state: AppUpdates.State): String {
-    val progress = state.progress
-    return when {
-        progress != null -> stringResource(R.string.update_downloading, (progress * 100).roundToInt())
-        state.checking -> stringResource(R.string.settings_update_checking)
-        state.available != null && state.ready != null -> stringResource(R.string.update_ready_body)
-        state.available != null && state.downloadFailed -> stringResource(R.string.update_failed)
-        state.available != null -> stringResource(R.string.update_body)
-        state.checkFailed -> stringResource(R.string.settings_update_failed)
-        state.checkedAt > 0L -> stringResource(R.string.settings_update_latest, agoText(Instant.ofEpochMilli(state.checkedAt)))
-        else -> stringResource(R.string.settings_update_never)
-    }
+fun updateRowSummary(state: AppUpdates.State): String = when {
+    state.checking -> stringResource(R.string.settings_update_checking)
+    state.available != null -> stringResource(R.string.update_body)
+    state.checkFailed -> stringResource(R.string.settings_update_failed)
+    state.checkedAt > 0L -> stringResource(R.string.settings_update_latest, agoText(Instant.ofEpochMilli(state.checkedAt)))
+    else -> stringResource(R.string.settings_update_never)
 }

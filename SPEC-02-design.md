@@ -84,7 +84,7 @@ flowchart TD
 - **Layouts (v0.9, D-59), in Settings → Home and reading:** *Hot, then new* (above, the default) · *Like the website*: the hot cards, then today's questions in sections, each under a heading with a thin rule ("#topic ›" opens the topic; a list's title is plain), loading more while scrolling, with no New list and no Live · *New only*: the chips and the New list. Also: 3, 5 or 10 hot cards; hot from now, today or this week (the title follows: "Hot today"…); the chip row on or off.
 - First launch with nothing cached: skeleton cards and rows. Later launches: the last-seen page at once.
 - Errors replace the list only when nothing is shown: "Can't reach Stips right now." + *Retry*. Otherwise a snackbar with *Retry*.
-- **A newer Stips+ (v0.18, D-134):** above everything, a primaryContainer card with ⟳: "Stips+ 0.18.32 is out", a line (it downloads from GitHub, then Android asks to confirm), and *What's new* · *Later* · *Update* (filled). While downloading, "Downloading… 42%" and a bar; when ready, *Install*. *Later* hides it until the next build.
+- **A newer Stips+ (v0.18, D-134):** above everything, a primaryContainer card with ⟳: "Stips+ 0.18.32 is out", a line (it downloads from GitHub, then Android asks to confirm), and *What's new* · *Later* · *Update* (filled). While downloading, "Downloading… 42%" and a bar; when ready, *Install*. *Later* hides it until the next build. **Since v0.20 (D-145):** *Update* opens the APK in the browser, which downloads it; the line reads "Your browser downloads it from GitHub. Open the file, and Android asks you to confirm the update." No progress bar or *Install* any more.
 - **After pulling to refresh (v0.18, D-131):** the rows change in place; only Live and the entry check slide new ones in.
 - **Tips (v0.18, D-138):** as Home shows, the first question in sight slides most of the way right, with a dark pill over it ("Swipe right: Pin or unpin"), back, then left; afterwards a pill under the Live chip, "Long-press Live to choose how often it checks". Each until it's used, three times at most.
 
@@ -289,6 +289,8 @@ Picked rows are tinted secondaryContainer. Below 5 flowers (not a moderator) the
 
 ### 5.7 Settings
 
+**v0.20:** *About* → *Update to 0.20.34* opens the APK in the browser (D-145); the row has no *Install* or download progress any more.
+
 **v0.19:** the credit reads "Made with love by Eyal Shimshi ❤️" ("…אייל שימשי ❤️"), here and on the intro's last page; beside the profile button, a tonal *Buy me a coffee* ☕ that opens the browser (D-143).
 
 **v0.18:** *Questions and answers* loses *Moderator badges* (always on, D-130). *About* adds **Updates** (D-134): a row that checks, offers *Update to 0.18.32* or *Install 0.18.32*, or says "You have the newest version · checked 5 min ago"; and *Check once a day*. *More* adds *Show the tips again* (D-138). The main page ends with "Made with love by Eyal Shimshi" and a tonal *Eyal on Stips* button (D-132); so does the intro's last page. The swipe lists add *Reply in private* (questions; others' answers).
@@ -387,7 +389,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 | Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
 | Chats widget | v0.9, D-67: latest chats with name, last message, clock time and an unread badge (bold when unread); the title counts unread; a tap opens the chat; signed out, a line asks to sign in |
 | Launcher shortcuts | *Hot* and *Chats* (v0.8, D-57): touch and hold the icon; Material glyphs in deep Stips green on the light circle of the shortcut icon guidelines |
-| Package installer | v0.18, D-134: Stips+'s own updates, after the user taps *Update*; Android asks once to allow Stips+ to install apps, then to confirm |
+| Browser (updates) | v0.20, D-145: *Update* opens the new APK's link; the browser downloads it and opening the file goes to Android's installer, which confirms. In v0.18–v0.19 Stips+ downloaded it and opened the installer itself, with the permission to install apps (gone in v0.20) |
 
 ## 7. Localization
 
