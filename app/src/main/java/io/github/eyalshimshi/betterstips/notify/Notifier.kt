@@ -41,7 +41,6 @@ import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
 import io.github.eyalshimshi.betterstips.data.model.SITE_URL
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.diag.NetLog
-import io.github.eyalshimshi.betterstips.ui.notifications.updatesLine
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.NotificationCategories
 import io.github.eyalshimshi.betterstips.util.NotificationKinds
@@ -56,6 +55,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
+import java.security.MessageDigest
+import java.util.UUID
 
 /** A check from an alarm has a broadcast's time: about 10 seconds. */
 private const val ALARM_BUDGET_MS = 9_000L
@@ -119,6 +121,35 @@ object Notifier {
     private const val EXTRA_FOCUS_COUNT = "io.github.eyalshimshi.betterstips.extra.FOCUS_COUNT"
     private const val EXTRA_FOCUS_AT = "io.github.eyalshimshi.betterstips.extra.FOCUS_AT"
 
+    /** The bell's notifications a phone notification is about: opening it marks them read (v0.18, #27). */
+    private const val EXTRA_IDS = "io.github.eyalshimshi.betterstips.extra.NOTIFICATION_IDS"
+
+    /**
+     * This install's own key on its phone notifications' taps (v0.18). MainActivity is open to other apps (it's the
+     * launcher's), and any app can start it with any extras, so a notice to show and notifications to mark read are
+     * taken from a tap only when it carries the key. Kept in prefs of its own, which nothing clears, so notifications
+     * already in the shade keep working.
+     */
+    private const val EXTRA_KEY = "io.github.eyalshimshi.betterstips.extra.TAP_KEY"
+    private const val KEY_PREFS = "notify_tap"
+    private const val KEY_TAP = "key"
+
+    @Volatile
+    private var cachedTapKey: String? = null
+
+    /** A notice from Stips' team opens over the app with its reason and points, not at its question (v0.18, #27). */
+    const val ACTION_TEAM_NOTICE = "io.github.eyalshimshi.betterstips.action.TEAM_NOTICE"
+    private const val EXTRA_NOTICE_ID = "io.github.eyalshimshi.betterstips.extra.NOTICE_ID"
+    private const val EXTRA_NOTICE_TYPE = "io.github.eyalshimshi.betterstips.extra.NOTICE_TYPE"
+    private const val EXTRA_NOTICE_TEXT = "io.github.eyalshimshi.betterstips.extra.NOTICE_TEXT"
+    private const val EXTRA_NOTICE_NOTE = "io.github.eyalshimshi.betterstips.extra.NOTICE_NOTE"
+    private const val EXTRA_NOTICE_POINTS = "io.github.eyalshimshi.betterstips.extra.NOTICE_POINTS"
+    private const val EXTRA_NOTICE_TIME = "io.github.eyalshimshi.betterstips.extra.NOTICE_TIME"
+    private const val EXTRA_NOTICE_TARGET = "io.github.eyalshimshi.betterstips.extra.NOTICE_TARGET"
+
+    /** A flower's phone notification in Stips' flower red (v0.18, #27), as `FlowerColors.Petal`. */
+    private val FLOWER_COLOR = 0xFFEF5350.toInt()
+
     enum class Trigger { Job, Alarm, User }
 
     /** The app is on screen (MainActivity says): its own counts are fresh, so automatic checks wait. */
@@ -134,6 +165,31 @@ object Notifier {
     /** Where a phone notification asked its question to open, or null. */
     fun focusFrom(intent: Intent): QuestionFocus? =
         JumpRules.decode(intent.getStringExtra(EXTRA_FOCUS), intent.getIntExtra(EXTRA_FOCUS_COUNT, -1), intent.getLongExtra(EXTRA_FOCUS_AT, -1L))
+
+    /** The bell's notifications a tapped phone notification was about (v0.18), to mark read; only from Stips+'s own. */
+    fun notificationIdsFrom(context: Context, intent: Intent): List<Long> {
+        val ids = intent.getLongArrayExtra(EXTRA_IDS) ?: return emptyList()
+        return if (fromOwnNotification(context, intent)) ids.toList() else emptyList()
+    }
+
+    /**
+     * The notice from Stips' team a tapped phone notification shows over the app (v0.18, #27), or null; only from Stips+'s
+     * own notifications, so another app can't make one up.
+     */
+    fun noticeFrom(context: Context, intent: Intent): StipsNotification? {
+        if (intent.action != ACTION_TEAM_NOTICE || !fromOwnNotification(context, intent)) return null
+        val id = intent.getLongExtra(EXTRA_NOTICE_ID, -1L).takeIf { it > 0 } ?: return null
+        return StipsNotification(
+            id = id,
+            text = intent.getStringExtra(EXTRA_NOTICE_TEXT).orEmpty(),
+            type = intent.getStringExtra(EXTRA_NOTICE_TYPE).orEmpty(),
+            viewed = true,
+            time = intent.getLongExtra(EXTRA_NOTICE_TIME, -1L).takeIf { it > 0 }?.let { Instant.ofEpochMilli(it) },
+            target = NotifyRules.decodeTarget(intent.getStringExtra(EXTRA_NOTICE_TARGET)),
+            note = intent.getStringExtra(EXTRA_NOTICE_NOTE),
+            pointsRemoved = intent.getIntExtra(EXTRA_NOTICE_POINTS, 0),
+        )
+    }
 
     /** Updates, flowers and thanks, Stips' messages, and chat messages: all pop up. The old channels go. */
     fun ensureChannels(context: Context) {
@@ -450,7 +506,8 @@ object Notifier {
 
     /**
      * One notification, or for an update the question's notification (v0.17): a newer burst of answers replaces it,
-     * with how many updates and answers came since the bell was last opened ([updates], newest first).
+     * saying in one sentence all the answers that came since the bell was last opened ([updates], newest first; v0.18).
+     * Tapping it marks them read in the bell (v0.18); a notice from Stips' team opens over the app in full (#27).
      */
     private fun post(context: Context, notification: StipsNotification, updates: List<StipsNotification> = listOf(notification)) {
         val target = notification.target
@@ -466,7 +523,8 @@ object Notifier {
             else -> JumpRules.focusFor(notification)
         }
         // Stips' team's notices say who they're from, with the team's words and the points taken (v0.13).
-        val team = NotificationKinds.fromTeam(NotificationKinds.kind(notification))
+        val kind = NotificationKinds.kind(notification)
+        val team = NotificationKinds.fromTeam(kind)
         val title = context.getString(if (team) R.string.notification_team_title else R.string.notification_title)
         val text = if (team) {
             listOfNotNull(
@@ -474,12 +532,14 @@ object Notifier {
                 notification.note?.takeIf { it.isNotBlank() && it != notification.text },
                 if (notification.pointsRemoved > 0) context.getString(R.string.notifications_points_removed, notification.pointsRemoved) else null,
             ).joinToString("\n")
-        } else if (questionId != null && updates.size > 1) {
-            notification.text + "\n" + updatesLine(context.resources, updates)
+        } else if (questionId != null) {
+            NotificationCategories.combinedText(updates)
         } else {
             notification.text
         }
         val (tag, id) = if (questionId != null) TAG_QUESTION to questionId.toInt() else TAG_UPDATE to notification.id.toInt()
+        val ids = updates.map { it.id }.toLongArray()
+        val open = if (team) openNotice(context, notification, id, ids) else openApp(context, link, id, focus, ids)
         val builder = NotificationCompat.Builder(context, channelOf(NotificationCategories.of(notification)))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -487,8 +547,9 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(openApp(context, link, id, focus))
+            .setContentIntent(open)
             .setAutoCancel(true)
+        if (kind == NotificationKinds.Kind.Flower) builder.setColor(FLOWER_COLOR)
         notification.time?.let { builder.setWhen(it.toEpochMilli()).setShowWhen(true) }
         show(context, tag, id, builder)
     }
@@ -594,7 +655,13 @@ object Notifier {
         active.filter { it.tag in tags }.forEach { manager.cancel(it.tag, it.id) }
     }
 
-    private fun openApp(context: Context, link: String?, requestCode: Int, focus: QuestionFocus? = null): PendingIntent {
+    private fun openApp(
+        context: Context,
+        link: String?,
+        requestCode: Int,
+        focus: QuestionFocus? = null,
+        ids: LongArray = LongArray(0),
+    ): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             if (link != null) {
@@ -606,8 +673,53 @@ object Notifier {
                 putExtra(EXTRA_FOCUS_COUNT, JumpRules.count(focus))
                 putExtra(EXTRA_FOCUS_AT, JumpRules.at(focus))
             }
+            if (ids.isNotEmpty()) {
+                putExtra(EXTRA_IDS, ids)
+                putExtra(EXTRA_KEY, tapKey(context))
+            }
         }
         return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    /** A notice from Stips' team: the app opens with it in full, its reason and points, over where it was (v0.18, #27). */
+    private fun openNotice(context: Context, notice: StipsNotification, requestCode: Int, ids: LongArray): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            action = ACTION_TEAM_NOTICE
+            // Each notice its own intent, so two of them don't share one.
+            data = Uri.parse("stipsplus://notice/${notice.id}")
+            putExtra(EXTRA_NOTICE_ID, notice.id)
+            putExtra(EXTRA_NOTICE_TYPE, notice.type)
+            putExtra(EXTRA_NOTICE_TEXT, notice.text)
+            notice.note?.let { putExtra(EXTRA_NOTICE_NOTE, it) }
+            putExtra(EXTRA_NOTICE_POINTS, notice.pointsRemoved)
+            putExtra(EXTRA_NOTICE_TIME, notice.time?.toEpochMilli() ?: -1L)
+            putExtra(EXTRA_NOTICE_TARGET, NotifyRules.encodeTarget(notice.target))
+            putExtra(EXTRA_IDS, ids)
+            putExtra(EXTRA_KEY, tapKey(context))
+        }
+        return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    /** This install's key for its notifications' taps, made once (a random UUID, from Android's secure random). */
+    private fun tapKey(context: Context): String {
+        cachedTapKey?.let { return it }
+        return synchronized(this) {
+            cachedTapKey ?: run {
+                val prefs = context.getSharedPreferences(KEY_PREFS, Context.MODE_PRIVATE)
+                val key = prefs.getString(KEY_TAP, null) ?: UUID.randomUUID().toString().also {
+                    prefs.edit().putString(KEY_TAP, it).apply()
+                }
+                cachedTapKey = key
+                key
+            }
+        }
+    }
+
+    /** The tap came from one of Stips+'s own phone notifications: it carries this install's key. */
+    private fun fromOwnNotification(context: Context, intent: Intent): Boolean {
+        val key = intent.getStringExtra(EXTRA_KEY) ?: return false
+        return MessageDigest.isEqual(key.toByteArray(), tapKey(context).toByteArray())
     }
 
     private fun prefs(context: Context): SharedPreferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

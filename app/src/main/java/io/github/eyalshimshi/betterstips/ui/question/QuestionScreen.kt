@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.ui.question
 
+import io.github.eyalshimshi.betterstips.ui.components.FlowerIcon
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -56,13 +57,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PushPin
@@ -77,7 +78,6 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material.icons.outlined.Person
@@ -180,6 +180,8 @@ import io.github.eyalshimshi.betterstips.ui.components.FooterNote
 import io.github.eyalshimshi.betterstips.ui.components.ImageViewerDialog
 import io.github.eyalshimshi.betterstips.ui.components.LinkifiedText
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.LocalReplyInPrivate
+import io.github.eyalshimshi.betterstips.util.SwipeRules
 import io.github.eyalshimshi.betterstips.ui.components.MessageCard
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
 import io.github.eyalshimshi.betterstips.ui.components.ServerDetailsDialog
@@ -187,6 +189,15 @@ import io.github.eyalshimshi.betterstips.ui.components.SpecialBadgePill
 import io.github.eyalshimshi.betterstips.ui.components.SwipeSpec
 import io.github.eyalshimshi.betterstips.ui.components.rememberSwipeDrag
 import io.github.eyalshimshi.betterstips.ui.components.swipeToAct
+import io.github.eyalshimshi.betterstips.ui.components.SwipeHint
+import io.github.eyalshimshi.betterstips.ui.components.SwipeHintEffect
+import io.github.eyalshimshi.betterstips.ui.components.TipPill
+import io.github.eyalshimshi.betterstips.ui.components.rememberTipState
+import io.github.eyalshimshi.betterstips.ui.components.LocalTipsAllowed
+import io.github.eyalshimshi.betterstips.ui.components.TIP_DELAY_MS
+import io.github.eyalshimshi.betterstips.ui.components.PEEK_TOTAL_MS
+import io.github.eyalshimshi.betterstips.util.SwipeSide
+import io.github.eyalshimshi.betterstips.data.Tutorials
 import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.components.TextTarget
 import io.github.eyalshimshi.betterstips.ui.components.UnreadBar
@@ -247,12 +258,16 @@ private sealed interface PendingAction {
     data class AnswerDetails(val answer: Answer) : PendingAction
 }
 
-/** One row of a ⋮ menu; [swipe] marks an answer's entry that the left swipe can run (#18). */
+/**
+ * One row of a ⋮ menu; [swipe] marks an answer's entry that the left swipe can run (#18). An entry not [inMenu] is
+ * for the swipe only (reply in private, v0.18).
+ */
 private data class MenuEntry(
     val label: String,
     val icon: ImageVector,
     val destructive: Boolean = false,
     val swipe: AnswerSwipe? = null,
+    val inMenu: Boolean = true,
     val onClick: () -> Unit,
 )
 
@@ -302,8 +317,11 @@ fun QuestionScreen(
             QuestionMessage.ReplyFixed to stringResource(R.string.reply_fixed),
         )
         val undoLabel = stringResource(R.string.swipe_undo)
+        // A tip (#28) shows on the answer just posted: what swiping your own answer to the left does.
+        var postedCount by remember { mutableIntStateOf(0) }
         LaunchedEffect(state.message) {
             val message = state.message ?: return@LaunchedEffect
+            if (message == QuestionMessage.AnswerPosted) postedCount++
             if (message == QuestionMessage.Hidden) {
                 var undo = false
                 try {
@@ -366,8 +384,8 @@ fun QuestionScreen(
         val badgesVersion by container.userBadges.version.collectAsStateWithLifecycle()
         val moderatorOf: (Answer) -> ModeratorBadge? = { answer ->
             val userId = answer.author.userId
-            // Reading the version makes the cards draw marks found after they appeared.
-            val known = badgesVersion >= 0 && settings.moderatorBadges
+            // Reading the version makes the cards draw marks found after they appeared. Always on since v0.18 (#31).
+            val known = badgesVersion >= 0
             val entry = if (known && userId != null && !answer.author.anonymous) container.userBadges.entry(userId) else null
             entry?.let { e -> e.moderator?.let { ModeratorBadge(it, e.female == true) } }
         }
@@ -387,6 +405,8 @@ fun QuestionScreen(
         val hideUserLabel = stringResource(R.string.hide_user_content)
         val detailsLabel = stringResource(R.string.expert_details)
         val historyLabel = stringResource(R.string.edit_history)
+        val privateReplyLabel = stringResource(R.string.reply_private)
+        val replyInPrivate = LocalReplyInPrivate.current
         val answerMenu: (Answer) -> List<MenuEntry> = { answer ->
             buildList {
                 if (canReply) add(MenuEntry(replyLabel, Icons.AutoMirrored.Filled.Reply) { vm.replyTo(answer) })
@@ -401,6 +421,14 @@ fun QuestionScreen(
                         add(MenuEntry(deleteLabel, Icons.Outlined.Delete, destructive = true, swipe = AnswerSwipe.Delete) { pending = PendingAction.DeleteAnswer(answer) })
                     }
                 } else {
+                    // Reply in private (v0.18): a chat with the answerer about this question, by the swipe only.
+                    if (SwipeRules.canMessage(isOwner = false, answer.author.userId, answer.author.anonymous, me)) {
+                        add(
+                            MenuEntry(privateReplyLabel, Icons.AutoMirrored.Outlined.Chat, swipe = AnswerSwipe.PrivateReply, inMenu = false) {
+                                replyInPrivate(answer.author, questionId)
+                            },
+                        )
+                    }
                     add(MenuEntry(reportAnswerLabel, Icons.Outlined.Flag, swipe = AnswerSwipe.Report) { requireSignIn { pending = PendingAction.Report("ans", answer.id) } })
                     add(MenuEntry(hideAnswerLabel, Icons.Outlined.VisibilityOff, swipe = AnswerSwipe.Hide) { vm.block("ans", answer.id, null) })
                     val authorId = answer.author.userId
@@ -412,6 +440,47 @@ fun QuestionScreen(
             }
         }
         val floweredCount = answers.count { it.flowered }
+
+        // Tips (#28): the reply swipe on the first answer in sight, as a question with answers opens; and what swiping
+        // your own answer to the left does (as picked in Settings), on the one just posted.
+        val tutorials = container.tutorials
+        val tipsAllowed = LocalTipsAllowed.current
+        var answerHint by remember { mutableStateOf<Pair<Long, SwipeHint>?>(null) }
+        val replyTipText = stringResource(R.string.tip_swipe_reply)
+        val myAnswerAction = settings.myAnswerSwipe
+        val leftTipText = stringResource(R.string.tip_swipe_left, stringResource(answerSwipeLabel(myAnswerAction)))
+        val currentAnswers by rememberUpdatedState(answers)
+        LaunchedEffect(answers.isNotEmpty(), canReply, tipsAllowed) {
+            if (!tipsAllowed || !canReply || answers.isEmpty() || !tutorials.due(Tutorials.Tip.AnswerReply)) return@LaunchedEffect
+            delay(TIP_DELAY_MS)
+            val shown = currentAnswers.map { it.id }.toSet()
+            val target = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { item -> item.offset >= 0 && (item.key as? Long) in shown }?.key as? Long ?: return@LaunchedEffect
+            if (!tutorials.claim(Tutorials.Tip.AnswerReply)) return@LaunchedEffect
+            answerHint = target to SwipeHint(SwipeSide.Right, replyTipText)
+            try {
+                delay(PEEK_TOTAL_MS)
+            } finally {
+                answerHint = null
+            }
+        }
+        LaunchedEffect(postedCount) {
+            if (postedCount == 0 || !tipsAllowed || myAnswerAction == AnswerSwipe.None) return@LaunchedEffect
+            if (!tutorials.due(Tutorials.Tip.MyAnswerSwipe)) return@LaunchedEffect
+            // After the list has gone to the new answer.
+            delay(TIP_DELAY_MS + 600)
+            val mine = currentAnswers.filter { it.isOwner }.maxByOrNull { it.id } ?: return@LaunchedEffect
+            // Only when this answer can do it: an anonymous answer can't be detached, say.
+            if (answerMenu(mine).none { it.swipe == myAnswerAction }) return@LaunchedEffect
+            if (listState.layoutInfo.visibleItemsInfo.none { it.key == mine.id }) return@LaunchedEffect
+            if (!tutorials.claim(Tutorials.Tip.MyAnswerSwipe)) return@LaunchedEffect
+            answerHint = mine.id to SwipeHint(SwipeSide.Left, leftTipText)
+            try {
+                delay(PEEK_TOTAL_MS)
+            } finally {
+                answerHint = null
+            }
+        }
 
         Scaffold(
             bottomBar = {
@@ -500,6 +569,7 @@ fun QuestionScreen(
                         onJumpHandled = vm::consumeJump,
                         onHistory = { historyFor = it },
                         onSort = vm::setSort,
+                        answerHint = answerHint,
                     )
                 }
                 QuestionTopBar(
@@ -540,6 +610,10 @@ fun QuestionScreen(
                         }
                         val showImages = LocalAppSettings.current.showImages
                         val entries = buildList {
+                            // Reply in private (v0.18): a chat with the asker, about this question.
+                            if (SwipeRules.canMessage(question.isOwner, question.author.userId, question.author.anonymous, me)) {
+                                add(MenuEntry(privateReplyLabel, Icons.AutoMirrored.Outlined.Chat) { replyInPrivate(question.author, question.id) })
+                            }
                             add(MenuEntry(stringResource(R.string.action_open_site), Icons.Outlined.OpenInBrowser) { openInBrowser(context, question.shareUrl) })
                             add(MenuEntry(stringResource(R.string.export_thread), Icons.Outlined.ContentCopy) { pending = PendingAction.Export })
                             if (question.cover != null && showImages) {
@@ -744,12 +818,15 @@ private fun QuestionContent(
     onJumpHandled: () -> Unit,
     onHistory: (Answer) -> Unit,
     onSort: (AnswerSort) -> Unit,
+    answerHint: Pair<Long, SwipeHint>? = null,
 ) {
     val scope = rememberCoroutineScope()
     val gapPx = with(LocalDensity.current) { 8.dp.toPx() }
     var highlight by remember { mutableStateOf<Highlight?>(null) }
     val settings = LocalAppSettings.current
     val motion = settings.motion
+    // A swipe the tips (#28) teach, done: they don't show again.
+    val tutorials = LocalAppContainer.current.tutorials
     // Answers show as written; the reader may hide the opening carets that the quotes stand for (v0.11).
     val hideCarets = settings.hideReplyCarets
     // Carets count in Stips' order (oldest first), whatever order the answers are shown in (v0.10).
@@ -898,7 +975,7 @@ private fun QuestionContent(
                         answer = answer,
                         signedIn = signedIn,
                         expert = expert,
-                        menu = menu,
+                        menu = menu.filter { it.inMenu },
                         showFlowerButton = canFlower(answer),
                         flowering = answer.id in state.flowering,
                         onVote = { direction -> onVote(answer, direction) },
@@ -907,12 +984,23 @@ private fun QuestionContent(
                         stipsOrder = stipsOrder,
                         isHidden = isHidden,
                         onJump = { revealAnswer(it) },
-                        onSwipeReply = onReply?.let { replyTo -> { replyTo(answer) } },
+                        onSwipeReply = onReply?.let { replyTo ->
+                            {
+                                tutorials.done(Tutorials.Tip.AnswerReply)
+                                replyTo(answer)
+                            }
+                        },
                         highlightKey = highlight?.takeIf { it.answerId == answer.id }?.nonce,
                         moderator = moderatorOf(answer),
                         onShowHistory = if (answer.edited) ({ onHistory(answer) }) else null,
                         special = if (answer.author.anonymous) null else SpecialAccounts.badge(answer.author.userId),
-                        swipeLeft = swipeEntry?.let { SwipeSpec(it.label, it.icon, it.destructive, it.onClick) },
+                        swipeLeft = swipeEntry?.let { entry ->
+                            SwipeSpec(entry.label, entry.icon, entry.destructive) {
+                                if (answer.isOwner) tutorials.done(Tutorials.Tip.MyAnswerSwipe)
+                                entry.onClick()
+                            }
+                        },
+                        hint = answerHint?.takeIf { it.first == answer.id }?.second,
                     )
                 }
             }
@@ -1317,6 +1405,7 @@ private fun AnswerCard(
     onShowHistory: (() -> Unit)? = null,
     special: SpecialAccounts.Entry? = null,
     swipeLeft: SwipeSpec? = null,
+    hint: SwipeHint? = null,
     modifier: Modifier = Modifier,
 ) {
     val motion = LocalAppSettings.current.motion
@@ -1333,6 +1422,9 @@ private fun AnswerCard(
     val canRight = onSwipeReply != null
     val drag = rememberSwipeDrag()
     val replyLabel = stringResource(R.string.action_reply)
+    // A tip slides the card a little to show what a swipe does (#28).
+    val tip = rememberTipState()
+    SwipeHintEffect(hint, drag, tip)
 
     // Organizations and Stips' own system answers get a thin blue outline next to their blue checkmark (#8).
     val border = if (answer.author.verified) BorderStroke(1.dp, VerifiedBlue.copy(alpha = 0.5f)) else null
@@ -1447,12 +1539,8 @@ private fun AnswerCard(
                         if (expert) ExpertLine(ExpertFields.answerLine(answer))
                     }
                     if (answer.flowered) {
-                        Icon(
-                            Icons.Filled.LocalFlorist,
-                            contentDescription = stringResource(R.string.flower_cd),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 6.dp),
-                        )
+                        // Stips' own flower, in its colors (v0.18, #27).
+                        FlowerIcon(Modifier.padding(horizontal = 6.dp), contentDescription = stringResource(R.string.flower_cd))
                     }
                     ActionMenuButton(entries = menu, description = stringResource(R.string.answer_actions))
                 }
@@ -1507,7 +1595,7 @@ private fun AnswerCard(
                             if (flowering) {
                                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                             } else {
-                                Icon(Icons.Outlined.LocalFlorist, contentDescription = null, modifier = Modifier.size(18.dp))
+                                FlowerIcon(size = 18.dp)
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.send_flower))
@@ -1516,6 +1604,7 @@ private fun AnswerCard(
                 }
             }
         }
+        TipPill(tip, Modifier.align(Alignment.Center))
     }
 }
 

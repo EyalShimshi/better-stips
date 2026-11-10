@@ -625,8 +625,6 @@
     <string name="settings_easy_reply_summary">החלקה ימינה על תשובה מגיבה לה: Stips+ פותח את התשובה שלך ב־^ שמצביעים עליה, ומתקן אותם אחרי השליחה אם בינתיים נכנסו תשובות אחרות.</string>
     <string name="settings_reply_quotes">הצגת התשובה שמגיבים לה</string>
     <string name="settings_reply_quotes_summary">תשובות שמצביעות למעלה עם ^ (כמו ^^ או 4^) מציגות את התשובה שהן מגיבות לה. הקשה עליה עוברת אליה.</string>
-    <string name="settings_moderator_badges">תג נאמן סטיפס בתשובות</string>
-    <string name="settings_moderator_badges_summary">מסמן נאמני סטיפס ליד השם. כל מי שעונה נבדק פעם בשבועיים, ברקע.</string>
     <string name="action_reply">הגבה</string>
     <string name="reply_to">תגובה ל%1$s</string>
     <string name="reply_cancel">ביטול התגובה</string>
@@ -853,37 +851,6 @@
     <string name="notif_this_week">השבוע</string>
     <string name="notif_empty_category">אין כאלה במה שנטען עד עכשיו.</string>
     <string name="notif_load_older">טעינת התראות ישנות יותר</string>
-    <string name="notif_summary">חדש מאז הביקור הקודם: %1$s</string>
-    <plurals name="notif_sum_answers">
-        <item quantity="one">תשובה חדשה אחת</item>
-        <item quantity="two">%d תשובות חדשות</item>
-        <item quantity="many">%d תשובות חדשות</item>
-        <item quantity="other">%d תשובות חדשות</item>
-    </plurals>
-    <plurals name="notif_sum_questions">
-        <item quantity="one">בשאלה אחת</item>
-        <item quantity="two">ב־%d שאלות</item>
-        <item quantity="many">ב־%d שאלות</item>
-        <item quantity="other">ב־%d שאלות</item>
-    </plurals>
-    <plurals name="notif_sum_flowers">
-        <item quantity="one">פרח אחד</item>
-        <item quantity="two">%d פרחים</item>
-        <item quantity="many">%d פרחים</item>
-        <item quantity="other">%d פרחים</item>
-    </plurals>
-    <plurals name="notif_sum_thanks">
-        <item quantity="one">הודעת תודה אחת</item>
-        <item quantity="two">%d הודעות תודה</item>
-        <item quantity="many">%d הודעות תודה</item>
-        <item quantity="other">%d הודעות תודה</item>
-    </plurals>
-    <plurals name="notif_sum_system">
-        <item quantity="one">הודעת מערכת אחת</item>
-        <item quantity="two">%d הודעות מערכת</item>
-        <item quantity="many">%d הודעות מערכת</item>
-        <item quantity="other">%d הודעות מערכת</item>
-    </plurals>
     <!-- v0.16 -->
     <string name="sort_answers">מיון התשובות</string>
     <string name="sort_default">ברירת מחדל</string>
@@ -901,14 +868,6 @@
     <string name="live_shared_rate">הבית וחברים לעט בודקים באותו קצב.</string>
     <string name="badge_stips_plus">Stips+</string>
     <string name="badge_stips_plus_description">Stips+: בביו כתוב שמשתמשים בו</string>
-    <plurals name="notif_group_updates">
-        <item quantity="one">עדכון אחד</item>
-        <item quantity="two">%d עדכונים</item>
-        <item quantity="many">%d עדכונים</item>
-        <item quantity="other">%d עדכונים</item>
-    </plurals>
-    <string name="notif_group_show">הצגת העדכונים</string>
-    <string name="notif_group_hide">הסתרת העדכונים</string>
     <string name="notes_title">הערות לעצמי</string>
     <string name="notes_short">הערות לעצמי</string>
     <string name="notes_intro">מקום להערות, לטיוטות ולקישורים שלכם. סטיפס שומר אותם כשיחה עם עצמכם, כך שהם זמינים בכל מכשיר.</string>
@@ -916,4 +875,48 @@
     <string name="chats_search_hint">חיפוש משתמשים לשיחה</string>
     <string name="chats_search_chats">שיחות</string>
     <string name="chats_search_none">לא נמצאו משתמשים בשם הזה</string>
+    <!-- v0.18 -->
+    <string name="bio_promo_quote">היא תתווסף מעל הציטוט שלך, „~ %1$s ~”, שנשאר אחרון, כדי שסטיפס ימשיך להציג אותו כציטוט.</string>
+    <string name="profile_bio_quote_hint">טיפ: אם השורה האחרונה כתובה בין טילדות, כמו ~ מה ~, סטיפס מציג אותה מתחת לביו כציטוט שלך.</string>
+    <string name="share_open_label">פתיחה ב-Stips+\u200E</string>
+    <string name="share_no_link">במה ששותף אין קישור לשאלה, לפרופיל או לשיחה בסטיפס.</string>
+    <string name="credit_made_by">נוצר באהבה על ידי אייל שמשי</string>
+    <string name="credit_profile">אייל בסטיפס</string>
+    <string name="update_title">יצאה גרסה חדשה: Stips+\u200E %1$s</string>
+    <string name="update_body">הגרסה תרד מ-GitHub, ואז אנדרואיד יבקש לאשר את העדכון.</string>
+    <string name="update_ready_body">הגרסה ירדה ונבדקה. אנדרואיד יבקש לאשר את העדכון.</string>
+    <string name="update_failed">ההורדה לא הושלמה, או שהקובץ לא היה זה ש-GitHub פרסם.</string>
+    <string name="update_downloading">מוריד… %1$d%%</string>
+    <string name="update_now">עדכון</string>
+    <string name="update_install">התקנה</string>
+    <string name="update_later">אחר כך</string>
+    <string name="update_whats_new">מה חדש</string>
+    <string name="update_install_failed">לא הצלחנו לפתוח את המתקין של אנדרואיד.</string>
+    <string name="settings_updates_group">עדכונים</string>
+    <string name="settings_update_check">בדיקת עדכונים</string>
+    <string name="settings_update_to">עדכון לגרסה %1$s</string>
+    <string name="settings_update_install">התקנת גרסה %1$s</string>
+    <string name="settings_update_checking">בודק ב-GitHub…</string>
+    <string name="settings_update_latest">זו הגרסה החדשה ביותר · נבדק %1$s</string>
+    <string name="settings_update_never">אפשר להקיש כדי לבדוק עכשיו</string>
+    <string name="settings_update_failed">GitHub לא ענה. אפשר להקיש כדי לנסות שוב.</string>
+    <string name="settings_update_auto">בדיקה פעם ביום</string>
+    <string name="settings_update_auto_summary">Stips+\u200E שואל את GitHub אם יצאה גרסה חדשה. שום דבר לא יורד עד שמקישים על עדכון.</string>
+    <string name="reply_private">תגובה בפרטי</string>
+    <string name="private_reply_about">בנוגע לשאלה</string>
+    <string name="private_reply_remove">הסרת השאלה מההודעה</string>
+    <string name="link_card_question">שאלה בסטיפס</string>
+    <string name="link_card_profile">פרופיל בסטיפס</string>
+    <string name="link_card_question_missing">השאלה הזו לא זמינה</string>
+    <string name="link_card_profile_missing">הפרופיל הזה לא זמין</string>
+    <string name="link_card_open_question">פתיחת השאלה</string>
+    <string name="link_card_open_profile">פתיחת הפרופיל</string>
+    <string name="tip_swipe_reply">החלקה ימינה כדי להגיב</string>
+    <string name="tip_swipe_right">החלקה ימינה: %1$s</string>
+    <string name="tip_swipe_left">החלקה שמאלה: %1$s</string>
+    <string name="tip_live_options">לחיצה ארוכה על לייב כדי לבחור כל כמה זמן לבדוק</string>
+    <string name="tip_notes_shelf">העיגול הראשון הוא „הערות לעצמי”: שיחה שרק אתם רואים</string>
+    <string name="settings_reset_tips">להציג שוב את הטיפים</string>
+    <string name="settings_reset_tips_summary">רמזים קטנים על ההחלקות ועל עוד דברים ש-Stips+\u200E מוסיף</string>
+    <string name="tips_reset_done">הטיפים יוצגו שוב</string>
 </resources>

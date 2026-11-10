@@ -10,6 +10,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Android's "let Stips+ always run in the background?" question, so the checks aren't held back for hours (v0.11). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!--
+      Stips+'s own updates (#25): hands a new version downloaded from GitHub to Android's installer, which asks the
+      user to allow it once and to confirm each update. Remove it for a Google Play build (UpdateRules.SELF_UPDATE).
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".StipsApp"
@@ -50,6 +55,22 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- "Share → Stips+" (v0.18): a Stips link shared from another app opens in Stips+'s own window. Shows nothing. -->
+        <activity
+            android:name=".ShareLinkActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/share_open_label"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".notify.NotificationCheckJob"
             android:exported="false"
@@ -87,5 +108,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/chats_widget_info" />
         </receiver>
+
+        <!-- Gives Android's installer the update Stips+ downloaded (#25), from the cache's updates/ folder only. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
     </application>
 </manifest>

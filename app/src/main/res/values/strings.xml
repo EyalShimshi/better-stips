@@ -599,8 +599,6 @@
     <string name="settings_easy_reply_summary">Swipe an answer to the right to reply to it. Stips+ starts your answer with the carets (^^) that point to it, and fixes them after posting if other answers came in first.</string>
     <string name="settings_reply_quotes">Show what answers reply to</string>
     <string name="settings_reply_quotes_summary">Answers that point up with carets (^^, 4^) show the answer they reply to. Tap it to go there.</string>
-    <string name="settings_moderator_badges">Moderator badges on answers</string>
-    <string name="settings_moderator_badges_summary">Shows נאמן סטיפס by moderators\' names. Each person who answers is checked once every two weeks, in the background.</string>
     <string name="action_reply">Reply</string>
     <string name="reply_to">Replying to %1$s</string>
     <string name="reply_cancel">Cancel the reply</string>
@@ -817,27 +815,6 @@
     <string name="notif_this_week">This week</string>
     <string name="notif_empty_category">Nothing of this kind in what\'s loaded so far.</string>
     <string name="notif_load_older">Load older notifications</string>
-    <string name="notif_summary">New since your last visit: %1$s</string>
-    <plurals name="notif_sum_answers">
-        <item quantity="one">%d new answer</item>
-        <item quantity="other">%d new answers</item>
-    </plurals>
-    <plurals name="notif_sum_questions">
-        <item quantity="one">on one question</item>
-        <item quantity="other">on %d questions</item>
-    </plurals>
-    <plurals name="notif_sum_flowers">
-        <item quantity="one">a flower</item>
-        <item quantity="other">%d flowers</item>
-    </plurals>
-    <plurals name="notif_sum_thanks">
-        <item quantity="one">a thanks message</item>
-        <item quantity="other">%d thanks messages</item>
-    </plurals>
-    <plurals name="notif_sum_system">
-        <item quantity="one">a system message</item>
-        <item quantity="other">%d system messages</item>
-    </plurals>
     <!-- v0.16 -->
     <string name="sort_answers">Sort answers</string>
     <string name="sort_default">Default</string>
@@ -855,12 +832,6 @@
     <string name="live_shared_rate">Home and Pen pals check at the same rate.</string>
     <string name="badge_stips_plus">Stips+</string>
     <string name="badge_stips_plus_description">Stips+: their bio says they use it</string>
-    <plurals name="notif_group_updates">
-        <item quantity="one">%d update</item>
-        <item quantity="other">%d updates</item>
-    </plurals>
-    <string name="notif_group_show">Show the updates</string>
-    <string name="notif_group_hide">Hide the updates</string>
     <string name="notes_title">Notes to self</string>
     <string name="notes_short">Your notes</string>
     <string name="notes_intro">A place for your own notes, drafts and links. Stips keeps them as a chat with yourself, so they\'re on every device you use.</string>
@@ -868,4 +839,48 @@
     <string name="chats_search_hint">Search people to write to</string>
     <string name="chats_search_chats">Chats</string>
     <string name="chats_search_none">No one by that name</string>
+    <!-- v0.18 -->
+    <string name="bio_promo_quote">It goes above your quote, “~ %1$s ~”, which stays last, so Stips still shows it as your quote.</string>
+    <string name="profile_bio_quote_hint">Tip: end with a line like ~ your words ~ and Stips shows it under your bio as your quote.</string>
+    <string name="share_open_label">Open in Stips+</string>
+    <string name="share_no_link">There\'s no link to a Stips question, profile or chat in what was shared.</string>
+    <string name="credit_made_by">Made with love by Eyal Shimshi</string>
+    <string name="credit_profile">Eyal on Stips</string>
+    <string name="update_title">Stips+ %1$s is out</string>
+    <string name="update_body">It downloads from GitHub, then Android asks you to confirm the update.</string>
+    <string name="update_ready_body">Downloaded and checked. Android asks you to confirm the update.</string>
+    <string name="update_failed">The download didn\'t finish, or it wasn\'t the file GitHub listed.</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_now">Update</string>
+    <string name="update_install">Install</string>
+    <string name="update_later">Later</string>
+    <string name="update_whats_new">What\'s new</string>
+    <string name="update_install_failed">Couldn\'t open Android\'s installer.</string>
+    <string name="settings_updates_group">Updates</string>
+    <string name="settings_update_check">Check for updates</string>
+    <string name="settings_update_to">Update to %1$s</string>
+    <string name="settings_update_install">Install %1$s</string>
+    <string name="settings_update_checking">Checking GitHub…</string>
+    <string name="settings_update_latest">You have the newest version · checked %1$s</string>
+    <string name="settings_update_never">Tap to check now</string>
+    <string name="settings_update_failed">GitHub didn\'t answer. Tap to try again.</string>
+    <string name="settings_update_auto">Check once a day</string>
+    <string name="settings_update_auto_summary">Stips+ asks GitHub whether a newer version is out. Nothing downloads until you tap Update.</string>
+    <string name="reply_private">Reply in private</string>
+    <string name="private_reply_about">About the question</string>
+    <string name="private_reply_remove">Leave the question out</string>
+    <string name="link_card_question">Question on Stips</string>
+    <string name="link_card_profile">Profile on Stips</string>
+    <string name="link_card_question_missing">This question isn\'t available</string>
+    <string name="link_card_profile_missing">This profile isn\'t available</string>
+    <string name="link_card_open_question">open the question</string>
+    <string name="link_card_open_profile">open the profile</string>
+    <string name="tip_swipe_reply">Swipe right to reply</string>
+    <string name="tip_swipe_right">Swipe right: %1$s</string>
+    <string name="tip_swipe_left">Swipe left: %1$s</string>
+    <string name="tip_live_options">Long-press Live to choose how often it checks</string>
+    <string name="tip_notes_shelf">The first circle is your notes to self, a chat only you see</string>
+    <string name="settings_reset_tips">Show the tips again</string>
+    <string name="settings_reset_tips_summary">Little hints about the swipes and other things Stips+ adds</string>
+    <string name="tips_reset_done">The tips will show again</string>
 </resources>

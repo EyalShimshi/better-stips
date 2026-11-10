@@ -35,6 +35,8 @@ data class PenPalsState(
     val loadingMore: Boolean = false,
     val moreFailed: Boolean = false,
     val error: ApiException? = null,
+    /** The board was just replaced by a refresh by hand: posts don't slide to their places (v0.18, #30). */
+    val swapped: Boolean = false,
     /** Stips opens the board to ages 13–21 (moderators aside); signed-out readers may browse. */
     val closedForAge: Boolean = false,
     val composerOpen: Boolean = false,
@@ -82,7 +84,7 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
                 val list = repository.penPals(1)
                 if (gen != generation) return@launch
                 pageOneAt = System.currentTimeMillis()
-                _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false) }
+                _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false, swapped = true) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -117,7 +119,7 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
             val known = current.items.mapTo(HashSet()) { it.id }
             val newOnes = fresh.filter { it.id !in known }
             added = newOnes.size
-            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items)
+            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items, swapped = false)
         }
         return added
     }
@@ -133,7 +135,7 @@ class PenPalsViewModel(private val repository: StipsRepository, private val sess
                 val list = repository.penPals(next)
                 if (gen != generation) return@launch
                 // Pages shift as new posts arrive, so ids can repeat.
-                _state.update { st -> st.copy(items = (st.items + list).distinctBy { it.id }, page = next, end = list.isEmpty(), loadingMore = false) }
+                _state.update { st -> st.copy(items = (st.items + list).distinctBy { it.id }, page = next, end = list.isEmpty(), loadingMore = false, swapped = false) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

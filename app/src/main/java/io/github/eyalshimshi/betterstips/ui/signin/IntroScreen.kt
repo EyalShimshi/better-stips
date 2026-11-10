@@ -470,7 +470,6 @@ private fun RepliesStep(settings: AppSettings) {
         easyReply = settings.easyReply,
         quotes = settings.replyQuotes,
         hideCarets = settings.hideReplyCarets,
-        moderatorBadges = settings.moderatorBadges,
     )
     SwitchLine(
         title = stringResource(R.string.settings_easy_reply),
@@ -599,4 +598,10 @@ private fun DoneStep() {
         Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(40.dp))
     }
     StepHeader(stringResource(R.string.intro_done_title), stringResource(R.string.intro_done_body))
+    // Who made Stips+ (#26), as Settings ends.
+    Text(
+        stringResource(R.string.credit_made_by),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

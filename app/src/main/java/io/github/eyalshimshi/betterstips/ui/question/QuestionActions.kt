@@ -55,6 +55,10 @@ import io.github.eyalshimshi.betterstips.data.model.Answer
 import io.github.eyalshimshi.betterstips.data.model.Channel
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.LocalReplyInPrivate
+import io.github.eyalshimshi.betterstips.ui.components.LocalQuestionRowHint
+import io.github.eyalshimshi.betterstips.data.Tutorials
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import io.github.eyalshimshi.betterstips.ui.components.QuestionRow
 import io.github.eyalshimshi.betterstips.ui.components.SwipeActionsBox
 import io.github.eyalshimshi.betterstips.ui.components.SwipeSpec
@@ -84,6 +88,7 @@ class QuestionActions internal constructor(
     private val snackbar: SnackbarHostState,
 ) {
     internal var onSignIn: () -> Unit = {}
+    internal var onReplyInPrivate: (Question) -> Unit = {}
     internal var reportFor by mutableStateOf<Question?>(null)
     internal var hideUserFor by mutableStateOf<Question?>(null)
     internal var export by mutableStateOf<ExportJob?>(null)
@@ -109,6 +114,7 @@ class QuestionActions internal constructor(
             QuestionSwipe.None -> Unit
             QuestionSwipe.Pin -> signedInOnly { togglePin(question) }
             QuestionSwipe.Follow -> signedInOnly { follow(question) }
+            QuestionSwipe.PrivateReply -> onReplyInPrivate(question)
             QuestionSwipe.Share -> shareText(context, question.title + "\n" + question.shareUrl)
             QuestionSwipe.CopyLink -> copyLink(question)
             QuestionSwipe.OpenOnSite -> openInBrowser(context, question.shareUrl)
@@ -274,7 +280,9 @@ fun QuestionActionsHost(snackbar: SnackbarHostState, onSignIn: () -> Unit, conte
     val scope = rememberCoroutineScope()
     val actions = remember(container, context, scope, snackbar) { QuestionActions(container, context, scope, snackbar) }
     val currentOnSignIn by rememberUpdatedState(onSignIn)
+    val replyInPrivate by rememberUpdatedState(LocalReplyInPrivate.current)
     actions.onSignIn = { currentOnSignIn() }
+    actions.onReplyInPrivate = { question -> replyInPrivate(question.author, question.id) }
     CompositionLocalProvider(LocalQuestionActions provides actions) { content() }
 
     actions.reportFor?.let { question ->
@@ -343,6 +351,7 @@ fun QuestionActions.swipeSpec(question: Question, action: QuestionSwipe): SwipeS
 fun questionSwipeIcon(action: QuestionSwipe, pinned: Boolean = false): ImageVector = when (action) {
     QuestionSwipe.Pin -> if (pinned) Icons.Outlined.PushPin else Icons.Filled.PushPin
     QuestionSwipe.Follow -> Icons.Filled.NotificationsActive
+    QuestionSwipe.PrivateReply -> Icons.AutoMirrored.Outlined.Chat
     QuestionSwipe.Share -> Icons.Filled.Share
     QuestionSwipe.CopyLink -> Icons.Outlined.Link
     QuestionSwipe.OpenOnSite -> Icons.Outlined.OpenInBrowser
@@ -360,6 +369,7 @@ fun answerSwipeIcon(action: AnswerSwipe): ImageVector = when (action) {
     AnswerSwipe.Detach -> Icons.Outlined.PersonOff
     AnswerSwipe.Delete -> Icons.Outlined.Delete
     AnswerSwipe.History -> Icons.Outlined.History
+    AnswerSwipe.PrivateReply -> Icons.AutoMirrored.Outlined.Chat
     AnswerSwipe.Report -> Icons.Outlined.Flag
     AnswerSwipe.Hide -> Icons.Outlined.VisibilityOff
     AnswerSwipe.HideUser -> Icons.Outlined.Block
@@ -372,6 +382,7 @@ fun answerSwipeLabel(action: AnswerSwipe): Int = when (action) {
     AnswerSwipe.Detach -> R.string.detach_answer
     AnswerSwipe.Delete -> R.string.delete_answer
     AnswerSwipe.History -> R.string.edit_history
+    AnswerSwipe.PrivateReply -> R.string.reply_private
     AnswerSwipe.Report -> R.string.report_answer
     AnswerSwipe.Hide -> R.string.hide_answer
     AnswerSwipe.HideUser -> R.string.hide_user_content
@@ -382,6 +393,7 @@ fun questionSwipeLabel(action: QuestionSwipe): Int = when (action) {
     QuestionSwipe.None -> R.string.swipe_none
     QuestionSwipe.Pin -> R.string.swipe_pin
     QuestionSwipe.Follow -> R.string.get_updates
+    QuestionSwipe.PrivateReply -> R.string.reply_private
     QuestionSwipe.Share -> R.string.action_share
     QuestionSwipe.CopyLink -> R.string.swipe_copy_link
     QuestionSwipe.OpenOnSite -> R.string.action_open_site
@@ -391,12 +403,28 @@ fun questionSwipeLabel(action: QuestionSwipe): Int = when (action) {
     QuestionSwipe.HideUser -> R.string.hide_user_content
 }
 
-/** A question in a list, with the swipes picked in Settings (#18). */
+/** A question in a list, with the swipes picked in Settings (#18); Home's tip may slide it (#28). */
 @Composable
 fun SwipeableQuestionRow(question: Question, channel: Channel?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val actions = LocalQuestionActions.current
     val settings = LocalAppSettings.current
-    val right = actions?.swipeSpec(question, settings.swipeRight)
-    val left = actions?.swipeSpec(question, settings.swipeLeft)
-    SwipeActionsBox(right, left, modifier) { QuestionRow(question, channel, onClick) }
+    val tutorials = LocalAppContainer.current.tutorials
+    val right = actions?.swipeSpec(question, settings.swipeRight)?.let { spec ->
+        spec.copy(
+            onSwipe = {
+                tutorials.done(Tutorials.Tip.HomeSwipeRight)
+                spec.onSwipe()
+            },
+        )
+    }
+    val left = actions?.swipeSpec(question, settings.swipeLeft)?.let { spec ->
+        spec.copy(
+            onSwipe = {
+                tutorials.done(Tutorials.Tip.HomeSwipeLeft)
+                spec.onSwipe()
+            },
+        )
+    }
+    val hint = LocalQuestionRowHint.current?.takeIf { it.questionId == question.id }?.hint
+    SwipeActionsBox(right, left, modifier, hint = hint) { QuestionRow(question, channel, onClick) }
 }

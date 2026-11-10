@@ -1,5 +1,7 @@
 package io.github.eyalshimshi.betterstips.ui.settings
 
+import io.github.eyalshimshi.betterstips.ui.components.FlowerColors
+import io.github.eyalshimshi.betterstips.ui.components.FlowerIcon
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,7 +26,6 @@ import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
@@ -251,11 +252,11 @@ fun HomeLayoutPicker(selected: HomeLayout, onSelect: (HomeLayout) -> Unit, modif
 
 /**
  * Two answers, the second replying to the first (Questions and answers, intro): its quote when [quotes] is on,
- * its "^" unless [hideCarets] leaves it out, the moderator mark when [moderatorBadges] is on, and the swipe that
+ * its "^" unless [hideCarets] leaves it out, the moderator mark (always on since v0.18, #31), and the swipe that
  * starts a reply when [easyReply] is on.
  */
 @Composable
-fun RepliesPreview(easyReply: Boolean, quotes: Boolean, hideCarets: Boolean, moderatorBadges: Boolean, modifier: Modifier = Modifier) {
+fun RepliesPreview(easyReply: Boolean, quotes: Boolean, hideCarets: Boolean, modifier: Modifier = Modifier) {
     val nameA = stringResource(R.string.preview_name_a)
     val answerA = stringResource(R.string.preview_answer_a)
     PreviewFrame(modifier) {
@@ -266,7 +267,7 @@ fun RepliesPreview(easyReply: Boolean, quotes: Boolean, hideCarets: Boolean, mod
             MiniAnswer(
                 name = stringResource(R.string.preview_name_b),
                 color = MaterialTheme.colorScheme.primary,
-                badge = { if (moderatorBadges) ModeratorPill() },
+                badge = { ModeratorPill() },
             ) {
                 if (quotes) Quote(nameA, answerA)
                 if (!(quotes && hideCarets)) Caret()
@@ -405,10 +406,10 @@ fun NotificationPreview(modifier: Modifier = Modifier) {
                     Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(colors.primary),
+                        .background(FlowerColors.Tint),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.LocalFlorist, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
+                    FlowerIcon(size = 20.dp)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {

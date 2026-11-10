@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.ui.user
 
+import io.github.eyalshimshi.betterstips.ui.components.FlowerIcon
 import io.github.eyalshimshi.betterstips.ui.components.ImageViewerDialog
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -51,7 +52,6 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.QuestionAnswer
@@ -160,6 +160,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.theme.LocalIsDark
 import io.github.eyalshimshi.betterstips.ui.theme.SchemeGenerator
 import io.github.eyalshimshi.betterstips.util.BioPromo
+import io.github.eyalshimshi.betterstips.util.BioText
 import io.github.eyalshimshi.betterstips.util.CredRules
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -643,8 +644,7 @@ private fun ProfileHeaderBody(
         val bio = page?.bio
         if (bio != null) {
             Spacer(Modifier.height(10.dp))
-            // Links in a bio open like links in answers: Stips ones in the app, the rest in the browser (#12).
-            LinkifiedText(bio, style = MaterialTheme.typography.bodyMedium)
+            BioBlock(bio)
         }
         if (onMessage != null || isMe) {
             Spacer(Modifier.height(14.dp))
@@ -672,6 +672,46 @@ private fun ProfileHeaderBody(
             }
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * A bio as Stips shows it (#29): centered, on a soft block of its own, and when it ends with a `~quote~` line, that
+ * line under the rest as "~ quote ~", smaller and lighter. Links open like links in answers: Stips ones in the app,
+ * the rest in the browser (#12).
+ */
+@Composable
+private fun BioBlock(bio: String) {
+    val parsed = remember(bio) { BioText.parse(bio) }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (parsed.text.isNotEmpty()) {
+                LinkifiedText(
+                    parsed.text,
+                    style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            val quote = parsed.quote
+            if (quote != null) {
+                Text(
+                    "~ $quote ~",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
+        }
     }
 }
 
@@ -911,7 +951,6 @@ private fun ActivityChart(points: List<ChartPoint>, modifier: Modifier = Modifie
 
 @Composable
 private fun FloweredAnswerCard(answer: Answer, onClick: () -> Unit) {
-    val flower = bandColor(0xFFF50057.toInt())
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -933,7 +972,7 @@ private fun FloweredAnswerCard(answer: Answer, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.LocalFlorist, contentDescription = null, tint = flower, modifier = Modifier.size(16.dp))
+                FlowerIcon(size = 16.dp)
                 Spacer(Modifier.width(6.dp))
                 Text(agoText(answer.postedAt), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1023,15 +1062,23 @@ private fun BioDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.profile_edit_bio)) },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it.take(BIO_MAX) },
-                placeholder = { Text(stringResource(R.string.profile_bio_hint)) },
-                supportingText = { Text("${text.length} / $BIO_MAX") },
-                minLines = 3,
-                maxLines = 6,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(BIO_MAX) },
+                    placeholder = { Text(stringResource(R.string.profile_bio_hint)) },
+                    supportingText = { Text("${text.length} / $BIO_MAX") },
+                    minLines = 3,
+                    maxLines = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                // Stips' own touch (#29): a last line between tildes shows under the bio as its quote.
+                Text(
+                    stringResource(R.string.profile_bio_quote_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text(stringResource(R.string.action_save_changes)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
@@ -1040,7 +1087,7 @@ private fun BioDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -
 
 /** Stips' badge codes, in the person's grammatical gender. Unknown codes are skipped. */
 @Composable
-private fun badgeLabel(code: String, female: Boolean): String? {
+internal fun badgeLabel(code: String, female: Boolean): String? {
     val id = when (code) {
         "moderator" -> if (female) R.string.badge_moderator_f else R.string.badge_moderator_m
         "senior_moderator" -> if (female) R.string.badge_senior_moderator_f else R.string.badge_senior_moderator_m
@@ -1101,7 +1148,7 @@ private fun ThanksComposer(nickname: String, sending: Boolean, onSend: (String) 
 private const val THANKS_MAX = 500
 
 /** The colors of the Stips+ bio button: Stips green into blue and purple, bright enough on both themes (#12). */
-private val PromoColors = listOf(Color(0xFF09A872), Color(0xFF2F7BF6), Color(0xFF8E44EC))
+private val PromoColors = SpecialAccounts.STIPS_PLUS_COLORS.map { Color(it) }
 
 /** "Stips+" on the profile of someone whose bio says they use it (v0.16), in the bio button's colors. */
 @Composable
@@ -1155,12 +1202,13 @@ private fun PromoButton(onClick: () -> Unit) {
 
 /**
  * What the bio button adds (#12): the exact line, a promise that the bio stays as it is, and when the line doesn't
- * fit Stips' 250 characters, how many it would take.
+ * fit Stips' 1000 characters (#29), how many it would take. A bio's `~quote~` line stays last, under it.
  */
 @Composable
 private fun BioPromoDialog(bio: String?, female: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val length = BioPromo.lengthWith(bio, female)
     val fits = length <= BioPromo.BIO_MAX
+    val quote = remember(bio) { bio?.let { BioText.parse(it).quote } }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
@@ -1170,6 +1218,9 @@ private fun BioPromoDialog(bio: String?, female: Boolean, onConfirm: () -> Unit,
                 Text(stringResource(R.string.bio_promo_body), style = MaterialTheme.typography.bodyMedium)
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Text(BioPromo.line(female), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
+                }
+                if (quote != null) {
+                    Text(stringResource(R.string.bio_promo_quote, quote), style = MaterialTheme.typography.bodySmall)
                 }
                 Text(
                     stringResource(R.string.bio_promo_keep),

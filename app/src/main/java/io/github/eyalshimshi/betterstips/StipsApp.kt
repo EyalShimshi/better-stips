@@ -9,11 +9,14 @@ import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import io.github.eyalshimshi.betterstips.data.AnonymousAnswers
+import io.github.eyalshimshi.betterstips.data.AppUpdates
 import io.github.eyalshimshi.betterstips.data.BlockStore
 import io.github.eyalshimshi.betterstips.data.ChannelsSource
 import io.github.eyalshimshi.betterstips.data.ChatReadMarks
 import io.github.eyalshimshi.betterstips.data.FeedCache
 import io.github.eyalshimshi.betterstips.data.ImageLinkResolver
+import io.github.eyalshimshi.betterstips.data.LinkPreviews
+import io.github.eyalshimshi.betterstips.data.Tutorials
 import io.github.eyalshimshi.betterstips.data.ReadMarks
 import io.github.eyalshimshi.betterstips.data.ReplyTargets
 import io.github.eyalshimshi.betterstips.data.SavedStore
@@ -88,6 +91,23 @@ class AppContainer(private val app: Application) {
 
     private val api = StipsApi(httpClient)
 
+    /**
+     * GitHub, for Stips+'s own updates (#25): its own connections, without cookies, never Stips'. No time limit for
+     * the whole call: an APK of a few MB can take a while on a slow network.
+     */
+    private val updateClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(userAgent)
+            .connectionPool(ConnectionPool())
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .eventListenerFactory(NetLogListener.factory(verbose = false))
+            .build()
+    }
+
+    /** New versions of Stips+ from GitHub (#25); built when the screens first ask, not for the widget or the checks. */
+    val updates: AppUpdates by lazy { AppUpdates(app, updateClient, appScope) }
+
     val settings = SettingsStore(app)
     val session = SessionStore(app, api, cookieJar)
     val saved = SavedStore(app)
@@ -104,6 +124,12 @@ class AppContainer(private val app: Application) {
 
     /** Which picture an image link shows (#15): imgbb's small oEmbed answers, without cookies. */
     val imageLinks = ImageLinkResolver(imageClient)
+
+    /** What the cards for Stips question and profile links in chats show (v0.18), once per session each. */
+    val linkPreviews = LinkPreviews(repository)
+
+    /** Feature tips (#28): which showed, and which the user has done. */
+    val tutorials = Tutorials(app)
 
     /** The "Hot right now" widget's list (D-51). */
     val hotWidget = HotWidgetFeed(app, repository, appScope)

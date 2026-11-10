@@ -89,6 +89,12 @@ val LocalAppContainer = staticCompositionLocalOf<AppContainer> { error("AppConta
 val LocalOpenProfile = staticCompositionLocalOf<(Long) -> Unit> { {} }
 
 /**
+ * "Reply in private" (v0.18): opens a chat with the author about the question with the given id, signing in first when
+ * needed. Provided by AppRoot.
+ */
+val LocalReplyInPrivate = staticCompositionLocalOf<(Author, Long) -> Unit> { { _, _ -> } }
+
+/**
  * Material's question-mark icon, facing the way Hebrew (and English) write "?" (v0.16). The auto-mirrored one turns it
  * around in right-to-left, as Arabic writes "؟", so it read backwards in Hebrew.
  */

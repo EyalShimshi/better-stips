@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.util
 
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -45,6 +46,15 @@ object Links {
         if (messagesLink.matches(link.trim())) return DeepLink.Messages
         return null
     }
+
+    /**
+     * The first link in [text] that the app opens itself, as written, or null (v0.18): what someone shared to Stips+
+     * from another app ("Share → Stips+"), which may wrap the link in words.
+     */
+    fun sharedLink(text: String?): String? {
+        if (text.isNullOrBlank()) return null
+        return find(text).map { text.substring(it) }.firstOrNull { deepLink(it) != null }
+    }
 }
 
 /** A place in the app that a link, a phone notification or a launcher shortcut opens. */
@@ -61,6 +71,9 @@ sealed interface DeepLink {
 
     /** The full Hot list (the launcher shortcut). */
     data object Hot : DeepLink
+
+    /** A notice from Stips' team, shown in full over the app: a phone notification about it was tapped (v0.18, #27). */
+    data class TeamNotice(val notice: StipsNotification) : DeepLink
 }
 
 /** Launcher shortcuts (`res/xml/shortcuts.xml`): each opens MainActivity with its own action. */

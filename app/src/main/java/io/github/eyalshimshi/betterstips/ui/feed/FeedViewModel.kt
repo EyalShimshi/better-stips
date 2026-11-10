@@ -23,6 +23,8 @@ data class FeedUiState(
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
     val error: ApiException? = null,
+    /** The list was just replaced by a refresh by hand: rows don't slide to their places (v0.18, #30). */
+    val swapped: Boolean = false,
 )
 
 /**
@@ -103,13 +105,15 @@ class FeedViewModel(
             return -1
         }
         if (query != _query.value) return 0
+        // A refresh by hand started meanwhile: it brings these too, so they don't slide in just before it lands.
+        if (_state.value.refreshing || _state.value.loading) return 0
         pageOneAt = System.currentTimeMillis()
         var added = 0
         _state.update { current ->
             val known = current.items.mapTo(HashSet()) { it.id }
             val newOnes = fresh.filter { it.id !in known }
             added = newOnes.size
-            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items)
+            if (newOnes.isEmpty()) current else current.copy(items = newOnes + current.items, swapped = false)
         }
         return added
     }
@@ -150,6 +154,7 @@ class FeedViewModel(
                         loadingMore = false,
                         endReached = list.isEmpty(),
                         error = null,
+                        swapped = reset && refreshing,
                     )
                 }
             } catch (e: CancellationException) {

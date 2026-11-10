@@ -1,9 +1,12 @@
 package io.github.eyalshimshi.betterstips.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.DraggableState
 import androidx.compose.foundation.gestures.Orientation
@@ -46,6 +49,7 @@ import io.github.eyalshimshi.betterstips.util.SwipeSide
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
+import kotlinx.coroutines.delay
 
 /** What a swipe runs (#18): its words (shown behind the row, and for TalkBack), its icon, and whether it removes something. */
 data class SwipeSpec(val label: String, val icon: ImageVector, val destructive: Boolean = false, val onSwipe: () -> Unit)
@@ -71,6 +75,14 @@ private val SWIPE_FLING_MIN = 16.dp
 /** Past the line the item follows the finger less, so the line can be felt; a question's row less so. */
 private const val SWIPE_RESISTANCE = 0.3f
 private const val ROW_SWIPE_RESISTANCE = 0.5f
+
+/** A tip's hint (#28) slides the item this share of the way to the line, so it doesn't run, and holds it there. */
+private const val PEEK_SHARE = 0.85f
+private const val PEEK_OUT_MS = 450
+private const val PEEK_HOLD_MS = 1_300L
+
+/** About how long a hint takes, out and back, for tips that follow one another. */
+const val PEEK_TOTAL_MS = 2_400L
 
 /**
  * One sideways swipe (v0.16), shared by questions in lists, answers and chat messages: the item follows the finger,
@@ -118,6 +130,32 @@ class SwipeDrag internal constructor(
         armed = false
         animate(offset, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> offset = value }
     }
+
+    /**
+     * A tip's hint (#28): the item slides toward [side] most of the way to the line, so what's behind it shows, stays a
+     * moment and springs back; without [animated] it jumps there and back. It moves as a drag, so a finger on the item
+     * takes over at once (and this ends).
+     */
+    suspend fun peek(side: SwipeSide, animated: Boolean) {
+        if (if (side == SwipeSide.Right) !canRight else !canLeft) return
+        val target = (if (side == SwipeSide.Right) 1f else -1f) * trigger * PEEK_SHARE
+        state.drag(MutatePriority.Default) {
+            var at = offset
+            val moveTo: (Float) -> Unit = { value ->
+                dragBy(value - at)
+                at = value
+            }
+            if (animated) {
+                animate(at, target, animationSpec = tween(PEEK_OUT_MS, easing = FastOutSlowInEasing)) { value, _ -> moveTo(value) }
+                delay(PEEK_HOLD_MS)
+                animate(at, 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { value, _ -> moveTo(value) }
+            } else {
+                moveTo(target)
+                delay(PEEK_OUT_MS + PEEK_HOLD_MS)
+                moveTo(0f)
+            }
+        }
+    }
 }
 
 /** A [SwipeDrag] for an answer or a chat message; [trigger] and [max] are where it runs and how far it goes. */
@@ -162,8 +200,17 @@ fun Modifier.swipeToAct(drag: SwipeDrag, onRight: (() -> Unit)?, onLeft: (() -> 
  * dragged; at the line the phone ticks and the icon pops, and letting go there, or flicking, runs it (v0.16).
  */
 @Composable
-fun SwipeActionsBox(right: SwipeSpec?, left: SwipeSpec?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun SwipeActionsBox(
+    right: SwipeSpec?,
+    left: SwipeSpec?,
+    modifier: Modifier = Modifier,
+    hint: SwipeHint? = null,
+    content: @Composable () -> Unit,
+) {
     val drag = rememberSwipeDrag(max = ROW_SWIPE_MAX, resistance = ROW_SWIPE_RESISTANCE)
+    // A tip slides the row a little to show what a swipe does (#28).
+    val tip = rememberTipState()
+    SwipeHintEffect(hint, drag, tip)
     val elements = LocalAppSettings.current.motion.elements
     val pop = animateFloatAsState(
         targetValue = if (drag.armed && elements) 1.15f else 1f,
@@ -238,5 +285,6 @@ fun SwipeActionsBox(right: SwipeSpec?, left: SwipeSpec?, modifier: Modifier = Mo
                 .absoluteOffset { IntOffset(drag.offset.roundToInt(), 0) }
                 .background(colors.background),
         ) { content() }
+        TipPill(tip, Modifier.align(Alignment.Center))
     }
 }

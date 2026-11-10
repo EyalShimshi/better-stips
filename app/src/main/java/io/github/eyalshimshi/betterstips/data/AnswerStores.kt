@@ -83,7 +83,7 @@ private fun keepNewest(prefs: SharedPreferences, max: Int) {
 }
 
 /**
- * The badges of people who answer (`profile.page_data`), kept for two weeks, so answers can show who's a moderator
+ * The badges of people who answer (`profile.page_data`), kept for a day (#31), so answers can show who's a moderator
  * without opening profiles (v0.10). A moderator's entry also keeps the gender, for "נאמן" or "נאמנת".
  */
 class UserBadges(context: Context) {
@@ -106,7 +106,7 @@ class UserBadges(context: Context) {
         return entries[userId]
     }
 
-    /** Whether [userId] hasn't been checked in the last two weeks. */
+    /** Whether [userId] hasn't been checked in the last day. */
     fun needsLookup(userId: Long, now: Long = System.currentTimeMillis()): Boolean {
         val entry = entry(userId) ?: return true
         return now - entry.checkedAt >= TTL_MS
@@ -153,7 +153,8 @@ class UserBadges(context: Context) {
     }
 
     companion object {
-        const val TTL_MS = 14L * 24 * 60 * 60 * 1000
+        /** Each person is checked again after a day (#31, v0.18; two weeks before): a new moderator shows within a day. */
+        const val TTL_MS = 24L * 60 * 60 * 1000
         const val MAX = 3_000
 
         /** "moderator,old_expert|f|1730000000000" (gender "f", "m" or empty). Pure. */

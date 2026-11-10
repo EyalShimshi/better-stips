@@ -125,7 +125,7 @@ class RulesV14Test {
     fun bioPromo_addsBelowAndKeepsTheBio() {
         assertTrue(BioPromo.line(female = false).startsWith("גם אני משתמש בסטיפס+\n"))
         assertTrue(BioPromo.line(female = true).startsWith("גם אני משתמשת בסטיפס+\n"))
-        assertTrue(BioPromo.line(false).endsWith(BioPromo.PLAY_URL))
+        assertTrue(BioPromo.line(false).endsWith(BioPromo.LINK))
         assertEquals("שלום\n\n" + BioPromo.line(false), BioPromo.appended("שלום  \n", female = false))
         assertEquals(BioPromo.line(true), BioPromo.appended(null, female = true))
         assertEquals(BioPromo.line(true), BioPromo.appended("   ", female = true))

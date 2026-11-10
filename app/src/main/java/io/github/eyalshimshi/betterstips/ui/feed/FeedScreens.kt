@@ -65,6 +65,7 @@ import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.ui.components.SkeletonRows
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.channelLabel
+import io.github.eyalshimshi.betterstips.ui.components.listItemMotion
 
 @Composable
 fun QuestionList(
@@ -109,7 +110,7 @@ fun QuestionList(
                         question,
                         channels.firstOrNull { it.id == question.channelId },
                         onClick = { onOpen(question) },
-                        modifier = if (moving) Modifier.animateItem() else Modifier,
+                        modifier = listItemMotion(moving, state.swapped),
                     )
                 }
                 when {

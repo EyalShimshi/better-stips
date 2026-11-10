@@ -14,6 +14,7 @@ import io.github.eyalshimshi.betterstips.data.model.UnreadMark
 import io.github.eyalshimshi.betterstips.data.model.UserProfile
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
 import io.github.eyalshimshi.betterstips.util.AutoRefresh
+import io.github.eyalshimshi.betterstips.util.ChatLinks
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
 import io.github.eyalshimshi.betterstips.util.StipsEmoji
 import kotlinx.coroutines.CancellationException
@@ -170,6 +171,8 @@ data class ConversationUiState(
     val replyTo: ChatMessage? = null,
     /** Bumped to put the cursor in the box and open the keyboard (a swipe started a reply). */
     val focusComposer: Int = 0,
+    /** Reply in private (v0.18): the question this message is about; its link goes first when it's sent. */
+    val about: Long? = null,
     val sending: Boolean = false,
     val sendError: ApiException? = null,
     /** The other person: photo and online status for the top bar, and the summary at the start (#6). */
@@ -197,8 +200,10 @@ class ConversationViewModel(
     private val session: SessionStore,
     private val readMarks: ChatReadMarks,
     private val userId: Long,
+    /** Opened by "reply in private" on this question (v0.18): the message starts out about it, the keyboard open. */
+    about: Long? = null,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ConversationUiState())
+    private val _state = MutableStateFlow(ConversationUiState(about = about, focusComposer = if (about != null) 1 else 0))
     val state: StateFlow<ConversationUiState> = _state.asStateFlow()
     private var pageRequested = false
 
@@ -385,9 +390,14 @@ class ConversationViewModel(
         _state.update { it.copy(replyTo = null, draft = ReplyRefs.withoutReply(it.draft), draftVersion = it.draftVersion + 1) }
     }
 
+    /** The message won't be about the question after all (reply in private, v0.18). */
+    fun removeAbout() {
+        _state.update { it.copy(about = null) }
+    }
+
     fun send() {
         val current = _state.value
-        if (current.draft.isBlank() || current.sending) return
+        if ((current.draft.isBlank() && current.about == null) || current.sending) return
         viewModelScope.launch {
             _state.update { it.copy(sending = true, sendError = null) }
             try {
@@ -399,11 +409,15 @@ class ConversationViewModel(
                     pollNew()
                     ChatRules.replyCount(_state.value.messages, replyTo.id)?.let { text = ReplyRefs.withReply(text, it) }
                 }
+                // Reply in private (v0.18): the question's link on a line of its own, which the bubble shows as a card.
+                current.about?.let { text = ChatLinks.withLink(text, ChatLinks.questionLink(it)) }
                 val id = repository.sendMessage(userId, text)
                 if (id == null) {
                     // Stips always answers with the new id (the site treats a missing one as a failure); if it ever
                     // doesn't, fetch the message rather than guess an id the next check would duplicate.
-                    _state.update { it.copy(draft = "", draftVersion = it.draftVersion + 1, replyTo = null, sending = false, unread = null) }
+                    _state.update {
+                        it.copy(draft = "", draftVersion = it.draftVersion + 1, replyTo = null, about = null, sending = false, unread = null)
+                    }
                     pollNew()
                     return@launch
                 }
@@ -415,6 +429,7 @@ class ConversationViewModel(
                         draft = "",
                         draftVersion = s.draftVersion + 1,
                         replyTo = null,
+                        about = null,
                         sending = false,
                         // Writing back reads the chat, as in WhatsApp.
                         unread = null,

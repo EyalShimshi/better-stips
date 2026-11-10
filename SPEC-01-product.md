@@ -144,6 +144,17 @@ Stips+ is a fast, native Android app for reading and answering questions on [sti
 | F-90 | Emoji codes in chats (#22, v0.17) | P2 | `:name:` codes from older apps show as emoji, as on the site |
 | F-91 | A bell that knows what's new (v0.17) | P0 | The badge shows new notifications even when other apps on the account read them first; so do phone notifications |
 | F-92 | Updates per question, and days in chats (v0.17) | P1 | A question's updates are one row in the bell and one phone notification; chats show the date above each day |
+| F-93 | One sentence per question in the bell (#27, v0.18) | P1 | "התקבלו 6 תשובות חדשות לשאלה: …" with the total, in the bell and on the phone; flowers in Stips' colors; older notifications load as you scroll; a tapped phone notification is read; a team notice opens in full |
+| F-94 | Bios as on Stips (#29, v0.18) | P2 | Up to 1000 characters, centered; a last line in `~tildes~` shows as the quote under it |
+| F-95 | Moderator marks, checked daily (#31, v0.18) | P2 | Always on; a new moderator shows within a day |
+| F-96 | A calm refresh (#30, v0.18) | P2 | After pulling to refresh, rows change in place instead of sliding over each other |
+| F-97 | Credit (#26, v0.18) | P2 | The creator's badge; a line at the bottom of Settings and on the intro's last page |
+| F-98 | The app's page (#24, v0.18) | P1 | www.shimshii.com/stips-plus: what Stips+ is, in Hebrew and English, and the newest build to download |
+| F-99 | Updates inside the app (#25, v0.18) | P1 | Once a day GitHub is asked for a newer build; Home offers it, *Update* downloads and checks it and opens Android's installer |
+| F-100 | Share → Stips+ (v0.18) | P2 | A Stips link shared from any app opens in Stips+ |
+| F-101 | Link cards in chats (v0.18) | P1 | A question or profile link in a message shows as a card; on its own line, the card takes its place |
+| F-102 | Reply in private (v0.18) | P1 | From a question's ⋮ menu, or a swipe: a chat with the asker (or answerer) about the question |
+| F-103 | Tips (#28, v0.18) | P2 | Small hints about the swipes, Live's options and notes to self, each until it's used or three times |
 
 ## 7. Non-functional requirements
 

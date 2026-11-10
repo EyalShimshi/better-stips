@@ -143,24 +143,6 @@ class RulesV15Test {
     }
 
     @Test
-    fun summary_countsAnswersOnQuestions() {
-        val summary = NotificationCategories.summary(
-            listOf(
-                notification(1, "new_ask_ans_registered", "התקבלו 3 תשובות חדשות לשאלה שלך", question = 100),
-                notification(2, "new_ask_ans_registered", "התקבלו שתי תשובות חדשות", question = 100),
-                notification(3, "new_ask_ans_registered", "something without a number", question = 200),
-                notification(4, "new_flower"),
-                notification(5, "new_flower"),
-                notification(6, "thanks", question = null),
-                notification(7, "x", points = 3),
-            ),
-        )
-        assertEquals(NotificationCategories.Summary(answers = 6, questions = 2, flowers = 2, thanks = 1, system = 1), summary)
-        assertFalse(summary.isEmpty)
-        assertTrue(NotificationCategories.summary(emptyList()).isEmpty)
-    }
-
-    @Test
     fun pinned_teamNoticesUntilOpened() {
         val removal = notification(10, "x", "השאלה שלך נמחקה", points = 5)
         val note = notification(11, "ask_note", note = "Please be kind")

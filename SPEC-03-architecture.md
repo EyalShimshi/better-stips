@@ -97,11 +97,14 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `HomeSectionsViewModel` | The website-like Home: `feed.get` pages with one `random_order_number` per visit, personal (`userRelated`) then everyone's (`todayItems`) when empty; pages merged by heading (D-59) |
 | `QuestionViewModel` (v0.10) | Easy reply: the reply target, the pointer written into the draft (`ReplyRefs`), its target remembered after posting (`ReplyTargets`), and the after-post correction by edit (D-68). Where a notification opens (`JumpRules`, with the last visit's `ReadMarks`, D-70). A queue of moderator lookups for answerers on screen, paced and capped (D-71) |
 | `ConversationViewModel` (v0.12) | Easy reply in chats: the reply target, the carets written into the draft (`ChatRules.replyCount`, `ReplyRefs`), and a last count after fetching new messages, just before sending (D-75). `ChatSettingsContent` is the DM settings, shown as a sheet by the chats screens and as Settings → DM settings (D-76). Since v0.13 the "unread" mark on opening (`ChatRules.firstUnread`: the chats list's count kept by `StipsRepository.unreadInChat`, else `ChatReadMarks`, D-81) |
-| `ReadMarks`, `ReplyTargets`, `UserBadges`, `ChatReadMarks` | Small stores in prefs: the newest answer shown per question (500), each easy reply's target (300), people's profile badges with a moderator's gender (3,000, two weeks; `version` redraws the marks), the newest message shown per chat (300, v0.13) |
+| `ReadMarks`, `ReplyTargets`, `UserBadges`, `ChatReadMarks` | Small stores in prefs: the newest answer shown per question (500), each easy reply's target (300), people's profile badges with a moderator's gender (3,000, two weeks; a day since v0.18; `version` redraws the marks), the newest message shown per chat (300, v0.13) |
 | Account (v0.13) | `SessionStore.account`: `user.get_app_user` as `AppUser` (points, flowers, `moderator`, `ban`), read after restoring the session, after signing in, and when `StipsApi` sees `API_ERROR_BANNED` (its `onBanned` hook; `bannedSignals` counts refused actions, which go by POST, so the block screen shows again; a refused background read only reads the account). `CredRules` (pure) holds the rule book: ratings and rates, editing from 50, blocks under 30 and 20, the projection, milestones (D-83–D-86). `AppRoot` draws `BanScreen` over the app like the welcome; `knownCredibility()` gives screens the points when known. `NotificationKinds` (pure) tells the team's notices apart (D-82). An answer's edit history: `StipsRepository.answerRevisions`, `EditHistory` (pure: the versions, newest first) and `EditHistorySheet` (D-88) |
 | `SavedStore` | Saved questions (id, title, cover, time) in prefs as JSON |
 | `SettingsStore` | SharedPreferences exposed as `StateFlow` |
 | `Timings` | Records load durations (feed page, question) for the "Loaded in" line and Settings → Diagnostics, both shown only in expert mode (D-62) |
+| `AppUpdates` (v0.18) | Stips+'s own updates (D-134): `UpdateRules` (pure) reads GitHub's list of releases (pre-releases too) for the newest `build-N` with `stipsplus-N.apk`; a separate OkHttp client without cookies asks once a day as the app comes to the screen; the download goes to `cache/updates/`, only from the repository's release files, and must match GitHub's size and SHA-256 (`digest`) before a `FileProvider` (`<package>.updates`) hands it to Android's installer. `SELF_UPDATE` turns it off for a Play build |
+| `LinkPreviews` (v0.18) | What chat link cards show (D-136): a question (from the repository's cache when a list showed it, else `omniobj GET ask`) or a person (`omniobj GET user` and `profile.page_data`), kept for the app's session; one read at a time, waiting while `RateGuard` has no room; "missing" when Stips says there's nothing |
+| `Tutorials` (v0.18) | The tips (D-138): per tip, how often it showed and whether its gesture was used (prefs `tutorials`), and which showed since the app started; `TutorialRules` (pure). `SwipeDrag.peek` slides an item as a drag (a finger takes over); `SwipeHintEffect` and `TipPill` show the words |
 | Crash catcher | Default uncaught-exception handler writes `crash.txt` (version, device, stack trace), then defers to the system handler. Installed in `StipsApp.attachBaseContext`, before the libraries' start-up providers run (#7). The next launch shows the dialog |
 
 ## 6. Data layer
@@ -111,16 +114,20 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `session` prefs | `a_token`, user id, nickname, gender | App-private, excluded from backup |
 | `settings` prefs | Theme, colors, images, animations, Live, phone notifications; v0.9: Home's layout and options, start tab, order of answers, seconds, expert mode, whether the welcome was answered; v0.11: how often to check, whether the notifications offer was answered, whether to hide reply carets; v0.12: the chats' own easy reply, quotes, hidden carets and message notifications | App-private |
 | `notify` prefs | What the checks have seen (v0.11: each notification's signature, each unread chat's newest message, the unread count), the last check's result, and when Android last ran one | App-private, cleared when turned off |
+| `notify_tap` prefs | A random key made once (v0.18): the app's own notification taps carry it, so another app can't make Stips+ show a team notice or mark notifications read | App-private, never cleared |
 | `saved` prefs | Saved questions | App-private |
 | `files/feed-*.json` | Last-seen first page | App-private |
 | `files/chats_widget.json` | The chats widget's copy of your latest chats (D-67) | App-private, excluded from backup, deleted on sign-out |
-| `read_marks`, `reply_targets`, `user_badges` prefs | The newest answer shown per question; easy replies' targets; answerers' badges (v0.10, D-68, D-70, D-71) | App-private; ids and badge names only |
+| `read_marks`, `reply_targets`, `user_badges` prefs | The newest answer shown per question; easy replies' targets; answerers' badges (v0.10, D-68, D-70, D-71; checked again daily since v0.18) | App-private; ids and badge names only |
+| `updates` prefs, `cache/updates/` | The newest build GitHub listed and when it was checked, the build put off with *Later*; a downloaded APK, deleted on the next start (v0.18, D-134) | App-private |
+| `tutorials` prefs | How often each tip showed and whether its gesture was used (v0.18, D-138) | App-private |
 | `files/crash.txt` | Last crash | App-private, deleted after the dialog |
 | Coil disk cache | Images | App cache dir, 64 MB |
 
 ## 7. Platform integrations
 
 - `ACTION_SEND` for sharing links; `ACTION_VIEW` for the site, sign-up and password reset.
+- A share target (v0.18, D-135): `ShareLinkActivity` (no window, not in recents) takes `text/plain`, finds the first Stips link in it (`Links.sharedLink`) and opens it in `MainActivity`; otherwise a short toast.
 - Intent filter for `https://stips.co.il/ask/…`, `/profile/…` and `/messages` (no `autoVerify`; users enable it under *Open by default*).
 - `POST_NOTIFICATIONS` (asked only when the user turns phone notifications on), `RECEIVE_BOOT_COMPLETED` (keeps the persisted job) and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (Android's own "let Stips+ run in the background?" dialog, v0.11). The photo picker (`PickVisualMedia`) needs no storage permission.
 - System splash (Android 12+) from the window background; adaptive + themed (monochrome) launcher icon of our own (no Stips logo).
@@ -136,6 +143,7 @@ Signatures used from Navigation 2.10.1, Material 3 1.4.0 and Coil 2.7.0 were che
 | `POST_NOTIFICATIONS` | Phone notifications, asked when the user turns them on (v0.2) |
 | `RECEIVE_BOOT_COMPLETED` | Keeps the notification job after a restart |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Shows Android's own question, "let Stips+ always run in the background?", so notification checks aren't held back for hours (v0.11, D-72). The user decides; nothing changes without that dialog |
+| `REQUEST_INSTALL_PACKAGES` | Lets Stips+ hand its own update to Android's installer after the user taps *Update* (v0.18, D-134). Android asks the user once to allow it, and confirms each install; it installs only an APK signed with the app's key. Removed for a Google Play build (MAINTAINING.md) |
 
 Nothing else: no location, contacts or storage.
 
@@ -146,11 +154,12 @@ Nothing else: no location, contacts or storage.
 - The session token is stored app-private and excluded from cloud backup and device transfer (`dataExtractionRules`, `fullBackupContent`), as is the list of questions answered anonymously (v0.14).
 - User-Agent: `StipsPlus/<version> (Android <release>; unofficial; +https://github.com/EyalShimshi/stips-plus)`. The repository was called `better-stips` until v0.16 (build 28); GitHub sends the old address to the new one.
 - No logging of request bodies. No third-party SDKs.
+- Updates (v0.18, D-134): the only other server is GitHub (`api.github.com` once a day; `github.com` release files after *Update*), on their own client without cookies. A download is used only when it's from this repository's releases and matches GitHub's size and SHA-256; Android checks the signature.
 - Hidden profile fields the API returns (for example birth dates) are never shown or stored; only the signed-in user's own gender is kept, to pick the anonymous nickname as the site does.
 
 ## 10. Distribution constraints
 
-- Sideloaded APKs from the repository's releases (public since v0.14, each release approved by the owner); Play Store only with Stips' permission (and Play's impersonation/IP policies).
+- Sideloaded APKs from the repository's releases (public since v0.14, each release approved by the owner), offered inside the app since v0.18 (D-134); Play Store only with Stips' permission (and Play's impersonation/IP policies), with `SELF_UPDATE` off and `REQUEST_INSTALL_PACKAGES` removed.
 - One signing key for every build (SPEC-05 §4).
 
 ## 11. Technical spikes (verify on the owner's device)

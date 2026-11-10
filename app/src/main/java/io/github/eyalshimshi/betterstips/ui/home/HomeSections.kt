@@ -55,6 +55,7 @@ import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.ui.components.SkeletonRows
 import io.github.eyalshimshi.betterstips.ui.components.asApiException
+import io.github.eyalshimshi.betterstips.ui.components.listItemMotion
 import io.github.eyalshimshi.betterstips.util.AutoRefresh
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -71,6 +72,8 @@ data class HomeSectionsState(
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
     val error: ApiException? = null,
+    /** The sections were just replaced by a refresh: rows don't slide to their places (v0.18, #30). */
+    val swapped: Boolean = false,
 )
 
 /** Pure rules for paging the website's home sections (#8). */
@@ -169,6 +172,7 @@ class HomeSectionsViewModel(private val repository: StipsRepository, private val
                         loadingMore = false,
                         endReached = list.isEmpty(),
                         error = null,
+                        swapped = reset && refreshing,
                     )
                 }
             } catch (e: CancellationException) {
@@ -223,14 +227,14 @@ fun HomeSectionsList(
             } else {
                 sections.forEach { section ->
                     item(key = "section|${section.title}") {
-                        SectionHeading(section, onOpenTopic, if (moving) Modifier.animateItem() else Modifier)
+                        SectionHeading(section, onOpenTopic, listItemMotion(moving, state.swapped))
                     }
                     items(section.questions, key = { "section|${section.title}|${it.id}" }) { question ->
                         SwipeableQuestionRow(
                             question,
                             channels.firstOrNull { it.id == question.channelId },
                             onClick = { onOpen(question) },
-                            modifier = if (moving) Modifier.animateItem() else Modifier,
+                            modifier = listItemMotion(moving, state.swapped),
                         )
                     }
                 }

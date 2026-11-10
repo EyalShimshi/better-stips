@@ -1,6 +1,7 @@
 package io.github.eyalshimshi.betterstips.util
 
 import io.github.eyalshimshi.betterstips.data.model.Conversation
+import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 
 /**
@@ -114,6 +115,23 @@ object NotifyRules {
 
     /** The wait between checks while the phone is awake, or null when only the background job checks. */
     fun alarmMs(minutes: Int): Long? = if (minutes >= JOB_MINUTES) null else minutes.coerceAtLeast(1) * 60_000L
+
+    /** Where a notice leads, for a phone notification's extras (v0.18): "ask:123", "profile:7", or "". */
+    fun encodeTarget(target: NotificationTarget?): String = when (target) {
+        is NotificationTarget.OpenQuestion -> "ask:${target.id}"
+        is NotificationTarget.OpenProfile -> "profile:${target.id}"
+        null -> ""
+    }
+
+    fun decodeTarget(text: String?): NotificationTarget? {
+        if (text == null) return null
+        val id = text.substringAfter(':', "").toLongOrNull() ?: return null
+        return when (text.substringBefore(':')) {
+            "ask" -> NotificationTarget.OpenQuestion(id)
+            "profile" -> NotificationTarget.OpenProfile(id)
+            else -> null
+        }
+    }
 
     /** "id=signature;…", for SharedPreferences. */
     fun encode(map: Map<Long, String>): String = map.entries.joinToString(";") { "${it.key}=${it.value}" }

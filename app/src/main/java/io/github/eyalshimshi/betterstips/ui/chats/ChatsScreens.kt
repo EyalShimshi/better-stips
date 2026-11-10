@@ -1,5 +1,6 @@
 package io.github.eyalshimshi.betterstips.ui.chats
 
+import io.github.eyalshimshi.betterstips.ui.components.FlowerIcon
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -58,7 +59,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.LocalFlorist
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -151,9 +151,22 @@ import io.github.eyalshimshi.betterstips.ui.components.onlineColor
 import io.github.eyalshimshi.betterstips.ui.components.reveal
 import io.github.eyalshimshi.betterstips.ui.components.rememberSwipeDrag
 import io.github.eyalshimshi.betterstips.ui.components.swipeToAct
+import io.github.eyalshimshi.betterstips.ui.components.SwipeHint
+import io.github.eyalshimshi.betterstips.ui.components.SwipeHintEffect
+import io.github.eyalshimshi.betterstips.ui.components.TipPill
+import io.github.eyalshimshi.betterstips.ui.components.TipState
+import io.github.eyalshimshi.betterstips.ui.components.rememberTipState
+import io.github.eyalshimshi.betterstips.ui.components.LocalTipsAllowed
+import io.github.eyalshimshi.betterstips.ui.components.TIP_DELAY_MS
+import io.github.eyalshimshi.betterstips.ui.components.TIP_SHOW_MS
+import io.github.eyalshimshi.betterstips.ui.components.PEEK_TOTAL_MS
 import io.github.eyalshimshi.betterstips.ui.components.glowOnce
 import io.github.eyalshimshi.betterstips.ui.theme.LocalAppSettings
 import io.github.eyalshimshi.betterstips.util.ReplyRefs
+import io.github.eyalshimshi.betterstips.util.ChatLinks
+import io.github.eyalshimshi.betterstips.util.SwipeSide
+import io.github.eyalshimshi.betterstips.util.TutorialRules
+import io.github.eyalshimshi.betterstips.data.Tutorials
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
@@ -245,6 +258,23 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
     // The account itself, for notes to self (#20).
     val me = session.profile?.avatar ?: myId?.let { Author("", it, null, anonymous = false, online = false) }
     val notesName = stringResource(R.string.notes_title)
+    // A tip (#28): the first circle on the shelf is the chat with yourself. Once the shelf is on screen.
+    val tipsAllowed = LocalTipsAllowed.current
+    val notesTip = rememberTipState()
+    val notesTipText = stringResource(R.string.tip_notes_shelf)
+    LaunchedEffect(tipsAllowed, me != null, searching, session.signedIn) {
+        if (!tipsAllowed || me == null || searching || !session.signedIn) return@LaunchedEffect
+        if (!container.tutorials.due(Tutorials.Tip.NotesShelf)) return@LaunchedEffect
+        delay(TIP_DELAY_MS)
+        if (listState.layoutInfo.visibleItemsInfo.none { it.key == "shelf" }) return@LaunchedEffect
+        if (!container.tutorials.claim(Tutorials.Tip.NotesShelf)) return@LaunchedEffect
+        try {
+            notesTip.show(notesTipText)
+            delay(TIP_SHOW_MS)
+        } finally {
+            notesTip.hide()
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -320,7 +350,12 @@ fun ChatsScreen(onOpenConversation: (Long, String) -> Unit, onSignIn: () -> Unit
                     return@LazyColumn
                 }
                 if (me != null) {
-                    item(key = "shelf") { OnlineShelf(me, state.conversations, onOpenConversation) }
+                    item(key = "shelf") {
+                        OnlineShelf(me, state.conversations, notesTip) { id, name ->
+                            if (id == myId) container.tutorials.done(Tutorials.Tip.NotesShelf)
+                            onOpenConversation(id, name)
+                        }
+                    }
                 }
                 when {
                     state.loading && state.conversations.isEmpty() -> item(key = "loading") {
@@ -464,23 +499,27 @@ private fun PersonRow(person: Author, notes: Boolean, me: Author?, onClick: () -
  * online now, the most recent first (at the right in Hebrew). It scrolls sideways when they don't fit.
  */
 @Composable
-private fun OnlineShelf(me: Author, conversations: List<Conversation>, onOpen: (Long, String) -> Unit) {
+private fun OnlineShelf(me: Author, conversations: List<Conversation>, tip: TipState, onOpen: (Long, String) -> Unit) {
     val myId = me.userId ?: return
     val online = remember(conversations, myId) { ChatRules.onlineShelf(conversations, myId) }
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        item(key = "notes") {
-            ShelfItem(stringResource(R.string.notes_short), onClick = { onOpen(myId, me.nickname) }) {
-                NotesAvatar(me, SHELF_AVATAR)
+    Column {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            item(key = "notes") {
+                ShelfItem(stringResource(R.string.notes_short), onClick = { onOpen(myId, me.nickname) }) {
+                    NotesAvatar(me, SHELF_AVATAR)
+                }
+            }
+            items(online, key = { it.userId ?: 0L }) { person ->
+                ShelfItem(authorName(person), onClick = { person.userId?.let { onOpen(it, person.nickname) } }) {
+                    PresenceAvatar(person, SHELF_AVATAR, clickable = false)
+                }
             }
         }
-        items(online, key = { it.userId ?: 0L }) { person ->
-            ShelfItem(authorName(person), onClick = { person.userId?.let { onOpen(it, person.nickname) } }) {
-                PresenceAvatar(person, SHELF_AVATAR, clickable = false)
-            }
-        }
+        // A tip (#28) about the first circle: the chat with yourself.
+        TipPill(tip, Modifier.padding(start = 4.dp), expand = true)
     }
 }
 
@@ -576,8 +615,8 @@ private fun ConversationRow(conversation: Conversation, notes: Boolean = false, 
 }
 
 @Composable
-fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
-    val vm = appViewModel { ConversationViewModel(it.repository, it.session, it.chatReadMarks, userId) }
+fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit, about: Long? = null) {
+    val vm = appViewModel { ConversationViewModel(it.repository, it.session, it.chatReadMarks, userId, about) }
     val state by vm.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -613,6 +652,27 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
     val needFlowers = account?.let { a -> a.flowers?.takeIf { it < MIN_FLOWERS_TO_MESSAGE && !a.isModerator } }
     val positions = remember(state.messages) { state.messages.withIndex().associate { (i, m) -> m.id to i } }
     var highlight by remember { mutableStateOf<ChatHighlight?>(null) }
+
+    // A tip (#28): the reply swipe on their newest message once it's on screen, also one that comes while here. Only
+    // where a reply can go (easy reply on, not blocked, enough flowers), and never in notes to self.
+    val tutorials = LocalAppContainer.current.tutorials
+    val tipsAllowed = LocalTipsAllowed.current
+    val chatTipText = stringResource(R.string.tip_swipe_reply)
+    var bubbleHint by remember { mutableStateOf<Pair<Long, SwipeHint>?>(null) }
+    val tipTarget = remember(state.messages, myId) { TutorialRules.chatTipTarget(state.messages, myId) }
+    LaunchedEffect(tipTarget?.id, canReply, needFlowers == null, tipsAllowed) {
+        val target = tipTarget ?: return@LaunchedEffect
+        if (notes || !canReply || needFlowers != null || !tipsAllowed || !tutorials.due(Tutorials.Tip.ChatReply)) return@LaunchedEffect
+        delay(TIP_DELAY_MS)
+        if (listState.layoutInfo.visibleItemsInfo.none { it.key == target.id }) return@LaunchedEffect
+        if (!tutorials.claim(Tutorials.Tip.ChatReply)) return@LaunchedEffect
+        bubbleHint = target.id to SwipeHint(SwipeSide.Right, chatTipText)
+        try {
+            delay(PEEK_TOTAL_MS)
+        } finally {
+            bubbleHint = null
+        }
+    }
 
     /**
      * Shows a message a reply points at and lights it up for a moment: no scroll when it's already in sight whole,
@@ -770,10 +830,12 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                     replyTo = replyTo,
                     // Their name, or null for a reply to the user's own message.
                     replyName = if (replyTo != null && replyTo.fromUserId != null && replyTo.fromUserId == myId) null else title,
+                    about = state.about,
                     sending = state.sending,
                     error = state.sendError?.let { errorMessage(it) },
                     onDraft = vm::setDraft,
                     onCancelReply = vm::cancelReply,
+                    onRemoveAbout = vm::removeAbout,
                     onSend = vm::send,
                     hint = stringResource(if (notes) R.string.notes_hint else R.string.message_hint),
                 )
@@ -829,8 +891,16 @@ fun ConversationScreen(userId: Long, name: String, onBack: () -> Unit) {
                             messages = state.messages,
                             authorOf = { m -> if (m.fromUserId != null && m.fromUserId == myId) youText else title },
                             onJump = { jumpTo(it) },
-                            onSwipeReply = if (canReply) ({ vm.replyTo(message) }) else null,
+                            onSwipeReply = if (canReply) {
+                                {
+                                    tutorials.done(Tutorials.Tip.ChatReply)
+                                    vm.replyTo(message)
+                                }
+                            } else {
+                                null
+                            },
                             highlightKey = highlight?.takeIf { it.messageId == message.id }?.nonce,
+                            hint = bubbleHint?.takeIf { it.first == message.id }?.second,
                             // The message drawn above this one is the next item: close together while one person writes.
                             modifier = Modifier.padding(
                                 top = if (unread == null && day == null && ChatRules.continuesRun(message, older)) 2.dp else 10.dp,
@@ -970,12 +1040,7 @@ private fun NeedFlowersBar(have: Int) {
                 .imePadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Icon(
-                Icons.Outlined.LocalFlorist,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
+            FlowerIcon(size = 20.dp)
             Spacer(Modifier.width(12.dp))
             Text(
                 stringResource(R.string.chat_need_flowers, have),
@@ -1213,6 +1278,7 @@ private fun Bubble(
     onJump: (Long) -> Unit,
     onSwipeReply: (() -> Unit)?,
     highlightKey: Long?,
+    hint: SwipeHint? = null,
     modifier: Modifier = Modifier,
 ) {
     val settings = LocalAppSettings.current
@@ -1229,10 +1295,18 @@ private fun Bubble(
     val container = lerp(base, MaterialTheme.colorScheme.tertiaryContainer, glow.value)
 
     val drag = rememberSwipeDrag(trigger = BUBBLE_SWIPE_THRESHOLD, max = BUBBLE_SWIPE_MAX)
+    // A tip slides the bubble a little to show the reply swipe (#28).
+    val tip = rememberTipState()
+    SwipeHintEffect(hint, drag, tip)
     val replyLabel = stringResource(R.string.action_reply)
     val quoted = reply?.targets?.mapNotNull { messages.getOrNull(it) }.orEmpty()
     val inBody = remember(reply, messages) {
         reply?.inBody?.mapNotNull { (range, index) -> messages.getOrNull(index)?.let { TextTarget(range, it.id) } }.orEmpty()
+    }
+    // A Stips question or profile link shows as a card; on a line of its own, the card takes its place (v0.18).
+    val shown = remember(reply, message.text) { ChatLinks.read(reply?.body ?: message.text) }
+    val bodyTargets = remember(inBody, shown) {
+        inBody.mapNotNull { target -> ChatLinks.shift(target.range, shown.removed)?.let { TextTarget(it, target.id) } }
     }
 
     Box(
@@ -1287,18 +1361,21 @@ private fun Bubble(
                     quoted.forEach { target ->
                         ChatQuote(
                             author = authorOf(target),
-                            text = ReplyRefs.snippet(target.text, hideLeading = settings.chatHideReplyCarets),
+                            text = ReplyRefs.snippet(ChatLinks.withoutLink(target.text), hideLeading = settings.chatHideReplyCarets),
                             content = content,
                             onClick = { onJump(target.id) },
                         )
                     }
-                    LinkifiedText(
-                        reply?.body ?: message.text,
-                        style = MaterialTheme.typography.bodyLarge.copy(color = content),
-                        selectable = false,
-                        targets = inBody,
-                        onTarget = onJump,
-                    )
+                    shown.target?.let { ChatLinkCard(it, content, onLongClick) }
+                    if (shown.body.isNotBlank() || shown.target == null) {
+                        LinkifiedText(
+                            shown.body,
+                            style = MaterialTheme.typography.bodyLarge.copy(color = content),
+                            selectable = false,
+                            targets = bodyTargets,
+                            onTarget = onJump,
+                        )
+                    }
                 }
             }
             AnimatedVisibility(
@@ -1314,6 +1391,7 @@ private fun Bubble(
                 )
             }
         }
+        TipPill(tip, Modifier.align(Alignment.Center))
     }
 }
 
@@ -1384,10 +1462,12 @@ private fun MessageComposer(
     focusComposer: Int,
     replyTo: ChatMessage?,
     replyName: String?,
+    about: Long?,
     sending: Boolean,
     error: String?,
     onDraft: (String) -> Unit,
     onCancelReply: () -> Unit,
+    onRemoveAbout: () -> Unit,
     onSend: () -> Unit,
     hint: String = stringResource(R.string.message_hint),
 ) {
@@ -1414,6 +1494,8 @@ private fun MessageComposer(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
             if (replyTo != null) ChatReplyBar(replyTo, replyName, onCancelReply)
+            // Reply in private (v0.18): the question's link goes first, so the message can be sent without words too.
+            if (about != null) ChatAboutBar(about, onRemoveAbout)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = field,
@@ -1430,7 +1512,7 @@ private fun MessageComposer(
                         .focusRequester(focusRequester),
                 )
                 Spacer(Modifier.width(8.dp))
-                FilledIconButton(onClick = onSend, enabled = !sending && draft.isNotBlank()) {
+                FilledIconButton(onClick = onSend, enabled = !sending && (draft.isNotBlank() || about != null)) {
                     if (sending) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
@@ -1486,7 +1568,7 @@ private fun ChatReplyBar(replyTo: ChatMessage, name: String?, onCancel: () -> Un
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                ReplyRefs.snippet(replyTo.text, hideLeading = LocalAppSettings.current.chatHideReplyCarets),
+                ReplyRefs.snippet(ChatLinks.withoutLink(replyTo.text), hideLeading = LocalAppSettings.current.chatHideReplyCarets),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

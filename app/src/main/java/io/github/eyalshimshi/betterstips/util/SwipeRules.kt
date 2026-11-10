@@ -21,9 +21,9 @@ object SwipeRules {
     /** The choices for swiping a question in a list, in the order Settings lists them. */
     val QUESTION_CHOICES: List<QuestionSwipe> = QuestionSwipe.entries
 
-    /** The choices for swiping someone else's answer to the left: what its ⋮ menu offers. */
+    /** The choices for swiping someone else's answer to the left: what its ⋮ menu offers, and replying in private (v0.18). */
     val OTHERS_ANSWER_CHOICES: List<AnswerSwipe> =
-        listOf(AnswerSwipe.None, AnswerSwipe.Report, AnswerSwipe.Hide, AnswerSwipe.HideUser, AnswerSwipe.History)
+        listOf(AnswerSwipe.None, AnswerSwipe.PrivateReply, AnswerSwipe.Report, AnswerSwipe.Hide, AnswerSwipe.HideUser, AnswerSwipe.History)
 
     /** The choices for swiping your own answer to the left. */
     val MY_ANSWER_CHOICES: List<AnswerSwipe> =
@@ -31,15 +31,20 @@ object SwipeRules {
 
     /**
      * Whether [action] applies to a question: reporting and hiding are for other people's questions, and hiding
-     * everything from someone needs to know who asked (not anonymous, and not [me]).
+     * everything from someone, or replying to them in private (v0.18), needs to know who asked (not anonymous, and not
+     * [me]).
      */
     fun questionAvailable(action: QuestionSwipe, isOwner: Boolean, authorId: Long?, anonymous: Boolean, me: Long?): Boolean =
         when (action) {
             QuestionSwipe.None -> false
             QuestionSwipe.Report, QuestionSwipe.Hide -> !isOwner
-            QuestionSwipe.HideUser -> !isOwner && !anonymous && authorId != null && authorId != me
+            QuestionSwipe.HideUser, QuestionSwipe.PrivateReply -> canMessage(isOwner, authorId, anonymous, me)
             else -> true
         }
+
+    /** Someone who wrote a question or an answer can be messaged about it (reply in private, v0.18): not anonymous, not you. */
+    fun canMessage(isOwner: Boolean, authorId: Long?, anonymous: Boolean, me: Long?): Boolean =
+        !isOwner && !anonymous && authorId != null && authorId != me
 
     /**
      * Where a swipe let go at [offset] px from rest, moving at [velocity] px/s (positive: to the right), leads (v0.16),

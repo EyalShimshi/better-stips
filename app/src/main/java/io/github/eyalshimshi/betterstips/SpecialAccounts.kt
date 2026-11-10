@@ -15,6 +15,8 @@ object SpecialAccounts {
         val badgeEn: String? = null,
         /** The badge's color as 0xFFRRGGBB (the app tones it for light and dark themes); null for the app's accent. */
         val color: Int? = null,
+        /** A badge in several colors instead (0xFFRRGGBB each, toned like [color]), running from one to the next (#26). */
+        val gradient: List<Int>? = null,
         /** An organization: it gets the blue check by its name. */
         val verified: Boolean = false,
         /**
@@ -26,9 +28,15 @@ object SpecialAccounts {
         val hasBadge: Boolean get() = badgeHe != null || badgeEn != null
     }
 
+    /** Stips+'s own colors, as on the bio button: Stips green into blue and purple (#12). */
+    val STIPS_PLUS_COLORS: List<Int> = listOf(0xFF09A872.toInt(), 0xFF2F7BF6.toInt(), 0xFF8E44EC.toInt())
+
     val ALL: List<Entry> = listOf(
         // ד"ר נדב דפני, who created Stips (#12).
         Entry(2042, badgeHe = "יוצר סטיפס", badgeEn = "Stips' creator", color = 0xFFD99A00.toInt()),
+        // Eyal Shimshi, who made Stips+ (#26), in its colors. The left-to-right mark keeps the "+" after "Stips" in
+        // Hebrew, where it would otherwise show as "+Stips"; "סטיפס+" would read almost as Stips' creator's.
+        Entry(CREATOR_ID, badgeHe = "יוצר Stips+\u200E", badgeEn = "Stips+ creator", gradient = STIPS_PLUS_COLORS),
         // Sahar: emotional support volunteers (#8).
         Entry(10486, verified = true),
         // Net Knights (אבירי הרשת): online safety (#8).
@@ -51,4 +59,7 @@ object SpecialAccounts {
 
     /** The account's badge, when it has one. Callers pass null for anonymous authors. */
     fun badge(userId: Long?): Entry? = entry(userId)?.takeIf { it.hasBadge }
+
+    /** Who made Stips+ (#26): Settings ends with a line about him and a button to his profile. */
+    const val CREATOR_ID: Long = 275580
 }

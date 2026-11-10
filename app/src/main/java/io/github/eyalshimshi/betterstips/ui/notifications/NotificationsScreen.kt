@@ -1,15 +1,9 @@
 package io.github.eyalshimshi.betterstips.ui.notifications
 
-import android.content.res.Resources
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import io.github.eyalshimshi.betterstips.ui.components.FlowerColors
+import io.github.eyalshimshi.betterstips.ui.components.FlowerIcon
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.lazy.rememberLazyListState
 import java.time.format.FormatStyle
 import java.time.format.DateTimeFormatter
 import java.time.ZoneId
@@ -170,6 +164,8 @@ data class NotificationsState(
     val filter: NotificationCategories.Category? = null,
     /** Questions' titles and photos for their rows, when that option is on (#13). */
     val glances: Map<Long, QuestionGlance> = emptyMap(),
+    /** Older pages in a row that brought none of the chosen category (v0.18): past a few, loading more waits for a tap. */
+    val missesInFilter: Int = 0,
 )
 
 /** A question's title and photo, for its notifications' rows (#13, an option). */
@@ -215,7 +211,7 @@ class NotificationsViewModel(
                 val list = repository.notifications(page = 1, verify = verify)
                 if (gen != generation) return@launch
                 markNew(list)
-                _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false) }
+                _state.update { it.copy(items = list, page = 1, end = list.isEmpty(), refreshing = false, moreFailed = false, missesInFilter = 0) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -227,14 +223,16 @@ class NotificationsViewModel(
 
     /**
      * Remembers which items are new now, then records the newest one as seen. What the checks found new while the
-     * bell was closed is new too (v0.17), though reading the list made Stips count it as seen.
+     * bell was closed is new too (v0.17), though reading the list made Stips count it as seen. What was opened
+     * already, from the bell or from a phone notification (v0.18), isn't.
      */
     private fun markNew(list: List<StipsNotification>) {
         val me = userId ?: return
         val waiting = seen.waiting(me).keys
+        val opened = seen.opened(me)
         val fresh = SeenNotifications.newIds(list.map { it.id to it.viewed }, seen.lastSeenId(me)) +
-            list.map { it.id }.filter { it in waiting } - openedNow
-        _state.update { it.copy(newIds = it.newIds + fresh) }
+            list.map { it.id }.filter { it in waiting } - openedNow - opened
+        _state.update { it.copy(newIds = it.newIds + fresh - opened, opened = it.opened + opened) }
         list.maxOfOrNull { it.id }?.let { seen.markSeen(me, it) }
     }
 
@@ -252,7 +250,7 @@ class NotificationsViewModel(
     }
 
     fun setFilter(category: NotificationCategories.Category?) {
-        _state.update { it.copy(filter = category) }
+        _state.update { it.copy(filter = category, missesInFilter = 0) }
     }
 
     /** Stops updates on a question from its notification (#13); the message offers to undo it. */
@@ -320,7 +318,16 @@ class NotificationsViewModel(
                 val list = repository.notifications(page = next)
                 if (gen != generation) return@launch
                 _state.update { st ->
-                    st.copy(items = (st.items + list).distinctBy { it.id }, page = next, end = list.isEmpty(), loadingMore = false)
+                    // A page with none of the chosen category counts toward stopping the automatic loading (v0.18).
+                    val filter = st.filter
+                    val any = filter == null || list.any { NotificationCategories.of(it) == filter }
+                    st.copy(
+                        items = (st.items + list).distinctBy { it.id },
+                        page = next,
+                        end = list.isEmpty(),
+                        loadingMore = false,
+                        missesInFilter = if (any) 0 else st.missesInFilter + 1,
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -435,14 +442,12 @@ private fun NotificationsList(
     }
     val markReadLabel = stringResource(R.string.notif_mark_read)
     val stopUpdatesLabel = stringResource(R.string.stop_updates)
-    // Questions whose updates are shown one by one under their row (v0.17).
-    var expanded by remember { mutableStateOf(emptySet<String>()) }
-    val motionElements = LocalAppSettings.current.motion.elements
+    val listState = rememberLazyListState()
     val now = currentTime()
     val zone = ZoneId.systemDefault()
     val today = now.atZone(zone).toLocalDate()
     PullToRefreshBox(isRefreshing = state.refreshing && state.page > 0, onRefresh = { vm.refresh(verify = true) }, modifier = modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
             if (!settings.backgroundNotifications || !Notifier.canPost(context)) {
                 item(key = "phone") {
                     MessageCard(
@@ -508,10 +513,6 @@ private fun NotificationsList(
                         val newRows = NotificationCategories.rows(newItems)
                         CategoryChips(filter, newRows.groupingBy { NotificationCategories.of(it.newest) }.eachCount(), vm::setFilter)
                     }
-                    if (filter == null) {
-                        val summary = NotificationCategories.summary(newItems)
-                        if (!summary.isEmpty) item(key = "summary") { SummaryLine(summary) }
-                    }
                     if (pinned.isNotEmpty()) {
                         item(key = "pinned-label") { SectionLabel(stringResource(R.string.notif_pinned)) }
                         items(pinned, key = { "pin-${it.id}" }) { item ->
@@ -546,40 +547,25 @@ private fun NotificationsList(
                                     glance = glance,
                                 )
                             } else {
+                                // A question's updates in one sentence with all their answers (v0.18, #27).
                                 val fresh = row.items.filter { it.id in state.newIds }
-                                val isOpen = row.key in expanded
-                                Column {
-                                    NotificationRow(
-                                        item,
-                                        isNew = fresh.isNotEmpty(),
-                                        onClick = {
-                                            // At the first of the answers its new updates announce; with none new, as the newest.
-                                            val focus = NotificationCategories.focusFor(fresh.ifEmpty { listOf(item) })
-                                            vm.markRead(row.items.map { it.id })
-                                            row.questionId?.let { onOpenQuestion(it, focus) }
-                                        },
-                                        onDetails = onDetails,
-                                        menu = buildList {
-                                            if (fresh.isNotEmpty()) add(RowAction(markReadLabel) { vm.markRead(fresh.map { it.id }) })
-                                            row.questionId?.let { question -> add(RowAction(stopUpdatesLabel) { vm.stopUpdates(question) }) }
-                                        },
-                                        glance = glance,
-                                        extra = updatesLine(context.resources, row.items),
-                                        expanded = isOpen,
-                                        onToggle = { expanded = if (isOpen) expanded - row.key else expanded + row.key },
-                                    )
-                                    AnimatedVisibility(
-                                        visible = isOpen,
-                                        enter = if (motionElements) expandVertically() + fadeIn() else EnterTransition.None,
-                                        exit = if (motionElements) shrinkVertically() + fadeOut() else ExitTransition.None,
-                                    ) {
-                                        Column {
-                                            row.items.forEach { update ->
-                                                GroupedUpdate(update, isNew = update.id in state.newIds, onClick = open(update))
-                                            }
-                                        }
-                                    }
-                                }
+                                NotificationRow(
+                                    item,
+                                    isNew = fresh.isNotEmpty(),
+                                    onClick = {
+                                        // At the first of the answers its new updates announce; with none new, as the newest.
+                                        val focus = NotificationCategories.focusFor(fresh.ifEmpty { listOf(item) })
+                                        vm.markRead(row.items.map { it.id })
+                                        row.questionId?.let { onOpenQuestion(it, focus) }
+                                    },
+                                    onDetails = onDetails,
+                                    menu = buildList {
+                                        if (fresh.isNotEmpty()) add(RowAction(markReadLabel) { vm.markRead(fresh.map { it.id }) })
+                                        row.questionId?.let { question -> add(RowAction(stopUpdatesLabel) { vm.stopUpdates(question) }) }
+                                    },
+                                    glance = glance,
+                                    text = NotificationCategories.combinedText(row.items),
+                                )
                             }
                         }
                     }
@@ -596,36 +582,47 @@ private fun NotificationsList(
                             )
                         }
                     }
-                    item(key = "more") {
-                        when {
-                            state.loadingMore -> Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) { CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp) }
-                            state.moreFailed -> Box(
+                    // Older pages load by themselves before the end comes into view (v0.18, #27), in a category too. A
+                    // rare kind could otherwise read every page at once: after a few pages with none of it, a tap asks.
+                    if (!state.end) {
+                        item(key = "more") {
+                            Box(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center,
-                            ) { TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.action_retry)) } }
-                            // With a category chosen, older pages load on a tap, one at a time: a rare kind may never
-                            // fill the screen, and loading as the list's end shows would read every page at once.
-                            !state.end && (filter != null || shown.isEmpty()) -> Box(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) { TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.notif_load_older)) } }
-                            !state.end -> LaunchedEffect(state.page) { vm.loadMore() }
+                            ) {
+                                when {
+                                    state.moreFailed -> TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.action_retry)) }
+                                    state.missesInFilter >= AUTO_PAGES_WITHOUT_ANY && !state.loadingMore ->
+                                        TextButton(onClick = vm::loadMore) { Text(stringResource(R.string.notif_load_older)) }
+                                    else -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+    // The next page is asked for while about a screen of rows is still below (v0.18, #27), as in chats.
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+            last >= info.totalItemsCount - PREFETCH_ROWS
+        }
+    }
+    LaunchedEffect(nearEnd, state.page, state.end, state.filter, state.missesInFilter) {
+        if (nearEnd && !state.end && state.page > 0 && state.missesInFilter < AUTO_PAGES_WITHOUT_ANY) vm.loadMore()
+    }
 }
+
+/** How many rows before the end of the list the next page is asked for (about a screen). */
+private const val PREFETCH_ROWS = 8
+
+/** In a category, older pages stop loading by themselves after this many in a row brought none of it. */
+private const val AUTO_PAGES_WITHOUT_ANY = 4
 
 /** The category chips on top (#13), each with how many of its notifications are new. Tapping the one that's on turns it off. */
 @Composable
@@ -671,39 +668,6 @@ private fun dayLabel(day: NotificationCategories.Day): Int = when (day) {
     NotificationCategories.Day.Earlier -> R.string.notifications_earlier
 }
 
-/** What's new since the last visit, in one line (#13): "12 new answers on 3 questions · 2 flowers · a thanks message". */
-@Composable
-private fun SummaryLine(summary: NotificationCategories.Summary) {
-    val resources = LocalContext.current.resources
-    val parts = buildList {
-        if (summary.answers > 0) {
-            val answers = resources.getQuantityString(R.plurals.notif_sum_answers, summary.answers, summary.answers)
-            add(
-                if (summary.questions > 0) {
-                    answers + " " + resources.getQuantityString(R.plurals.notif_sum_questions, summary.questions, summary.questions)
-                } else {
-                    answers
-                },
-            )
-        }
-        if (summary.flowers > 0) add(resources.getQuantityString(R.plurals.notif_sum_flowers, summary.flowers, summary.flowers))
-        if (summary.thanks > 0) add(resources.getQuantityString(R.plurals.notif_sum_thanks, summary.thanks, summary.thanks))
-        if (summary.system > 0) add(resources.getQuantityString(R.plurals.notif_sum_system, summary.system, summary.system))
-    }
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .fillMaxWidth(),
-    ) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.NotificationsActive, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.notif_summary, parts.joinToString(" · ")), style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
 private fun targetAction(item: StipsNotification, onOpenQuestion: (Long, QuestionFocus?) -> Unit, onOpenProfile: (Long) -> Unit): (() -> Unit)? =
     when (val target = item.target) {
         // New answers open at the first new one, a flower at the answer that got it (v0.10); the team's notices at
@@ -752,8 +716,8 @@ private data class RowAction(val label: String, val onClick: () -> Unit)
  * One notification, the same layout for all, two lines at most, new ones marked with a dot (#4). Stips' team's
  * notices say so, and show the team's words in a box under the text, as the site does, and the credibility points
  * taken (v0.13). [pinned]: a card on top until it's opened (#13). A long press offers [menu] (#13); with the option on,
- * [glance] adds the question's title and photo (#13). A question's updates together (v0.17) show the newest, with
- * [extra] saying how many there are, and [onToggle] shows them one by one.
+ * [glance] adds the question's title and photo (#13). [text]: a question's updates together say it in one sentence
+ * (v0.18). A flower stands out in Stips' own colors (v0.18, #27).
  */
 @Composable
 private fun NotificationRow(
@@ -764,12 +728,11 @@ private fun NotificationRow(
     menu: List<RowAction> = emptyList(),
     pinned: Boolean = false,
     glance: QuestionGlance? = null,
-    extra: String? = null,
-    expanded: Boolean = false,
-    onToggle: (() -> Unit)? = null,
+    text: String = item.text,
 ) {
     val kind = remember(item) { NotificationKinds.kind(item) }
     val team = NotificationKinds.fromTeam(kind)
+    val flower = kind == NotificationKinds.Kind.Flower
     val haptics = LocalHapticFeedback.current
     val colors = MaterialTheme.colorScheme
     var menuOpen by remember { mutableStateOf(false) }
@@ -822,6 +785,8 @@ private fun NotificationRow(
                     .clip(CircleShape)
                     .background(
                         when {
+                            // A flower stands out in Stips' own colors, new or not (v0.18, #27).
+                            flower -> if (isNew) FlowerColors.Petal.copy(alpha = 0.28f) else FlowerColors.Tint
                             isNew -> colors.primary
                             kind == NotificationKinds.Kind.Removal -> colors.errorContainer
                             else -> colors.surfaceContainerHigh
@@ -829,16 +794,20 @@ private fun NotificationRow(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    notificationIcon(kind),
-                    contentDescription = null,
-                    tint = when {
-                        isNew -> colors.onPrimary
-                        kind == NotificationKinds.Kind.Removal -> colors.onErrorContainer
-                        else -> colors.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(22.dp),
-                )
+                if (flower) {
+                    FlowerIcon(size = 24.dp)
+                } else {
+                    Icon(
+                        notificationIcon(kind),
+                        contentDescription = null,
+                        tint = when {
+                            isNew -> colors.onPrimary
+                            kind == NotificationKinds.Kind.Removal -> colors.onErrorContainer
+                            else -> colors.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -851,23 +820,14 @@ private fun NotificationRow(
                     )
                 }
                 Text(
-                    item.text,
+                    text,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = if (team) 3 else 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (extra != null) {
-                    Text(
-                        extra,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isNew) colors.primary else colors.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
                 // The question's title, when its sentence doesn't already say it (an option, #13).
-                val title = glance?.title?.takeIf { it.isNotBlank() && !item.text.contains(it) }
+                val title = glance?.title?.takeIf { it.isNotBlank() && !text.contains(it) }
                 if (title != null) {
                     Text(
                         title,
@@ -949,14 +909,6 @@ private fun NotificationRow(
                     )
                 }
             }
-            if (onToggle != null) {
-                IconButton(onClick = onToggle) {
-                    Icon(
-                        if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                        contentDescription = stringResource(if (expanded) R.string.notif_group_hide else R.string.notif_group_show),
-                    )
-                }
-            }
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             menu.forEach { action ->
@@ -971,55 +923,6 @@ private fun NotificationRow(
         }
     }
 }
-/** One of a question's updates, under its row when it's opened (v0.17): Stips' words, the time and a "new" dot. */
-@Composable
-private fun GroupedUpdate(item: StipsNotification, isNew: Boolean, onClick: (() -> Unit)?) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 48.dp)
-            .padding(start = 68.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            item.text,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isNew) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isNew) colors.onSurface else colors.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            notificationTime(item.time),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isNew) colors.primary else colors.onSurfaceVariant,
-            maxLines = 1,
-        )
-        if (isNew) {
-            Spacer(Modifier.width(6.dp))
-            Box(
-                Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(colors.primary),
-            )
-        }
-    }
-}
-
-/** "3 updates · 7 new answers": what a question's row in the bell, or its phone notification, holds (v0.17). */
-fun updatesLine(resources: Resources, updates: List<StipsNotification>): String {
-    val answers = NotificationCategories.answers(updates)
-    return listOfNotNull(
-        resources.getQuantityString(R.plurals.notif_group_updates, updates.size, updates.size),
-        if (answers > 0) resources.getQuantityString(R.plurals.notif_sum_answers, answers, answers) else null,
-    ).joinToString(" · ")
-}
-
 /** The time for today and yesterday (the section says which day, #13), or the date. */
 @Composable
 private fun notificationTime(time: Instant?): String {
@@ -1060,7 +963,7 @@ private fun teamLabel(kind: NotificationKinds.Kind): Int = when (kind) {
  * that leaves the user, and for a removal, the way to appeal ("צור קשר", or a senior moderator).
  */
 @Composable
-private fun TeamNoticeDialog(item: StipsNotification, points: Int?, onOpen: (() -> Unit)?, onDismiss: () -> Unit) {
+internal fun TeamNoticeDialog(item: StipsNotification, points: Int?, onOpen: (() -> Unit)?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val kind = NotificationKinds.kind(item)
     AlertDialog(

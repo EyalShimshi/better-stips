@@ -62,6 +62,21 @@ class SeenNotifications(context: Context) {
         prefs.edit().putStringSet(openedKey(userId), kept.map { it.toString() }.toSet()).apply()
     }
 
+    /**
+     * Phone notifications about [ids] were tapped (v0.18, #27): they're read, as if opened in the bell. They stop
+     * waiting, so the bell's badge drops them, and the bell doesn't show them as new.
+     */
+    @Synchronized
+    fun markHandled(userId: Long, ids: Collection<Long>) {
+        if (ids.isEmpty()) return
+        val waiting = waiting(userId)
+        val opened = (opened(userId) + ids).sortedDescending().take(MAX_OPENED)
+        prefs.edit()
+            .putString(waitingKey(userId), NotifyRules.encode(waiting.filterKeys { it !in ids }))
+            .putStringSet(openedKey(userId), opened.map { it.toString() }.toSet())
+            .apply()
+    }
+
     private fun openedKey(userId: Long) = "o$userId"
 
     private fun waitingKey(userId: Long) = "w$userId"

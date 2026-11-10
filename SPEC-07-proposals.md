@@ -65,12 +65,12 @@ Leave G for later: an Activity tab is a big change to how the app is organized, 
 
 | Question | Decision |
 |---|---|
-| Group per question (A)? | **No.** Split by **category** instead: **Updates** (new answers on questions you asked, answered or follow), **Flowers and thanks**, **System messages** (removals, reports' outcomes, the team's notes, and anything else that isn't an update or a flower or thanks). **v0.17: yes, too,** at the owner's ask: inside the categories, a question's updates are one row (D-124) |
+| Group per question (A)? | **No.** Split by **category** instead: **Updates** (new answers on questions you asked, answered or follow), **Flowers and thanks**, **System messages** (removals, reports' outcomes, the team's notes, and anything else that isn't an update or a flower or thanks). **v0.17: yes, too,** at the owner's ask: inside the categories, a question's updates are one row (D-124); **v0.18:** that row reads as one sentence with the total, without an arrow (D-128) |
 | The team's notices (B) | **Pinned on top** until opened |
 | Sections (C) | **By day:** Today · Yesterday · This week · Earlier, with "new" dots |
 | Filters (D) | **Yes** |
 | Actions on a row (E) | **Yes:** *Stop updates*, *Mark as read* |
-| The summary line (F) | **Yes** |
+| The summary line (F) | **Yes**; **v0.18: removed** at the owner's ask (#27, D-128) |
 | Richer rows (H) | **Yes, as an option** in the notification settings, **off by default** (it costs requests) |
 | An Activity tab (G) | **Never:** the bell stays |
 

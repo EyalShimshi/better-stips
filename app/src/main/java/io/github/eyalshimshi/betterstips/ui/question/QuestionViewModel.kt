@@ -562,7 +562,6 @@ class QuestionViewModel(
 
     /** Authors of the answers on screen (v0.10): looked up in the background when their badges aren't known yet. */
     fun wantBadges(userIds: Collection<Long>) {
-        if (!settings.settings.value.moderatorBadges) return
         for (id in userIds) {
             if (badgeAsked.add(id) && repository.userBadges.needsLookup(id)) badgeQueue.trySend(id)
         }

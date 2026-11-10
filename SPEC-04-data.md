@@ -269,6 +269,13 @@ A CI probe read 24 busy questions (26–151 answers each, 1,203 answers) and the
 - **Notes to self:** `messages.send` with your own `touserid` works, and `messages.list` then lists the chat with yourself like any other: the owner sent themselves a message from Stips+ 0.16 (#23's network log: `messages.send` answered 200 with 91 B, and the next poll had nothing newer than the app's own copy). The site hides only its report button there (`userService.isId`). Its system account (999 in its settings, "מערכת סטיפס") has no composer at all (`systemServiceUserFlg`).
 - **Emoji codes:** the site's chats drop `{ic:N}` (`removeOldEmojiCodes`) and turn `:name:` into pictures with EmojiOne 2.2.7 (`emojioneClient.toImage`, codes in lower case, no `:)` faces). Answers and pen pals don't. A message made only of emoji is drawn bigger on the site; Stips+ doesn't do that.
 
+### 2.16 Bios, moderators and GitHub's releases (v0.18, from the site's code)
+
+- **Bio:** the profile form allows `textStatusMaxLength = 1e3` characters. When the bio has more than one line, the site looks for the first line of the form `~words~` (`/^~(.+)~$/gm`); when it's the bio's last line, it's the "quote name", drawn under the bio as "~ words ~" at 13 px and 70 % opacity, with 12 px above it. The bio is centered (D-129).
+- **Moderators:** the site's `badgeConfig` labels `moderator` and `senior_moderator`; a profile's badge is `profile.page_data`'s `badges[0].name`. There is no call that lists moderators, so Stips+ keeps reading one profile per answerer, again after a day (D-130).
+- **Chat links:** a question link is `https://stips.co.il/ask/<id>` (a slug may follow), a profile link `https://stips.co.il/profile/<id>`; the site shows both as plain links in chats. Stips+'s cards (D-136) cost `omniobj GET ask` (nothing when a list showed the question) or `omniobj GET user` + `profile.page_data`, once per app session.
+- **GitHub (not Stips):** `GET https://api.github.com/repos/EyalShimshi/stips-plus/releases?per_page=10` lists pre-releases too (`/releases/latest` leaves them out), newest first, each with `tag_name` (`build-N`), `name` ("Stips+ 0.18.N"), `draft`, `html_url` and `assets[{name,size,browser_download_url,digest}]`; `digest` is "sha256:…". Without a token GitHub allows 60 calls an hour per address; Stips+ makes one a day (D-134).
+
 ## 3. Data model (in the app)
 
 ```kotlin

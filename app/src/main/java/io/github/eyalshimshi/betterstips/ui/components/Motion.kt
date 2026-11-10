@@ -4,6 +4,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.ui.Modifier
 import io.github.eyalshimshi.betterstips.data.Motion
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -29,3 +31,15 @@ suspend fun Animatable<Float, AnimationVector1D>.glowOnce(motion: Motion, holdMs
 
 /** A quick scroll (#18): short and decelerating, instead of the default spring. */
 internal const val QUICK_SCROLL_MS = 220
+
+/**
+ * How a row of a list moves when the list changes (v0.18, #30): it slides to its new place and fades in or out, as Live
+ * and coming back to a tab add rows on top. A refresh by hand ([swapped]) replaces the list, and if the rows' order
+ * shifted they all slid over each other at once; so that change happens in place. Nothing moves with moving elements
+ * off (#18).
+ */
+fun LazyItemScope.listItemMotion(moving: Boolean, swapped: Boolean): Modifier = when {
+    !moving -> Modifier
+    swapped -> Modifier.animateItem(fadeInSpec = null, placementSpec = null, fadeOutSpec = null)
+    else -> Modifier.animateItem()
+}

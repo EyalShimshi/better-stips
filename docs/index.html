@@ -1,0 +1,193 @@
+<!doctype html>
+<!--
+  The Stips+ page (#24), at https://www.shimshii.com/stips-plus/ (GitHub Pages, from this docs/ folder; MAINTAINING.md
+  says how it's set up). Every text is here in Hebrew and English side by side: <span lang="he"> and <span lang="en">,
+  and the page shows one language (app.js picks it). The download button finds the newest build by itself (app.js),
+  so a release needs no change here. Write "Stips+" in Hebrew text as <bdi>Stips+</bdi>, or it shows as "+Stips".
+-->
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stips+ · סטיפס, בנוח</title>
+  <meta name="description" content="Stips+: אפליקציית אנדרואיד מהירה ונעימה לסטיפס. A fast, smooth Android app for Stips.">
+  <meta name="theme-color" content="#09C286">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Stips+ · סטיפס, בנוח">
+  <meta property="og:description" content="אפליקציית אנדרואיד מהירה ונעימה לסטיפס. A fast, smooth Android app for Stips.">
+  <meta property="og:url" content="https://www.shimshii.com/stips-plus/">
+  <link rel="canonical" href="https://www.shimshii.com/stips-plus/">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <a class="brand" href="./"><img src="icon.svg" alt="" width="32" height="32"><span>Stips+</span></a>
+    <button id="lang" class="text-button" type="button">
+      <span lang="he">English</span><span lang="en">עברית</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <img class="hero-icon" src="icon.svg" alt="" width="96" height="96">
+      <h1 class="brand-text">Stips+</h1>
+      <p class="tagline">
+        <span lang="he">סטיפס, בנוח.</span><span lang="en">Stips, made comfortable.</span>
+      </p>
+      <p class="lead">
+        <span lang="he">אפליקציית אנדרואיד מהירה ונעימה לסטיפס, עם כל מה שאתם כבר מכירים ועוד קצת.</span>
+        <span lang="en">A fast, smooth Android app for Stips, with everything you know and a little more.</span>
+      </p>
+
+      <a id="download" class="filled-button" href="https://github.com/EyalShimshi/stips-plus/releases">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+        <span lang="he">הורדה לאנדרואיד</span><span lang="en">Download for Android</span>
+      </a>
+      <p class="version" id="version" hidden>
+        <span lang="he"></span><span lang="en"></span>
+      </p>
+      <p class="small">
+        <span lang="he">חינם, בלי פרסומות ובלי מעקב · <a class="notes-link" href="https://github.com/EyalShimshi/stips-plus/releases">מה חדש</a></span>
+        <span lang="en">Free, no ads, no tracking · <a class="notes-link" href="https://github.com/EyalShimshi/stips-plus/releases">What's new</a></span>
+      </p>
+      <!--
+        Google Play, once Stips+ is there: replace this <p> with a link to the store page, for example
+        <a class="tonal-button" href="https://play.google.com/store/apps/details?id=io.github.eyalshimshi.betterstips">…</a>
+      -->
+      <p class="chip">
+        <span lang="he">בקרוב גם ב־Google Play</span><span lang="en">Coming to Google Play</span>
+      </p>
+      <p class="small muted">
+        <span lang="he">אפליקציה עצמאית ולא רשמית: <bdi>Stips+</bdi> נבנה על ידי משתמש סטיפס, ולא על ידי הצוות של סטיפס.</span>
+        <span lang="en">Independent and unofficial: Stips+ is made by a Stips user, not by the Stips team.</span>
+      </p>
+    </section>
+
+    <section>
+      <h2><span lang="he">מה יש בפנים</span><span lang="en">What's inside</span></h2>
+      <div class="cards">
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg></div>
+          <h3><span lang="he">בית חי</span><span lang="en">A live home</span></h3>
+          <p>
+            <span lang="he">השאלות החמות בכרטיסים גדולים, ואחריהן החדשות. במצב Live שאלות חדשות נכנסות לבד, בלי לרענן.</span>
+            <span lang="en">The hottest questions as big cards, then the newest. In Live mode, new questions come in by themselves.</span>
+          </p>
+        </article>
+        <article class="card">
+          <div class="card-icon"><svg class="mirror" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg></div>
+          <h3><span lang="he">תגובות בהחלקה</span><span lang="en">Swipe to reply</span></h3>
+          <p>
+            <span lang="he">מחליקים על תשובה כדי להגיב לה. <bdi>Stips+</bdi> כותב בשבילכם את ה־^, ומראה לאיזו תשובה כל תגובה מתכוונת.</span>
+            <span lang="en">Swipe an answer to reply to it. Stips+ writes the ^ for you, and shows which answer each reply points to.</span>
+          </p>
+        </article>
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+          <h3><span lang="he">התראות לטלפון</span><span lang="en">Phone notifications</span></h3>
+          <p>
+            <span lang="he">תשובות חדשות, פרחים, תודות והודעות מגיעים כהתראות, ונפתחים בדיוק במקום הנכון.</span>
+            <span lang="en">New answers, flowers, thanks and messages arrive as notifications, and open right where they belong.</span>
+          </p>
+        </article>
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg></div>
+          <h3><span lang="he">שיחות</span><span lang="en">Chats</span></h3>
+          <p>
+            <span lang="he">חיפוש, מי מחובר עכשיו, הודעות שמגיעות תוך שניות, תגובה בהחלקה ופתקים לעצמכם.</span>
+            <span lang="en">Search, who's online now, messages within seconds, swipe to reply, and notes to yourself.</span>
+          </p>
+        </article>
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+          <h3><span lang="he">פרופילים</span><span lang="en">Profiles</span></h3>
+          <p>
+            <span lang="he">נקודות אמינות, קיר התודות, ביו, תגים וגרפים של פעילות, לכל משתמש.</span>
+            <span lang="en">Credibility, the thanks wall, bio, badges and activity graphs, for everyone.</span>
+          </p>
+        </article>
+        <article class="card">
+          <div class="card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+          <h3><span lang="he">בדיוק איך שנוח לכם</span><span lang="en">Just the way you like it</span></h3>
+          <p>
+            <span lang="he">מצב כהה, צבעים, ווידג׳טים למסך הבית ופעולות החלקה לבחירתכם.</span>
+            <span lang="en">Dark mode, colors, home-screen widgets, and swipe actions of your choice.</span>
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2><span lang="he">איך מתקינים</span><span lang="en">How to install</span></h2>
+      <ol class="steps">
+        <li>
+          <span lang="he">מורידים את הקובץ בכפתור שלמעלה, בטלפון.</span>
+          <span lang="en">Download the file with the button above, on your phone.</span>
+        </li>
+        <li>
+          <span lang="he">פותחים אותו. אם אנדרואיד שואל, מאשרים לדפדפן להתקין אפליקציות.</span>
+          <span lang="en">Open it. If Android asks, allow your browser to install apps.</span>
+        </li>
+        <li>
+          <span lang="he">אם Play Protect מזהיר, אפשר לבחור ״התקנה בכל זאת״: כל הגרסאות חתומות באותו מפתח.</span>
+          <span lang="en">If Play Protect warns, you can choose "Install anyway": every version is signed with the same key.</span>
+        </li>
+        <li>
+          <span lang="he">נכנסים עם החשבון שלכם בסטיפס, וזהו.</span>
+          <span lang="en">Sign in with your Stips account, and that's it.</span>
+        </li>
+      </ol>
+      <p class="note">
+        <span lang="he">מכאן <bdi>Stips+</bdi> יודיע לכם כשיש גרסה חדשה, ויתקין אותה בכמה לחיצות.</span>
+        <span lang="en">From then on, Stips+ tells you when there's a new version, and installs it in a few taps.</span>
+      </p>
+    </section>
+
+    <section>
+      <h2><span lang="he">שאלות</span><span lang="en">Questions</span></h2>
+      <details>
+        <summary><span lang="he">זה רשמי?</span><span lang="en">Is it official?</span></summary>
+        <p>
+          <span lang="he">לא. <bdi>Stips+</bdi> נבנה על ידי משתמש סטיפס, ומשתמש בסטיפס כמו האתר: עם החשבון שלכם, מול stips.co.il.</span>
+          <span lang="en">No. Stips+ is made by a Stips user. It uses Stips the way the website does: with your account, talking to stips.co.il.</span>
+        </p>
+      </details>
+      <details>
+        <summary><span lang="he">מה עם הפרטיות?</span><span lang="en">What about privacy?</span></summary>
+        <p>
+          <span lang="he"><bdi>Stips+</bdi> מדבר רק עם סטיפס, ועם GitHub כדי לבדוק אם יש גרסה חדשה. אין פרסומות, אין מעקב ואין שרתים משלו, והקוד פתוח לכולם.</span>
+          <span lang="en">Stips+ talks only to Stips, and to GitHub to check for new versions. No ads, no tracking, no servers of its own, and the code is open for anyone to read.</span>
+        </p>
+      </details>
+      <details>
+        <summary><span lang="he">אפשר לפתוח קישורים של סטיפס באפליקציה?</span><span lang="en">Can Stips links open in the app?</span></summary>
+        <p>
+          <span lang="he">כן. משתפים את הקישור ובוחרים ב<bdi>Stips+</bdi>. אפשר גם להגדיר שקישורים של stips.co.il ייפתחו בו תמיד: בהגדרות האפליקציה באנדרואיד, תחת ״פתיחה כברירת מחדל״.</span>
+          <span lang="en">Yes. Share the link and pick Stips+. You can also have stips.co.il links always open in it: in the app's Android settings, under "Open by default".</span>
+        </p>
+      </details>
+      <details>
+        <summary><span lang="he">יש גרסה לאייפון?</span><span lang="en">Is there an iPhone version?</span></summary>
+        <p>
+          <span lang="he">לא, <bdi>Stips+</bdi> הוא לאנדרואיד בלבד.</span>
+          <span lang="en">No, Stips+ is for Android only.</span>
+        </p>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      <span lang="he">נוצר באהבה על ידי <a href="https://stips.co.il/profile/275580">אייל שמשי</a></span>
+      <span lang="en">Made with love by <a href="https://stips.co.il/profile/275580">Eyal Shimshi</a></span>
+    </p>
+    <p class="small">
+      <a href="https://github.com/EyalShimshi/stips-plus"><span lang="he">הקוד ב־GitHub</span><span lang="en">Source code on GitHub</span></a>
+      ·
+      <a href="https://github.com/EyalShimshi/stips-plus#privacy"><span lang="he">פרטיות</span><span lang="en">Privacy</span></a>
+    </p>
+  </footer>
+</body>
+</html>

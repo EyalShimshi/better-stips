@@ -30,6 +30,8 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.TouchApp
+import android.widget.Toast
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Forum
@@ -43,6 +45,7 @@ import androidx.compose.material.icons.outlined.TheaterComedy
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -75,12 +78,14 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.eyalshimshi.betterstips.AppContainer
 import io.github.eyalshimshi.betterstips.R
+import io.github.eyalshimshi.betterstips.SpecialAccounts
 
 import io.github.eyalshimshi.betterstips.data.AnswerSwipe
 import io.github.eyalshimshi.betterstips.data.AppSettings
@@ -98,6 +103,7 @@ import io.github.eyalshimshi.betterstips.ui.components.AnonymousModeDialog
 import io.github.eyalshimshi.betterstips.ui.components.Avatar
 import io.github.eyalshimshi.betterstips.ui.components.BackButton
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
+import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
 import io.github.eyalshimshi.betterstips.ui.components.LocalShowIntro
 import io.github.eyalshimshi.betterstips.ui.components.openInBrowser
 import io.github.eyalshimshi.betterstips.ui.components.rememberAnonymousModeOn
@@ -110,6 +116,11 @@ import io.github.eyalshimshi.betterstips.ui.profile.GroupRow
 import io.github.eyalshimshi.betterstips.util.CredRules
 import io.github.eyalshimshi.betterstips.util.SwipeRules
 import io.github.eyalshimshi.betterstips.util.NotificationCategories
+import io.github.eyalshimshi.betterstips.util.UpdateRules
+import io.github.eyalshimshi.betterstips.ui.updates.updateRowSummary
+import io.github.eyalshimshi.betterstips.ui.updates.updateRowTitle
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.CircularProgressIndicator
 import io.github.eyalshimshi.betterstips.ui.question.answerSwipeIcon
 import io.github.eyalshimshi.betterstips.ui.question.answerSwipeLabel
 import io.github.eyalshimshi.betterstips.ui.question.questionSwipeIcon
@@ -323,6 +334,36 @@ private fun MainPage(settings: AppSettings, onOpenPage: (SettingsPage) -> Unit, 
         summary = stringResource(R.string.settings_about_summary, container.versionName),
         icon = Icons.Outlined.Info,
     )
+    CreatorCredit()
+}
+
+/** Who made Stips+ (#26): a small line at the very bottom of Settings, and a button to his profile in the app. */
+@Composable
+private fun CreatorCredit() {
+    val openProfile = LocalOpenProfile.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            stringResource(R.string.credit_made_by),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        FilledTonalButton(
+            onClick = { openProfile(SpecialAccounts.CREATOR_ID) },
+            contentPadding = PaddingValues(start = 12.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.height(32.dp),
+        ) {
+            Icon(Icons.Outlined.AccountCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.credit_profile), style = MaterialTheme.typography.labelMedium)
+        }
+    }
 }
 
 /** Who's signed in, as a card that opens the account's page; signed out, a row to sign in. */
@@ -772,13 +813,12 @@ private fun AnswersPage(settings: AppSettings) {
         easyReply = settings.easyReply && !editLocked,
         quotes = settings.replyQuotes,
         hideCarets = settings.hideReplyCarets,
-        moderatorBadges = settings.moderatorBadges,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
 
     GroupLabel(stringResource(R.string.settings_replies))
     // Hiding the carets only matters while quotes show what they point at (v0.11).
-    val repliesCount = if (settings.replyQuotes) 4 else 3
+    val repliesCount = if (settings.replyQuotes) 3 else 2
     GroupRow(
         title = stringResource(R.string.settings_easy_reply),
         summary = if (editLocked) {
@@ -809,14 +849,6 @@ private fun AnswersPage(settings: AppSettings) {
             trailing = { Switch(checked = settings.hideReplyCarets, onCheckedChange = null) },
         )
     }
-    GroupRow(
-        title = stringResource(R.string.settings_moderator_badges),
-        summary = stringResource(R.string.settings_moderator_badges_summary),
-        index = repliesCount - 1,
-        count = repliesCount,
-        onClick = { store.update { it.copy(moderatorBadges = !it.moderatorBadges) } },
-        trailing = { Switch(checked = settings.moderatorBadges, onCheckedChange = null) },
-    )
 
     // Swiping an answer to the left (#18); to the right it replies (easy reply, above). With a picture (v0.16).
     GroupLabel(stringResource(R.string.settings_swipe_answers))
@@ -1054,14 +1086,61 @@ private fun AboutPage(container: AppContainer, settings: AppSettings, onOpenPage
     )
     GroupRow(stringResource(R.string.disclaimer), 4, 5, null)
 
+    // Stips+'s own updates from GitHub (#25), while it isn't on Google Play.
+    if (UpdateRules.SELF_UPDATE) {
+        val updates = container.updates
+        val update by updates.state.collectAsStateWithLifecycle()
+        GroupLabel(stringResource(R.string.settings_updates_group))
+        GroupRow(
+            title = updateRowTitle(update),
+            summary = updateRowSummary(update),
+            index = 0,
+            count = 2,
+            onClick = {
+                when {
+                    update.checking || update.downloading -> Unit
+                    update.available != null -> updates.download()
+                    else -> updates.checkNow()
+                }
+            },
+            icon = Icons.Outlined.SystemUpdate,
+            trailing = if (update.checking || update.downloading) {
+                { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) }
+            } else {
+                null
+            },
+        )
+        GroupRow(
+            title = stringResource(R.string.settings_update_auto),
+            summary = stringResource(R.string.settings_update_auto_summary),
+            index = 1,
+            count = 2,
+            onClick = { container.settings.update { it.copy(checkUpdates = !it.checkUpdates) } },
+            trailing = { Switch(checked = settings.checkUpdates, onCheckedChange = null) },
+        )
+    }
+
     GroupLabel(stringResource(R.string.settings_group_more))
     GroupRow(
         title = stringResource(R.string.settings_show_intro),
         summary = stringResource(R.string.settings_show_intro_summary),
         index = 0,
-        count = 1,
+        count = 2,
         onClick = showIntro,
         icon = Icons.Outlined.AutoAwesome,
+    )
+    // The tips (#28) start over: each shows again up to three times, until its gesture is used.
+    val tipsResetText = stringResource(R.string.tips_reset_done)
+    GroupRow(
+        title = stringResource(R.string.settings_reset_tips),
+        summary = stringResource(R.string.settings_reset_tips_summary),
+        index = 1,
+        count = 2,
+        onClick = {
+            container.tutorials.reset()
+            Toast.makeText(context, tipsResetText, Toast.LENGTH_SHORT).show()
+        },
+        icon = Icons.Outlined.TouchApp,
     )
 
     GroupLabel(stringResource(R.string.settings_expert_group))

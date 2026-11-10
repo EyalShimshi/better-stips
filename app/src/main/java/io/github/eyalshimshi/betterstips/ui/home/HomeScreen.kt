@@ -87,6 +87,30 @@ import io.github.eyalshimshi.betterstips.data.model.FeedSort
 import io.github.eyalshimshi.betterstips.data.model.HotWindow
 import io.github.eyalshimshi.betterstips.data.model.Question
 import io.github.eyalshimshi.betterstips.util.AutoRefresh
+import io.github.eyalshimshi.betterstips.util.UpdateRules
+import io.github.eyalshimshi.betterstips.ui.updates.UpdateCard
+import io.github.eyalshimshi.betterstips.util.SwipeSide
+import io.github.eyalshimshi.betterstips.util.TutorialRules
+import io.github.eyalshimshi.betterstips.data.QuestionSwipe
+import io.github.eyalshimshi.betterstips.data.Tutorials
+import io.github.eyalshimshi.betterstips.ui.question.LocalQuestionActions
+import io.github.eyalshimshi.betterstips.ui.question.questionSwipeLabel
+import io.github.eyalshimshi.betterstips.ui.components.LocalQuestionRowHint
+import io.github.eyalshimshi.betterstips.ui.components.LocalTipsAllowed
+import io.github.eyalshimshi.betterstips.ui.components.PEEK_TOTAL_MS
+import io.github.eyalshimshi.betterstips.ui.components.QuestionRowHint
+import io.github.eyalshimshi.betterstips.ui.components.SwipeHint
+import io.github.eyalshimshi.betterstips.ui.components.TIP_DELAY_MS
+import io.github.eyalshimshi.betterstips.ui.components.TIP_SHOW_MS
+import io.github.eyalshimshi.betterstips.ui.components.TIP_WAIT_MS
+import io.github.eyalshimshi.betterstips.ui.components.TipPill
+import io.github.eyalshimshi.betterstips.ui.components.TipState
+import io.github.eyalshimshi.betterstips.ui.components.rememberTipState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalUnreadCounts
 import io.github.eyalshimshi.betterstips.ui.components.QuestionMetaRow
@@ -179,6 +203,8 @@ fun HomeScreen(
     val sections by sectionsVm.state.collectAsStateWithLifecycle()
     val channels by container.channels.channels.collectAsStateWithLifecycle()
     val settings = LocalAppSettings.current
+    // A newer Stips+ on GitHub (#25), offered at the top.
+    val update by container.updates.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -245,6 +271,55 @@ fun HomeScreen(
         }
     }
 
+    // Tips (#28), as Home shows: what swiping a question does, to the right and then to the left (as picked in Settings),
+    // on the first question in sight that it applies to; then the long press on Live.
+    val tutorials = container.tutorials
+    val tipsAllowed = LocalTipsAllowed.current
+    val questionActions = LocalQuestionActions.current
+    var rowHint by remember { mutableStateOf<QuestionRowHint?>(null) }
+    val liveTip = rememberTipState()
+    val rightTipText = stringResource(R.string.tip_swipe_right, stringResource(questionSwipeLabel(settings.swipeRight)))
+    val leftTipText = stringResource(R.string.tip_swipe_left, stringResource(questionSwipeLabel(settings.swipeLeft)))
+    val liveTipText = stringResource(R.string.tip_live_options)
+    val shownQuestions by rememberUpdatedState(if (showsSections) sections.sections.flatMap { it.questions } else state.items)
+    LaunchedEffect(tipsAllowed) {
+        if (!tipsAllowed) return@LaunchedEffect
+        val steps = listOf(
+            Triple(Tutorials.Tip.HomeSwipeRight, SwipeSide.Right, settings.swipeRight),
+            Triple(Tutorials.Tip.HomeSwipeLeft, SwipeSide.Left, settings.swipeLeft),
+        ).filter { (tip, _, action) -> action != QuestionSwipe.None && tutorials.due(tip) }
+        val liveDue = showsNew && tutorials.due(Tutorials.Tip.LiveOptions)
+        if (steps.isEmpty() && !liveDue) return@LaunchedEffect
+        // Once questions are on screen.
+        withTimeoutOrNull(TIP_WAIT_MS) {
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.any { TutorialRules.questionIdOfKey(it.key) != null } }.first { it }
+        } ?: return@LaunchedEffect
+        delay(TIP_DELAY_MS)
+        for ((tip, side, action) in steps) {
+            val byId = shownQuestions.associateBy { it.id }
+            val target = listState.layoutInfo.visibleItemsInfo
+                .filter { it.offset >= 0 }
+                .mapNotNull { TutorialRules.questionIdOfKey(it.key) }
+                .firstOrNull { id -> byId[id]?.let { questionActions?.available(it, action) } == true }
+                ?: continue
+            if (!tutorials.claim(tip)) continue
+            rowHint = QuestionRowHint(target, SwipeHint(side, if (side == SwipeSide.Right) rightTipText else leftTipText))
+            try {
+                delay(PEEK_TOTAL_MS + 300)
+            } finally {
+                rowHint = null
+            }
+        }
+        if (liveDue && listState.layoutInfo.visibleItemsInfo.any { it.key == "new-header" } && tutorials.claim(Tutorials.Tip.LiveOptions)) {
+            try {
+                liveTip.show(liveTipText)
+                delay(TIP_SHOW_MS)
+            } finally {
+                liveTip.hide()
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             SearchBarRow(
@@ -267,6 +342,11 @@ fun HomeScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
         val header: LazyListScope.() -> Unit = {
+            if (UpdateRules.SELF_UPDATE && settings.checkUpdates && update.showCard) {
+                item(key = "update") {
+                    UpdateCard(state = update, onUpdate = { container.updates.download() }, onLater = { container.updates.later() })
+                }
+            }
             if (settings.showChannelChips) {
                 item(key = "channels") {
                     FeedFilters(
@@ -299,12 +379,18 @@ fun HomeScreen(
                     NewHeader(
                         live = settings.autoRefreshNew,
                         seconds = settings.liveIntervalSeconds,
+                        tip = liveTip,
                         onToggleLive = { container.settings.update { s -> s.copy(autoRefreshNew = !s.autoRefreshNew) } },
-                        onLiveOptions = { liveSheet = true },
+                        onLiveOptions = {
+                            tutorials.done(Tutorials.Tip.LiveOptions)
+                            liveSheet = true
+                        },
                     )
                 }
             }
         }
+        // Home's tip slides one of the rows (#28).
+        CompositionLocalProvider(LocalQuestionRowHint provides rowHint) {
         if (showsSections) {
             HomeSectionsList(
                 state = sections,
@@ -337,6 +423,7 @@ fun HomeScreen(
                 listState = listState,
                 header = header,
             )
+        }
         }
     }
     if (liveSheet) {
@@ -516,17 +603,20 @@ private fun HotCard(question: Question, rank: Int, seed: Int?, onClick: () -> Un
     }
 }
 
-/** "New questions" and the Live chip: tap turns Live on or off, long-press sets how often it checks. */
+/** "New questions" and the Live chip: tap turns Live on or off, long-press sets how often it checks; [tip] says so (#28). */
 @Composable
-private fun NewHeader(live: Boolean, seconds: Int, onToggleLive: () -> Unit, onLiveOptions: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f))
-        LiveChip(live = live, seconds = seconds, onToggle = onToggleLive, onOptions = onLiveOptions)
+private fun NewHeader(live: Boolean, seconds: Int, tip: TipState, onToggleLive: () -> Unit, onLiveOptions: () -> Unit) {
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SectionTitle(stringResource(R.string.new_questions), Modifier.weight(1f))
+            LiveChip(live = live, seconds = seconds, onToggle = onToggleLive, onOptions = onLiveOptions)
+        }
+        TipPill(tip, Modifier.align(Alignment.End).padding(end = 8.dp), expand = true)
     }
 }
 

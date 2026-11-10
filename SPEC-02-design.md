@@ -84,6 +84,9 @@ flowchart TD
 - **Layouts (v0.9, D-59), in Settings → Home and reading:** *Hot, then new* (above, the default) · *Like the website*: the hot cards, then today's questions in sections, each under a heading with a thin rule ("#topic ›" opens the topic; a list's title is plain), loading more while scrolling, with no New list and no Live · *New only*: the chips and the New list. Also: 3, 5 or 10 hot cards; hot from now, today or this week (the title follows: "Hot today"…); the chip row on or off.
 - First launch with nothing cached: skeleton cards and rows. Later launches: the last-seen page at once.
 - Errors replace the list only when nothing is shown: "Can't reach Stips right now." + *Retry*. Otherwise a snackbar with *Retry*.
+- **A newer Stips+ (v0.18, D-134):** above everything, a primaryContainer card with ⟳: "Stips+ 0.18.32 is out", a line (it downloads from GitHub, then Android asks to confirm), and *What's new* · *Later* · *Update* (filled). While downloading, "Downloading… 42%" and a bar; when ready, *Install*. *Later* hides it until the next build.
+- **After pulling to refresh (v0.18, D-131):** the rows change in place; only Live and the entry check slide new ones in.
+- **Tips (v0.18, D-138):** as Home shows, the first question in sight slides most of the way right, with a dark pill over it ("Swipe right: Pin or unpin"), back, then left; afterwards a pill under the Live chip, "Long-press Live to choose how often it checks". Each until it's used, three times at most.
 
 ### 5.2 Question (compact hero)
 
@@ -128,6 +131,7 @@ flowchart TD
 
 - **v0.16 (D-113):** by "N answers", an assist chip (sort icon, the current order's name, ▾) opens a menu: *Default* · *Newest first* · *Most upvotes* · *Least upvotes*, the current one checked. Another order fills the chip (secondaryContainer). Each visit starts in *Default*.
 - **Swipes (v0.16, D-110):** answers and chat messages swipe as questions in lists do: past 64 dp (chats 56), or a flick.
+- **v0.18:** the top bar's ⋮ starts with *Reply in private* (💬) when the asker isn't anonymous or you (D-137); the left swipe on someone's answer can be set to it too. Moderator pills always show (D-130). Tips (D-138): opening a question with answers, the first answer in sight slides right a little with "Swipe right to reply" over it; after posting an answer, it slides left with what that swipe does ("Swipe left: Edit answer").
 
 ### 5.3 Chats
 
@@ -150,7 +154,9 @@ The list updates by itself when the unread count changes (checked every 10 s whi
 
 **Notes to self (v0.17, D-118):** the chat with yourself is listed as *Notes to self*, with the bookmarked photo, no "Me:" before the last line and no unread badge.
 
-**Every chat (build 30, D-126):** older chats load page after page as the list nears its end (a small spinner at the very bottom while there may be more; *Retry* if a page failed). Each row's last line leaves out the carets a reply opens with.
+**Every chat (build 30, D-126):** older chats load page after page as the list nears its end (a small spinner at the very bottom while there may be more; *Retry* if a page failed). Each row's last line leaves out the carets a reply opens with, and (v0.18) a Stips link on a line of its own.
+
+**Tip (v0.18, D-138):** under the shelf, a dark pill: "The first circle is your notes to self, a chat only you see", until the circle is tapped.
 
 Signed out: an invitation card — "Sign in to see your chats" + *Sign in*.
 
@@ -193,6 +199,12 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 
 **Emoji codes (v0.17, D-121):** `:name:` codes from older apps show as the phone's emoji, here and in the list.
 
+**Link cards (v0.18, D-136):** a message with a link to a Stips question shows, above its words (under any reply quote), a card on a 7 % tint of the bubble's text: the question's cover (44 dp squircle), its title in two lines, "asker · 5 answers". A profile link: the photo, name and special badge, then "badge · Credibility 93 · 1,204 answers · 85 flowers" (counts left out when Stips hides them). While loading, the kind ("Question on Stips") and the short link with a small spinner; when Stips has nothing there, "This question isn't available". A tap opens it in the app; a long press copies the message. A link on its own line isn't repeated in the words.
+
+**Reply in private (v0.18, D-137):** opened from a question, the chat opens with the keyboard up and, above the box, a bar like the reply bar: a ? icon, *About the question* and its title, ✕. The message can be sent with or without words.
+
+**Tip (v0.18, D-138):** on opening a chat where a reply can go, their newest message slides right a little with "Swipe right to reply" over it.
+
 ### 5.5 Profile (everyone's, social-style)
 
 ```
@@ -223,10 +235,12 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 
 - Tapping any name or avatar (answers, thanks wall, chats, notifications) opens that user's profile. On the profile, tapping the photo opens it full screen.
 - Tabs: **Thanks wall** (first and default; others can write on it) · **Activity**.
-- On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (250 characters).
+- On your own profile: the camera button picks a new photo (system photo picker; straightened, cropped square, uploaded), *Edit bio* opens a dialog (1000 characters since v0.18, D-129, with a hint about the quote line).
+- **Bio (v0.18, D-129):** centered on a surfaceContainerLow card; a last line in `~tildes~` shows under it as "~ words ~", smaller and lighter, as on the site.
 - Signed out, the Profile tab is a `secondaryContainer` card — "Sign in to answer, chat and see your questions" + *Sign in*; then Saved and Settings.
 - **Special accounts (v0.9, D-64):** Stips' gradient background as a 64 dp rounded band behind the top of the photo; the name in Stips' purple when it highlights it, with a blue ✓; an *Organization* (or *Stips' own account*) pill and `custom_rank` pills first among the badges; no age pill or numbers when Stips hides them. In expert mode, "user #id" under the name and *Server details* in the top bar.
 - **Stips+ badge (v0.16, D-116):** when the bio has the *I use Stips+* line (its words or its link), a pill with ✨ and "Stips+" in white on the bio button's gradient (Stips green into blue and purple) comes right after any special badge.
+- **The creator's badge (v0.18, D-132):** "Stips+ creator" in Stips+'s gradient, on a 15 % tint of it, on his profile, questions and answers.
 - **Credibility sheet (v0.13, D-86):** tapping the gauge opens a tall sheet: the number in the band's color with "Credibility · Perfect" and its rate; status lines with icons (editing open from 50 or not; blocked days or for good); a card *When will the points reach…* with the target, a slider over the points ahead (it starts at the next milestone) and the day ("Around 3 Mar 2027, in 12 days", or "Between … and …" from 90 up) plus "If no points are taken away"; *Milestones* (30 back to activity, 50 editing, each rating, 100) with their dates; Stips' table with the current rating highlighted; on one's own profile, *Goals*: the senior answerer bar (500 flowers) and the moderator requirements with ✓, ✕ or ? (age, 100 points, 3,000 flowers, a year and a half, a year since the last block); then where it all comes from.
 - **Block screen (v0.13, D-84):** over the whole app, a 🚫 in an error-container circle, the title ("You're blocked from activity for now", "This account is blocked for good" or "Stips has blocked this account"), Stips' reason in a card, "Ends: …" or "About N more days" with the date, the points, the rule in one line, "You can still read…", then *Continue reading* (filled), *Contact Stips* (outlined), *Stips' rules* and *Sign out* (text). Back also continues.
 
@@ -252,6 +266,8 @@ Earlier messages load by themselves as the top comes into view; there's no "Load
 **v0.16 (D-114):** a **Swipes** step after *Replies*: "Swipe for quick actions", the picture of a question slid each way with *Swipe right* and *Swipe left* lines (each opens the list of choices), then the picture of two answers slid left (someone's, and one under your nickname) with the two answer lines, and "Swipe an answer to the right to reply to it". In *Replies*, the carets in the words are bold in the accent color.
 
 ### 5.7 Settings
+
+**v0.18:** *Questions and answers* loses *Moderator badges* (always on, D-130). *About* adds **Updates** (D-134): a row that checks, offers *Update to 0.18.32* or *Install 0.18.32*, or says "You have the newest version · checked 5 min ago"; and *Check once a day*. *More* adds *Show the tips again* (D-138). The main page ends with "Made with love by Eyal Shimshi" and a tonal *Eyal on Stips* button (D-132); so does the intro's last page. The swipe lists add *Reply in private* (questions; others' answers).
 
 **v0.16:** *Questions and answers* loses *Order of answers* (it's in the question now) and gains, under **Swiping an answer**, a picture of two answers slid left over their actions: someone's, and one under your own nickname ("You" when signed out). Live's controls (Home, and the Pen pals sheet) add "Home and Pen pals check at the same rate." Messages at the bottom of every screen swipe away down or sideways (D-111).
 
@@ -311,6 +327,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 - **Stips' team (v0.13, D-82):** a removal (⚖ on error container), a report's outcome (⚑) or a note (🛡) starts with who it's from ("Removed by Stips' team", "About your report", "From Stips' team"), takes up to three lines, shows the team's words in a rounded surfaceContainerHigh box (as the site's "system-msg"), and "N credibility points removed" in error. A tap opens a dialog: the text, *The team's words*, the points, "Your credibility now: 61, Reliable. Rises by a point a day.", and for a removal how to appeal, with *Contact Stips*, *Open* (the question or profile) and *Close*.
 - Tapping opens the question or profile. Pull to refresh; older pages load at the end.
 - **One row per question (v0.17, D-124):** a question's updates share one row, where the newest of them is: its words, then "3 updates · 7 new answers" (primary while any is new), the time and dot, and a ⌄ button that shows each update under it (indented, two lines, its time and dot; a tap opens at that one). A tap on the row opens at the first of its new answers and marks them all read; the long press offers *Mark as read* and *Stop updates*. The chips' badges count rows.
+- **One sentence per question (v0.18, D-128), in place of the above's line and ⌄:** the row reads as one of Stips' sentences, the newest about answers with the total ("התקבלו 6 תשובות חדשות לשאלה: …"). No summary line above the list. A flower's icon is Stips' tulip in its colors (coral petals, a deeper middle one, a green stem) on a light coral circle, here and wherever flowers show. Older pages load as the list nears its end, also with a chip chosen (after 4 pages with nothing in that chip, *Load older notifications* again). A team notice's phone notification opens its dialog.
 - **The badge (v0.17, D-122):** the bell's number is the rows the bell will show as new, from Stips+'s own record (Stips' count only fills in until the first page has been read). While the app is on screen the page is read when Stips' count goes up and every minute on Home.
 - Opening the list clears the bell's badge (Stips marks them seen, as on the site), and takes the phone's notifications about answers, flowers and thanks out of the shade (v0.11).
 - Phone notifications (v0.11, D-73; channels per kind since v0.15): channels that pop up, *Updates*, *Flowers and thanks*, *System messages* and *Messages*. Up to 5 new items per check, each opening its item in the app; updates on one question share one notification that a newer burst replaces, with "3 updates · 7 new answers" (v0.17, D-123); one notification per chat with unread messages (who wrote, the last message, a count), opening the chat. Opening a chat clears its notification.
@@ -338,7 +355,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 
 | Surface | Since v0.2 |
 |---|---|
-| Share sheet | Question and profile links |
+| Share sheet | Question and profile links; since v0.18 also a target: *Open in Stips+* takes a shared Stips link (D-135) |
 | Browser | "Open on Stips", sign-up, password reset, the account pages in Settings |
 | Link handling | `stips.co.il/ask/…`, `/profile/…`, `/messages` (user-enabled) |
 | Notifications | Opt-in phone notifications in two channels that pop up (*Answers and activity*, *Messages*), checked every few minutes while the phone is awake and about every 15 minutes otherwise (v0.11) |
@@ -346,6 +363,7 @@ Before v0.9, groups on one page (DESIGN-PHILOSOPHY §8): **Stips account** (sign
 | Home-screen widget | "Hot right now" (v0.6, D-51): hot questions, ⟳, taps open the app |
 | Chats widget | v0.9, D-67: latest chats with name, last message, clock time and an unread badge (bold when unread); the title counts unread; a tap opens the chat; signed out, a line asks to sign in |
 | Launcher shortcuts | *Hot* and *Chats* (v0.8, D-57): touch and hold the icon; Material glyphs in deep Stips green on the light circle of the shortcut icon guidelines |
+| Package installer | v0.18, D-134: Stips+'s own updates, after the user taps *Update*; Android asks once to allow Stips+ to install apps, then to confirm |
 
 ## 7. Localization
 

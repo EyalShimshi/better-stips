@@ -96,30 +96,28 @@ object NotificationCategories {
         return QuestionFocus.NewAnswers(answers(updates).takeIf { it > 0 }, newest.time)
     }
 
-    /** What new notifications add up to: answers on how many questions, flowers, thanks and system messages. */
-    data class Summary(val answers: Int = 0, val questions: Int = 0, val flowers: Int = 0, val thanks: Int = 0, val system: Int = 0) {
-        val isEmpty: Boolean get() = answers == 0 && flowers == 0 && thanks == 0 && system == 0
-    }
+    // Stips' count of new answers in its sentence: "התקבלו 3 תשובות חדשות", "התקבלו שתי תשובות חדשות", "התקבלה תשובה
+    // חדשה", "תשובה חדשה". The verb is optional; the first such phrase is the count (a title quoted later may repeat it).
+    private val countPhrase = Regex(
+        """(התקבלו\s+|התקבלה\s+)?(?:(?:\d{1,4}|שתי|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע|עשר)\s+)?""" +
+            """(?:תשובות\s+חדשות|תשובה\s+(?:אחת\s+)?חדשה)""",
+    )
 
-    /** Sums [items] up. A notification about new answers counts the answers its text announces ("3 תשובות חדשות"), or one. */
-    fun summary(items: List<StipsNotification>): Summary {
-        var answers = 0
-        var flowers = 0
-        var thanks = 0
-        var system = 0
-        val questions = mutableSetOf<Long>()
-        for (n in items) {
-            when (val kind = NotificationKinds.kind(n)) {
-                NotificationKinds.Kind.Answers, NotificationKinds.Kind.Question -> {
-                    answers += if (kind == NotificationKinds.Kind.Answers) answerCount(n) else 1
-                    (n.target as? NotificationTarget.OpenQuestion)?.let { questions += it.id }
-                }
-                NotificationKinds.Kind.Flower -> flowers++
-                NotificationKinds.Kind.Thanks -> thanks++
-                else -> system++
-            }
-        }
-        return Summary(answers, questions.size, flowers, thanks, system)
+    /**
+     * What a question's row says for several of its updates (v0.18, #27, the owner's choice): one sentence of Stips',
+     * the newest about answers, with all their answers in it ("התקבלו 6 תשובות חדשות לשאלה: …"), as if Stips had sent
+     * them together. Its own sentence when it's one, or when the count can't be found in the words.
+     */
+    fun combinedText(updates: List<StipsNotification>): String {
+        val newest = updates.firstOrNull() ?: return ""
+        if (updates.size == 1) return newest.text
+        val base = updates.firstOrNull { NotificationKinds.kind(it) == NotificationKinds.Kind.Answers } ?: return newest.text
+        val total = answers(updates)
+        if (total <= 0) return base.text
+        val match = countPhrase.find(base.text) ?: return base.text
+        val verb = match.groups[1] != null
+        val phrase = (if (verb) "התקבלו " else "") + "$total תשובות חדשות"
+        return base.text.replaceRange(match.range, phrase)
     }
 
     /** Stips' team's notices stay pinned on top until opened, but only for this long: older ones just sit in their day. */

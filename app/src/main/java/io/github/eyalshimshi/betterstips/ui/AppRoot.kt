@@ -95,16 +95,22 @@ import io.github.eyalshimshi.betterstips.data.StartTab
 import io.github.eyalshimshi.betterstips.data.api.RateGuard
 import io.github.eyalshimshi.betterstips.data.api.ServerClock
 import io.github.eyalshimshi.betterstips.data.model.MyList
+import io.github.eyalshimshi.betterstips.data.model.NotificationTarget
 import io.github.eyalshimshi.betterstips.data.model.QuestionFocus
+import io.github.eyalshimshi.betterstips.data.model.StipsNotification
 import io.github.eyalshimshi.betterstips.data.model.UnreadCounts
 import io.github.eyalshimshi.betterstips.ui.ask.AskScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ChatsScreen
 import io.github.eyalshimshi.betterstips.ui.chats.ConversationScreen
 import io.github.eyalshimshi.betterstips.ui.account.BanScreen
+import io.github.eyalshimshi.betterstips.ui.account.knownCredibility
 import io.github.eyalshimshi.betterstips.ui.components.ImageLinkViewer
 import io.github.eyalshimshi.betterstips.ui.components.LocalAppContainer
 import io.github.eyalshimshi.betterstips.ui.components.LocalNow
 import io.github.eyalshimshi.betterstips.ui.components.LocalOpenProfile
+import io.github.eyalshimshi.betterstips.ui.components.LocalReplyInPrivate
+import io.github.eyalshimshi.betterstips.ui.components.LocalTipsAllowed
+import io.github.eyalshimshi.betterstips.data.model.Author
 import io.github.eyalshimshi.betterstips.ui.components.LocalShowIntro
 import io.github.eyalshimshi.betterstips.ui.components.LocalTabReselects
 import io.github.eyalshimshi.betterstips.ui.components.LocalTabRefreshes
@@ -118,6 +124,7 @@ import io.github.eyalshimshi.betterstips.ui.feed.TopicScreen
 import io.github.eyalshimshi.betterstips.ui.home.HomeScreen
 import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsPrompt
 import io.github.eyalshimshi.betterstips.ui.notifications.NotificationsScreen
+import io.github.eyalshimshi.betterstips.ui.notifications.TeamNoticeDialog
 import io.github.eyalshimshi.betterstips.ui.penpals.PenPalsScreen
 import io.github.eyalshimshi.betterstips.ui.profile.ProfileScreen
 import io.github.eyalshimshi.betterstips.ui.question.QuestionActionsHost
@@ -136,6 +143,7 @@ import io.github.eyalshimshi.betterstips.util.ImageLinks
 import io.github.eyalshimshi.betterstips.util.JumpRules
 import io.github.eyalshimshi.betterstips.util.Links
 import io.github.eyalshimshi.betterstips.util.Shortcuts
+import io.github.eyalshimshi.betterstips.util.UpdateRules
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -151,7 +159,7 @@ object Routes {
     const val PROFILE = "profile"
     const val QUESTION = "question/{id}?focus={focus}&count={count}&at={at}"
     const val TOPIC = "topic/{name}"
-    const val CONVERSATION = "conversation/{userId}?name={name}"
+    const val CONVERSATION = "conversation/{userId}?name={name}&about={about}"
     const val MY_LIST = "mylist/{kind}"
     const val SAVED = "saved"
     const val SIGN_IN = "signin"
@@ -172,7 +180,9 @@ object Routes {
             "question/$id?focus=${JumpRules.kind(focus)}&count=${JumpRules.count(focus)}&at=${JumpRules.at(focus)}"
         }
     fun topic(name: String) = "topic/" + Uri.encode(name)
-    fun conversation(userId: Long, name: String) = "conversation/$userId?name=" + Uri.encode(name)
+    /** [about]: "reply in private" on that question (v0.18). */
+    fun conversation(userId: Long, name: String, about: Long? = null) =
+        "conversation/$userId?name=" + Uri.encode(name) + (about?.let { "&about=$it" } ?: "")
     fun myList(kind: MyList) = "mylist/" + kind.name
     fun user(id: Long) = "user/$id"
     fun ask(channelId: Int?) = if (channelId != null) "ask?channel=$channelId" else "ask"
@@ -213,6 +223,9 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     val session by container.session.session.collectAsStateWithLifecycle()
     val signedIn = session.signedIn
     var counts by remember { mutableStateOf(UnreadCounts()) }
+    // Stips' own bell count as last read (zero once a listing cleared it): the badge is recomputed from it, since a
+    // badge recomputed from itself can never drop (v0.18).
+    val stipsBellCount = remember { intArrayOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
     // Tapping the open tab again sends its route here; that tab scrolls back to the top (v0.12).
     val tabReselects = remember { MutableSharedFlow<String>(extraBufferCapacity = 1) }
@@ -273,14 +286,37 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
     }
 
     val currentOnLinkHandled by rememberUpdatedState(onLinkHandled)
+    // A notice from Stips' team whose phone notification was tapped (v0.18, #27): shown in full over the app.
+    var teamNotice by remember { mutableStateOf<StipsNotification?>(null) }
     LaunchedEffect(pendingLink) {
         val link = pendingLink ?: return@LaunchedEffect
         welcome = false
-        openLink(navController, link)
+        if (link is DeepLink.TeamNotice) teamNotice = link.notice else openLink(navController, link)
         currentOnLinkHandled()
+        // A tapped phone notification marked its notifications read: the bell's badge follows at once.
+        if (signedIn) counts = counts.copy(notifications = bellBadge(container, stipsBellCount[0], listed = false))
     }
     LaunchedEffect(Unit) {
         container.session.expired.collect { snackbar.showSnackbar(signedOutText) }
+    }
+
+    // Stips+'s own updates (#25): GitHub is asked once a day as the app comes to the screen, and a download the user
+    // asked for opens Android's installer once it's checked (when the app is on screen: Android doesn't let an app
+    // open a screen from the background).
+    val checkUpdates = LocalAppSettings.current.checkUpdates
+    LaunchedEffect(checkUpdates, lifecycleOwner) {
+        if (!checkUpdates || !UpdateRules.SELF_UPDATE) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { container.updates.checkIfDue() }
+    }
+    val update by container.updates.state.collectAsStateWithLifecycle()
+    val installFailedText = stringResource(R.string.update_install_failed)
+    LaunchedEffect(update.ready, update.installWhenReady, lifecycleOwner) {
+        if (update.ready == null || !update.installWhenReady) return@LaunchedEffect
+        // Android doesn't let an app open a screen from the background: the installer waits until the app is on screen.
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // Opening the installer restarts this effect, so the message goes on the screen's own scope.
+            if (!container.updates.install(context)) scope.launch { snackbar.showSnackbar(installFailedText) }
+        }
     }
 
     // Unread chats and notifications: one tiny request every 10 s, only while the app is on screen and signed in,
@@ -306,6 +342,7 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
                             listedAt = now
                             listed = learnBell(container)
                         }
+                        stipsBellCount[0] = if (listed) 0 else fetched.notifications
                         counts = fetched.copy(notifications = bellBadge(container, fetched.notifications, listed))
                     }
                 }
@@ -320,7 +357,10 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         previousRoute[0] = route
         reportShortcutUsed(context, route)
         if (signedIn && (left == Routes.NOTIFICATIONS || left == Routes.CONVERSATION)) {
-            fetchCounts(container)?.let { counts = it.copy(notifications = bellBadge(container, it.notifications, listed = false)) }
+            fetchCounts(container)?.let {
+                stipsBellCount[0] = it.notifications
+                counts = it.copy(notifications = bellBadge(container, it.notifications, listed = false))
+            }
         }
     }
 
@@ -341,15 +381,29 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
     }
     val openProfile = remember(navController) { { id: Long -> navController.navigate(Routes.user(id)) } }
+    // "Reply in private" (v0.18): a chat with the asker or answerer, about the question; signing in first when needed.
+    val replyInPrivate = remember(navController, container) {
+        { author: Author, questionId: Long ->
+            val userId = author.userId
+            when {
+                userId == null || author.anonymous -> Unit
+                !container.session.session.value.signedIn -> navController.navigate(Routes.SIGN_IN) { launchSingleTop = true }
+                else -> navController.navigate(Routes.conversation(userId, author.nickname, about = questionId))
+            }
+        }
+    }
 
     CompositionLocalProvider(
         LocalUriHandler provides uriHandler,
         LocalOpenProfile provides openProfile,
+        LocalReplyInPrivate provides replyInPrivate,
         LocalUnreadCounts provides counts,
         LocalNow provides now,
         LocalTabReselects provides tabReselects,
         LocalTabRefreshes provides tabRefreshes,
         LocalShowIntro provides showIntro,
+        // Tips (#28) wait while the intro or the blocked-account screen covers the app.
+        LocalTipsAllowed provides (!welcome && !banVisible),
     ) {
         // Swiping a question in any list runs the actions picked in Settings (#18); their dialogs show over the app.
         QuestionActionsHost(snackbar, onSignIn = { navController.navigate(Routes.SIGN_IN) { launchSingleTop = true } }) {
@@ -413,6 +467,25 @@ fun AppRoot(pendingLink: DeepLink?, onLinkHandled: () -> Unit) {
         }
     }
     CrashDialog()
+    teamNotice?.let { notice ->
+        val target = notice.target
+        TeamNoticeDialog(
+            item = notice,
+            points = knownCredibility(),
+            onOpen = when (target) {
+                is NotificationTarget.OpenQuestion -> ({
+                    teamNotice = null
+                    navController.navigate(Routes.question(target.id, null))
+                })
+                is NotificationTarget.OpenProfile -> ({
+                    teamNotice = null
+                    navController.navigate(Routes.user(target.id))
+                })
+                null -> null
+            },
+            onDismiss = { teamNotice = null },
+        )
+    }
     imageLink.value?.let { source -> ImageLinkViewer(source, onDismiss = { imageLink.value = null }) }
     // Once: phone notifications on, and allowed to run in the background (v0.11).
     NotificationsPrompt(active = !welcome && !banVisible, snackbar = snackbar)
@@ -461,6 +534,8 @@ private fun openLink(navController: NavHostController, link: DeepLink) {
         DeepLink.Messages -> navigateToTab(navController, Routes.CHATS)
         is DeepLink.Conversation -> navController.navigate(Routes.conversation(link.userId, link.name))
         DeepLink.Hot -> navController.navigate(Routes.HOT) { launchSingleTop = true }
+        // Shown over the app by AppRoot, not a screen to go to (v0.18).
+        is DeepLink.TeamNotice -> Unit
     }
 }
 
@@ -766,12 +841,17 @@ private fun AppNavHost(navController: NavHostController, modifier: Modifier, onN
                     type = NavType.StringType
                     defaultValue = ""
                 },
+                navArgument("about") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                },
             ),
         ) { entry ->
             ConversationScreen(
                 userId = entry.arguments?.getLong("userId") ?: 0L,
                 name = entry.arguments?.getString("name").orEmpty(),
                 onBack = ::back,
+                about = entry.arguments?.getLong("about")?.takeIf { it > 0L },
             )
         }
         composable(Routes.MY_LIST, arguments = listOf(navArgument("kind") { type = NavType.StringType })) { entry ->

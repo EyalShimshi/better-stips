@@ -79,11 +79,14 @@ data class Motion(
     }
 }
 
-/** What swiping a question in a list does (#18). */
-enum class QuestionSwipe { None, Pin, Follow, Share, CopyLink, OpenOnSite, Export, Report, Hide, HideUser }
+/** What swiping a question in a list does (#18); [PrivateReply] messages the asker about it (v0.18). */
+enum class QuestionSwipe { None, Pin, Follow, PrivateReply, Share, CopyLink, OpenOnSite, Export, Report, Hide, HideUser }
 
-/** What swiping an answer to the left does (#18); swiping it to the right replies (easy reply). */
-enum class AnswerSwipe { None, Edit, Detach, Delete, History, Report, Hide, HideUser }
+/**
+ * What swiping an answer to the left does (#18); swiping it to the right replies (easy reply). [PrivateReply] messages
+ * the answerer about the question (v0.18), a swipe only, not in the answer's ⋮ menu.
+ */
+enum class AnswerSwipe { None, Edit, Detach, Delete, History, PrivateReply, Report, Hide, HideUser }
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
@@ -133,8 +136,6 @@ data class AppSettings(
     val chatHideReplyCarets: Boolean = true,
     /** Phone notifications include new chat messages (v0.12); off, they're only about answers, flowers and thanks. */
     val chatNotifications: Boolean = true,
-    /** "נאמן סטיפס" by moderators' names on answers; each answerer is looked up once every two weeks (v0.10). */
-    val moderatorBadges: Boolean = true,
     /** The first-run welcome (sign in, or go on as a guest) was answered (#8). */
     val onboarded: Boolean = false,
     /** Swiping a question in a list to the right (left to right, in Hebrew too) and to the left (#18). */
@@ -145,6 +146,8 @@ data class AppSettings(
     val myAnswerSwipe: AnswerSwipe = AnswerSwipe.Edit,
     /** Notifications about questions show the question's title and photo, read from Stips (#13); off by default. */
     val notificationDetails: Boolean = false,
+    /** Stips+ asks GitHub once a day whether a newer version is out, and offers it (#25). */
+    val checkUpdates: Boolean = true,
 ) {
     fun anonymousModeOn(now: Long = System.currentTimeMillis()): Boolean = anonymousUntil > now
 
@@ -233,13 +236,14 @@ class SettingsStore(context: Context) {
             .putBoolean("chatReplyQuotes", next.chatReplyQuotes)
             .putBoolean("chatHideReplyCarets", next.chatHideReplyCarets)
             .putBoolean("chatNotifications", next.chatNotifications)
-            .putBoolean("moderatorBadges", next.moderatorBadges)
+            .remove("moderatorBadges")
             .putBoolean("onboarded", next.onboarded)
             .putString("swipeRight", next.swipeRight.name)
             .putString("swipeLeft", next.swipeLeft.name)
             .putString("answerSwipe", next.answerSwipe.name)
             .putString("myAnswerSwipe", next.myAnswerSwipe.name)
             .putBoolean("notificationDetails", next.notificationDetails)
+            .putBoolean("checkUpdates", next.checkUpdates)
             .apply()
     }
 
@@ -278,13 +282,13 @@ class SettingsStore(context: Context) {
             chatReplyQuotes = prefs.getBoolean("chatReplyQuotes", defaults.chatReplyQuotes),
             chatHideReplyCarets = prefs.getBoolean("chatHideReplyCarets", defaults.chatHideReplyCarets),
             chatNotifications = prefs.getBoolean("chatNotifications", defaults.chatNotifications),
-            moderatorBadges = prefs.getBoolean("moderatorBadges", defaults.moderatorBadges),
             onboarded = prefs.getBoolean("onboarded", defaults.onboarded),
             swipeRight = enumOr(prefs.getString("swipeRight", null), defaults.swipeRight),
             swipeLeft = enumOr(prefs.getString("swipeLeft", null), defaults.swipeLeft),
             answerSwipe = enumOr(prefs.getString("answerSwipe", null), defaults.answerSwipe),
             myAnswerSwipe = enumOr(prefs.getString("myAnswerSwipe", null), defaults.myAnswerSwipe),
             notificationDetails = prefs.getBoolean("notificationDetails", defaults.notificationDetails),
+            checkUpdates = prefs.getBoolean("checkUpdates", defaults.checkUpdates),
         )
     }
 

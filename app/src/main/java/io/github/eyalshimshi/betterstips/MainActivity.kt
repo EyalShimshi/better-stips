@@ -33,7 +33,10 @@ class MainActivity : ComponentActivity() {
         val container = (application as StipsApp).container
         container.warmUp()
         // After a rotation or a restore, the back stack already holds the linked screen.
-        if (savedInstanceState == null) pendingLink.value = linkFrom(intent)
+        if (savedInstanceState == null) {
+            markTapped(intent)
+            pendingLink.value = linkFrom(intent)
+        }
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
             val link by pendingLink.collectAsStateWithLifecycle()
@@ -58,6 +61,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        markTapped(intent)
         val link = linkFrom(intent)
         if (link != null) pendingLink.value = link
     }
@@ -79,9 +83,20 @@ class MainActivity : ComponentActivity() {
 
     /** A Stips link (from another app or a phone notification), a launcher shortcut, or a chats widget row. */
     private fun linkFrom(intent: Intent?): DeepLink? {
+        // A notice from Stips' team opens over the app, in full (v0.18, #27); only from Stips+'s own notifications.
+        intent?.let { Notifier.noticeFrom(this, it) }?.let { return DeepLink.TeamNotice(it) }
         val link = Links.deepLink(intent?.dataString) ?: Shortcuts.link(intent?.action, intent?.dataString)
         // A phone notification says where to open its question (v0.10).
         val focus = intent?.let { Notifier.focusFrom(it) }
         return if (link is DeepLink.Question && focus != null) link.copy(focus = focus) else link
+    }
+
+    /** A tapped phone notification's notifications are read now (v0.18, #27): the bell's badge and its "new" drop them. */
+    private fun markTapped(intent: Intent?) {
+        val ids = intent?.let { Notifier.notificationIdsFrom(this, it) }.orEmpty()
+        if (ids.isEmpty()) return
+        val container = (application as StipsApp).container
+        val me = container.session.session.value.userId ?: return
+        container.seenNotifications.markHandled(me, ids)
     }
 }

@@ -79,6 +79,7 @@ import io.github.eyalshimshi.betterstips.ui.components.ScrollToTopOnReselect
 import io.github.eyalshimshi.betterstips.ui.components.agoText
 import io.github.eyalshimshi.betterstips.ui.components.appViewModel
 import io.github.eyalshimshi.betterstips.ui.components.errorMessage
+import io.github.eyalshimshi.betterstips.ui.components.listItemMotion
 import io.github.eyalshimshi.betterstips.ui.home.LiveChip
 import io.github.eyalshimshi.betterstips.ui.home.LivePlace
 import io.github.eyalshimshi.betterstips.ui.home.LiveSheet
@@ -258,7 +259,7 @@ private fun PenPalsList(
                                     }
                                 },
                                 onDelete = { vm.delete(post) },
-                                modifier = Modifier.animateItem(),
+                                modifier = listItemMotion(LocalAppSettings.current.motion.elements, state.swapped),
                             )
                         }
                         item(key = "more") {
